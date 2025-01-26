@@ -39,6 +39,50 @@ To install Result Companion, follow these steps:
    ```
    This will create a virtual environment and install all the necessary dependencies for the Result Companion project.
 
+### Local Model Installation
+To use the **Deepseer-r1** model locally, follow these steps:
+
+#### Step 1: Install Ollama
+Ollama is required to manage and run local models. You can install Ollama based on your operating system:
+
+- **For macOS**:
+  Download the installer directly:
+  ```bash
+  brew install ollama
+  ```
+
+- **For Windows and Linux**:
+  Visit [Ollama's official website](https://ollama.ai) and follow the installation instructions.
+
+Verify that Ollama is installed correctly:
+```bash
+ollama --version
+```
+
+#### Step 2: Install the Deepseer-r1 Model
+Once Ollama is installed, you can download and install the Deepseer-r1 model by running the following command in your terminal:
+
+```bash
+ollama pull deepseer-r1
+```
+
+This will download the model and prepare it for use locally.
+
+#### Step 3: Verify Installation
+To confirm that the Deepseer-r1 model is installed, run:
+```bash
+ollama list
+```
+
+The output should include the `deepseer-r1` model, indicating it is ready for use.
+
+### Notes
+- Ensure that your system meets the hardware requirements for running Ollama and the Deepseer-r1 model (e.g., sufficient GPU memory).
+- If you encounter issues, refer to the [Ollama Documentation](https://ollama.ai/docs) for troubleshooting.
+
+With these steps completed, your environment is set up for both the project and local model usage.
+
+
 ## Usage
 
 ### Running Result Companion
