@@ -1,0 +1,40 @@
+[tool.poetry]
+name = "result-companion"
+version = "0.1.0"
+description = ""
+authors = ["Milosz Trojanowski <mil.troj@gmail.com>"]
+license = "Apache License 2.0"
+readme = "README.md"
+packages = [{include = "result_companion"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+robotframework = "^7.1.1"
+ollama = "^0.4.0"
+python-dotenv = "^1.0.1"
+pyyaml = "^6.0.2"
+langchain-ollama = "^0.2.1"
+langchain-community = "^0.3.9"
+langchain-openai = "^0.2.11"
+langchain-aws = "^0.2.10"
+tiktoken = "^0.8.0"
+langchain-text-splitters = "^0.3.4"
+markdown = "^3.7"
+
+[tool.poetry.scripts]
+result-companion = "result_companion.entrypoints.run_factory_splitting:main"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.10.0"
+flake8 = "^7.1.1"
+isort = "^5.13.2"
+mypy = "^1.13.0"
+pytest = "^8.3.3"
+invoke = "^2.2.0"
+pytest-mock = "^3.14.0"
+pytest-cov = "^6.0.0"
+pytest-asyncio = "^0.24.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

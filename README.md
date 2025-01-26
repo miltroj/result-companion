@@ -31,11 +31,11 @@ To install Result Companion, follow these steps:
 
 2. Create a virtual environment:
     ```bash
-    python -m venv result-companion-env source result-companion-env/bin/activate  # For Linux/macOS result-companion-env\Scripts\activate  # For Windows
+    python -m venv result-companion-env && source result-companion-env/bin/activate  # For Linux/macOS result-companion-env\Scripts\activate  # For Windows
     ```
 3. Install the required dependencies with Poetry:
     ```bash
-   poetry install
+   python -m poetry install
    ```
    This will create a virtual environment and install all the necessary dependencies for the Result Companion project.
 
@@ -63,7 +63,7 @@ ollama --version
 Once Ollama is installed, you can download and install the Deepseer-r1 model by running the following command in your terminal:
 
 ```bash
-ollama pull deepseer-r1
+ollama run deepseer-r1:7b
 ```
 
 This will download the model and prepare it for use locally.
