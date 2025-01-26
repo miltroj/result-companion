@@ -91,7 +91,7 @@ After installation, you can run Result Companion to analyze your Robot Framework
 
 Example command:
 ```bash
-result-companion --help
+result-companion -o output.xml -r log_with_results.html
 ```
 
 For more detailed usage and additional configuration options, refer to the `examples/` folder in the repository, which includes different example setups and use cases. You can find the relevant README file there for further instructions.
