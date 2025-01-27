@@ -1,10 +1,12 @@
 import argparse
+import logging
 from enum import Enum
 from typing import Any, Callable
+
 from result_companion.utils.utils import file_exists
 
 
-class LogLevel(Enum):
+class OutputLogLevel(Enum):
     TRACE = "TRACE"
     DEBUG = "DEBUG"
     INFO = "INFO"
@@ -26,7 +28,7 @@ class LogLevel(Enum):
             raise ValueError(_msg) from err
 
 
-DEFAULT_LOG_LEVEL = LogLevel.TRACE
+LOG_LEVELS = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 
 def parse_args(
@@ -41,9 +43,9 @@ def parse_args(
     parser.add_argument(
         "-l",
         "--log-level",
-        help=f"Log level verbocity, deafult = '{DEFAULT_LOG_LEVEL}' avaiable values: {[e.name for e in LogLevel]}",
-        type=LogLevel.from_str,
-        default=DEFAULT_LOG_LEVEL,
+        help=f"Log level verbocity, deafult = '{logging.INFO}' avaiable values: {LOG_LEVELS}",
+        default="INFO",
+        choices=LOG_LEVELS,
     )
     parser.add_argument(
         "-c",

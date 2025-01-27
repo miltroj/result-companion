@@ -1,6 +1,10 @@
-import pytest
-from result_companion.parsers.cli_parser import parse_args, LogLevel
+import logging
+from logging import getLevelName
 from typing import Callable
+
+import pytest
+
+from result_companion.parsers.cli_parser import parse_args
 
 
 @pytest.fixture
@@ -15,7 +19,7 @@ def test_required_output_path(file_exists_true) -> None:
     path = "/my/output.xml"
     args = parse_args(file_exists=file_exists_true).parse_args(["-o", path])
     assert args.output == path
-    assert args.log_level == LogLevel.TRACE
+    assert args.log_level == getLevelName(logging.INFO)
     assert args.config is None
     assert args.report is None
 
@@ -23,10 +27,10 @@ def test_required_output_path(file_exists_true) -> None:
 def test_log_level_default_trace(file_exists_true) -> None:
     path = "/my/output.xml"
     args = parse_args(file_exists=file_exists_true).parse_args(
-        ["-o", path, "-l", "INFO"]
+        ["-o", path, "-l", "DEBUG"]
     )
     assert args.output == path
-    assert args.log_level == LogLevel.INFO
+    assert args.log_level == getLevelName(logging.DEBUG)
     assert args.config is None
     assert args.report is None
 
@@ -38,7 +42,7 @@ def test_config_custom_path(file_exists_true) -> None:
         ["-o", path, "-c", config]
     )
     assert args.output == path
-    assert args.log_level == LogLevel.TRACE
+    assert args.log_level == getLevelName(logging.INFO)
     assert args.config == config
     assert args.report is None
 
@@ -50,7 +54,7 @@ def test_report_path(file_exists_true) -> None:
         ["-o", path, "-r", report]
     )
     assert args.output == path
-    assert args.log_level == LogLevel.TRACE
+    assert args.log_level == getLevelName(logging.INFO)
     assert args.config is None
     assert args.report == report
 
@@ -60,7 +64,7 @@ def test_diff_file_exists(file_exists_true) -> None:
     diff = "/my/diff.xml"
     args = parse_args(file_exists=file_exists_true).parse_args(["-o", path, "-d", diff])
     assert args.output == path
-    assert args.log_level == LogLevel.TRACE
+    assert args.log_level == getLevelName(logging.INFO)
     assert args.config is None
     assert args.diff == diff
 

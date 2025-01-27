@@ -1,9 +1,11 @@
 from robot.api import ExecutionResult, ResultVisitor
-from result_companion.parsers.cli_parser import LogLevel
+
+from result_companion.parsers.cli_parser import OutputLogLevel
 
 
-def search_for_test_caseses(tests: dict | list, 
-                            acumulated_tests: list = []) -> list[dict]:
+def search_for_test_caseses(
+    tests: dict | list, acumulated_tests: list = []
+) -> list[dict]:
     # TODO: optimise this function
     if isinstance(tests, list):
         for el in tests:
@@ -19,7 +21,17 @@ def search_for_test_caseses(tests: dict | list,
 
 
 def remove_redundant_fields(data: list[dict]) -> list[dict]:
-    fields_to_remove = ['elapsed_time', 'lineno', 'owner', 'start_time', 'html', 'type', 'assign', "level", "timestamp"]
+    fields_to_remove = [
+        "elapsed_time",
+        "lineno",
+        "owner",
+        "start_time",
+        "html",
+        "type",
+        "assign",
+        "level",
+        "timestamp",
+    ]
 
     if isinstance(data, dict):
         # Remove fields from the current dictionary
@@ -31,16 +43,24 @@ def remove_redundant_fields(data: list[dict]) -> list[dict]:
             if isinstance(value, dict):
                 data[key] = remove_redundant_fields(value)
             elif isinstance(value, list):
-                data[key] = [remove_redundant_fields(item) if isinstance(item, dict) else item for item in value]
+                data[key] = [
+                    remove_redundant_fields(item) if isinstance(item, dict) else item
+                    for item in value
+                ]
 
     elif isinstance(data, list):
         # Recursively process child dictionaries in the list
-        return [remove_redundant_fields(item) if isinstance(item, dict) else item for item in data]
+        return [
+            remove_redundant_fields(item) if isinstance(item, dict) else item
+            for item in data
+        ]
 
     return data
 
 
-def get_robot_results_from_file_as_dict(file_path: str, log_level: LogLevel) -> list[dict]:
+def get_robot_results_from_file_as_dict(
+    file_path: str, log_level: OutputLogLevel
+) -> list[dict]:
     print(f"Getting robot results from {file_path}")
     result = ExecutionResult(file_path)
     result.visit(ResultVisitor())

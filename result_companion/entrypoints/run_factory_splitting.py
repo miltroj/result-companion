@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 from sys import argv
 
@@ -12,12 +13,11 @@ from result_companion.analizers.factory_common import execute_llm_and_get_result
 from result_companion.analizers.local.ollama_runner import ollama_on_init_strategy
 from result_companion.analizers.models import MODELS
 from result_companion.html.html_creator import create_llm_html_log
-from result_companion.parsers.cli_parser import parse_args
+from result_companion.parsers.cli_parser import parse_args, OutputLogLevel
 from result_companion.parsers.config import LLMFactoryModel, load_config
 from result_companion.parsers.result_parser import get_robot_results_from_file_as_dict
+from result_companion.utils.logging_config import setup_logging
 from result_companion.utils.utils import file_exists
-
-LLM_SECTION = "llm_factory"
 
 
 def init_llm_with_strategy_factory(
@@ -27,7 +27,6 @@ def init_llm_with_strategy_factory(
     parameters = config.parameters
 
     model_classes = {
-        # TODO: add init strategy for ollama (OllamaLLM, ollama_on_init_strategy)
         "OllamaLLM": (OllamaLLM, ollama_on_init_strategy),
         "AzureChatOpenAI": (AzureChatOpenAI, None),
         "BedrockLLM": (BedrockLLM, None),
@@ -49,13 +48,15 @@ def init_llm_with_strategy_factory(
 
 async def _main(args=argv[1:], file_exists=file_exists) -> bool:
     arguments = parse_args(file_exists=file_exists).parse_args(args)
-    print(arguments)
+    setup_logging(log_level=arguments.log_level)
+    logging.info(arguments)
     start = time.time()
     # TODO: move to testable method
     config = load_config(arguments)
 
+    # TODO: set output log level
     test_cases = get_robot_results_from_file_as_dict(
-        file_path=arguments.output, log_level=arguments.log_level
+        file_path=arguments.output, log_level=OutputLogLevel.TRACE
     )
 
     question_from_config_file = config.llm_config.question_prompt
@@ -63,13 +64,13 @@ async def _main(args=argv[1:], file_exists=file_exists) -> bool:
     model, model_init_strategy = init_llm_with_strategy_factory(config.llm_factory)
 
     if model_init_strategy:
-        print(
+        logging.debug(
             f"Using init strategy: {model_init_strategy} with parameters: {config.llm_factory.parameters}"
         )
         model_init_strategy(**config.llm_factory.strategy.parameters)
 
-    print(f"Prompt template: {template}")
-    print(f"Question loaded {question_from_config_file=}")
+    logging.debug(f"Prompt template: {template}")
+    logging.debug(f"Question loaded {question_from_config_file=}")
     prompt_template = ChatPromptTemplate.from_template(template)
 
     llm_results = await execute_llm_and_get_results(
@@ -83,7 +84,7 @@ async def _main(args=argv[1:], file_exists=file_exists) -> bool:
             llm_results=llm_results,
         )
     stop = time.time()
-    print(f"Execution time: {stop - start}")
+    logging.debug(f"Execution time: {stop - start}")
     return True
 
 

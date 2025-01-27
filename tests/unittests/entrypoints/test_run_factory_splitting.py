@@ -1,5 +1,7 @@
 import argparse
 import asyncio
+import logging
+from logging import getLevelName
 from unittest.mock import patch
 
 import pytest
@@ -9,7 +11,7 @@ from result_companion.entrypoints.run_factory_splitting import (
     _main,
     init_llm_with_strategy_factory,
 )
-from result_companion.parsers.cli_parser import LogLevel
+from result_companion.parsers.cli_parser import OutputLogLevel
 from result_companion.parsers.config import (
     DefaultConfigModel,
     LLMConfigModel,
@@ -149,7 +151,7 @@ def test_main_e2e_execution(
                 "--output",
                 "output.xml",
                 "--log-level",
-                "TRACE",
+                "DEBUG",
                 "--report",
                 "/tmp/report.html",
             ],
@@ -158,12 +160,12 @@ def test_main_e2e_execution(
     )
 
     mocked_get_robot_results.assert_called_once_with(
-        file_path="output.xml", log_level=LogLevel.TRACE
+        file_path="output.xml", log_level=OutputLogLevel.TRACE
     )
     mock_config_loading.assert_called_once_with(
         argparse.Namespace(
             output="output.xml",
-            log_level=LogLevel.TRACE,
+            log_level=getLevelName(logging.DEBUG),
             config=None,
             report="/tmp/report.html",
             diff=None,
