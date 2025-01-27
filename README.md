@@ -145,4 +145,4 @@ Result Companion is licensed under the [Apache 2.0 License](LICENSE).
 
 ---
 
-For further documentation, including setup instructions and configuration examples, please visit the `examples/` folder in the repository.
+For further documentation, including setup instructions and configuration examples, please visit the [Examples](examples/EXAMPLES.md) folder in the repository.
