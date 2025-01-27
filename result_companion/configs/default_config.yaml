@@ -33,7 +33,7 @@ llm_config:
 llm_factory:
   model_type: "OllamaLLM" # AzureChatOpenAI OllamaLLM BedrockLLM
   parameters:
-    model: "deepseek-r1:7b"
+    model: "deepseek-r1:1.5b"
   strategy:
     parameters:
       model_name: "deepseek-r1"

@@ -63,7 +63,7 @@ ollama --version
 Once Ollama is installed, you can download and install the Deepseer-r1 model by running the following command in your terminal:
 
 ```bash
-ollama run deepseer-r1:7b
+ollama run deepseer-r1:1.5b
 ```
 
 This will download the model and prepare it for use locally.
