@@ -1,28 +1,23 @@
 import asyncio
+import time
 from sys import argv
-from typing import Callable, Tuple
 
 from langchain_aws import BedrockLLM
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama.llms import OllamaLLM
 from langchain_openai import AzureChatOpenAI
+from pydantic import ValidationError
 
-from result_companion.analizers.factory_common import (
-    execute_llm_and_get_results,
-)
+from result_companion.analizers.factory_common import execute_llm_and_get_results
 from result_companion.analizers.local.ollama_runner import ollama_on_init_strategy
+from result_companion.analizers.models import MODELS
 from result_companion.html.html_creator import create_llm_html_log
 from result_companion.parsers.cli_parser import parse_args
-from result_companion.utils.utils import file_exists
 from result_companion.parsers.config import LLMFactoryModel, load_config
-from result_companion.parsers.result_parser import (
-    get_robot_results_from_file_as_dict,
-)
-from pydantic import ValidationError
-import time
+from result_companion.parsers.result_parser import get_robot_results_from_file_as_dict
+from result_companion.utils.utils import file_exists
 
 LLM_SECTION = "llm_factory"
-MODELS = Tuple[OllamaLLM | AzureChatOpenAI | BedrockLLM, Callable]
 
 
 def init_llm_with_strategy_factory(
@@ -76,7 +71,6 @@ async def _main(args=argv[1:], file_exists=file_exists) -> bool:
     print(f"Prompt template: {template}")
     print(f"Question loaded {question_from_config_file=}")
     prompt_template = ChatPromptTemplate.from_template(template)
-
 
     llm_results = await execute_llm_and_get_results(
         test_cases, config, prompt_template, model

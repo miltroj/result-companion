@@ -40,7 +40,7 @@ def remove_redundant_fields(data: list[dict]) -> list[dict]:
     return data
 
 
-def get_robot_results_from_file_as_dict(file_path: str, log_level: LogLevel) -> dict:
+def get_robot_results_from_file_as_dict(file_path: str, log_level: LogLevel) -> list[dict]:
     print(f"Getting robot results from {file_path}")
     result = ExecutionResult(file_path)
     result.visit(ResultVisitor())

@@ -1,18 +1,21 @@
 import asyncio
-from langchain_core.runnables import RunnableSerializable
-from result_companion.parsers.config import LLMFactoryModel
-from result_companion.analizers.common import (
-    run_with_semaphore,
-)
+from typing import Callable, Tuple
+
+from langchain_aws import BedrockLLM
+from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from result_companion.entrypoints.run_factory_splitting import MODELS
-from result_companion.chunking.utils import calculate_chunk_size
+from langchain_core.runnables import RunnableSerializable
+from langchain_ollama.llms import OllamaLLM
+from langchain_openai import AzureChatOpenAI
+
+from result_companion.analizers.common import run_with_semaphore
 from result_companion.chunking.chunking import (
     accumulate_llm_results_for_summarizaton_chain,
 )
-from langchain_core.output_parsers import StrOutputParser
+from result_companion.chunking.utils import calculate_chunk_size
+from result_companion.parsers.config import LLMFactoryModel
 
-from typing import Tuple
+MODELS = Tuple[OllamaLLM | AzureChatOpenAI | BedrockLLM, Callable]
 
 
 async def accumulate_llm_results_without_streaming(
@@ -40,7 +43,11 @@ def compose_chain(prompt: ChatPromptTemplate, model: MODELS) -> RunnableSerializ
 
 
 async def execute_llm_and_get_results(
-    test_cases: list, config: LLMFactoryModel, prompt: ChatPromptTemplate, model: MODELS, concurrency: int = 1,
+    test_cases: list,
+    config: LLMFactoryModel,
+    prompt: ChatPromptTemplate,
+    model: MODELS,
+    concurrency: int = 1,
 ) -> dict:
     question_from_config_file = config.llm_config.question_prompt
     tokenizer = config.tokenizer
@@ -48,14 +55,12 @@ async def execute_llm_and_get_results(
     llm_results = dict()
     corutines = []
 
-
     for test_case in test_cases:
 
         raw_test_case_text = str(test_case)
         chunk = calculate_chunk_size(
             raw_test_case_text, question_from_config_file, tokenizer
         )
-
 
         if chunk.chunk_size == 0:
             chain = default_chain(prompt, model)
