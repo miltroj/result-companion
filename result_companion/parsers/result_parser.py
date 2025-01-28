@@ -1,6 +1,9 @@
 from robot.api import ExecutionResult, ResultVisitor
 
 from result_companion.parsers.cli_parser import OutputLogLevel
+from result_companion.utils.logging_config import setup_logging
+
+logger = setup_logging("result_parser")
 
 
 def search_for_test_caseses(
@@ -61,7 +64,7 @@ def remove_redundant_fields(data: list[dict]) -> list[dict]:
 def get_robot_results_from_file_as_dict(
     file_path: str, log_level: OutputLogLevel
 ) -> list[dict]:
-    print(f"Getting robot results from {file_path}")
+    logger.debug(f"Getting robot results from {file_path}")
     result = ExecutionResult(file_path)
     result.visit(ResultVisitor())
     all_results = result.suite.to_dict()

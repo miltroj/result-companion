@@ -1,10 +1,15 @@
-import yaml
 import os
-from pydantic import BaseModel, ValidationError, Field
-from result_companion.utils.utils import file_exists, ExceptionType
-from enum import Enum
 from argparse import Namespace
+from enum import Enum
 from pathlib import Path
+
+import yaml
+from pydantic import BaseModel, Field, ValidationError
+
+from result_companion.utils.logging_config import setup_logging
+from result_companion.utils.utils import ExceptionType, file_exists
+
+logger = setup_logging("CONFIG")
 
 
 class ModelType(str, Enum):
@@ -90,9 +95,10 @@ class ConfigLoader:
         if user_config_file and self.file_exists(user_config_file, ExceptionType.NONE):
             user_config = self._read_yaml_file(user_config_file)
         else:
-            print(
-                f"User configuration not found or not provided. Using default configuration from {self.default_config_file}."
+            logger.info(
+                "User configuration not found or not provided. Using default configuration!"
             )
+            logger.debug({self.default_config_file})
 
         # TODO: improve unpacking
         config_data = (
@@ -117,7 +123,7 @@ class ConfigLoader:
         try:
             validated_config = DefaultConfigModel(**config_data)
         except ValidationError as e:
-            print(f"Configuration validation failed:\n{e}")
+            logger.error(f"Configuration validation failed:\n{e}")
             raise
         return validated_config
 
@@ -128,8 +134,9 @@ def load_config(args: Namespace) -> DefaultConfigModel:
 
     config_loader = ConfigLoader(default_config_file=Path(config_file_path).resolve())
     config = config_loader.load_config(user_config_file=args.config)
-    print(f"{config=}")
+    logger.debug(f"{config=}")
     return config
+
 
 # TODO: remove this code
 # Example usage in a CLI application

@@ -9,6 +9,9 @@ from langchain_core.runnables import RunnableSerializable
 
 from result_companion.analizers.models import MODELS
 from result_companion.chunking.utils import Chunking
+from result_companion.utils.logging_config import setup_logging
+
+logger = setup_logging("chunking")
 
 
 def build_sumarization_chain(
@@ -45,12 +48,12 @@ async def accumulate_llm_results_for_summarizaton_chain(
 
 
 async def process_chunk(chunk: str, summarization_chain: LLMChain) -> str:
-    print(f"Processing chunk of length {len(chunk)}")
+    logger.debug(f"Processing chunk of length {len(chunk)}")
     return await summarization_chain.ainvoke({"text": chunk})
 
 
 async def summarize_test_case(test_case, chunks, llm, question_prompt, chain):
-    print(
+    logger.info(
         f"### For test case {test_case['name']}, {len(chunks)=}",
     )
 

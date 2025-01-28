@@ -14,6 +14,9 @@ from result_companion.chunking.chunking import (
 )
 from result_companion.chunking.utils import calculate_chunk_size
 from result_companion.parsers.config import LLMFactoryModel
+from result_companion.utils.logging_config import setup_logging
+
+logger = setup_logging("llm")
 
 MODELS = Tuple[OllamaLLM | AzureChatOpenAI | BedrockLLM, Callable]
 
@@ -21,8 +24,8 @@ MODELS = Tuple[OllamaLLM | AzureChatOpenAI | BedrockLLM, Callable]
 async def accumulate_llm_results_without_streaming(
     test_case: list, question_from_config_file: str, chain: RunnableSerializable
 ) -> Tuple[str, str, list]:
-    print(
-        f"\n### Test Case: {test_case['name']}, content length: {len(str(test_case))}"
+    logger.info(
+        f"### Test Case: {test_case['name']}, content length: {len(str(test_case))}"
     )
     return (
         await chain.ainvoke(
@@ -54,7 +57,7 @@ async def execute_llm_and_get_results(
 
     llm_results = dict()
     corutines = []
-
+    logger.info(f"Executing chain, {len(test_cases)=}, {concurrency=}")
     for test_case in test_cases:
 
         raw_test_case_text = str(test_case)

@@ -12,11 +12,18 @@ from result_companion.analizers.factory_common import execute_llm_and_get_result
 from result_companion.analizers.local.ollama_runner import ollama_on_init_strategy
 from result_companion.analizers.models import MODELS
 from result_companion.html.html_creator import create_llm_html_log
-from result_companion.parsers.cli_parser import parse_args, OutputLogLevel
+from result_companion.parsers.cli_parser import OutputLogLevel, parse_args
 from result_companion.parsers.config import LLMFactoryModel, load_config
 from result_companion.parsers.result_parser import get_robot_results_from_file_as_dict
-from result_companion.utils.logging_config import setup_logging, log_uncaught_exceptions
+from result_companion.utils.logging_config import (
+    log_uncaught_exceptions,
+    set_global_log_level,
+    setup_logging,
+)
 from result_companion.utils.utils import file_exists
+
+logger = setup_logging("RC")
+log_uncaught_exceptions(logger)
 
 
 def init_llm_with_strategy_factory(
@@ -47,9 +54,9 @@ def init_llm_with_strategy_factory(
 
 async def _main(args=argv[1:], file_exists=file_exists) -> bool:
     arguments = parse_args(file_exists=file_exists).parse_args(args)
-    logger = setup_logging(log_level=arguments.log_level)
-    log_uncaught_exceptions(logger)
-    logger.info(arguments)
+    set_global_log_level(log_level=arguments.log_level)
+    logger.info(f"Starting Result Companion!")
+    logger.debug(arguments)
     start = time.time()
     # TODO: move to testable method
     config = load_config(arguments)

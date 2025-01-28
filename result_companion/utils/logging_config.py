@@ -1,13 +1,14 @@
+import json
 import logging
 import logging.config
 import os
 import sys
 import tempfile
 from logging.handlers import RotatingFileHandler
-import json
 
 
 def setup_logging(
+    name,
     log_level=logging.INFO,
     log_filename="result_companion.log",
     log_dir=None,
@@ -20,6 +21,7 @@ def setup_logging(
     Outputs to both stdout and a log file, with optional JSON formatting.
 
     Parameters:
+    - name: logger name
     - log_level: The logging level (e.g., logging.DEBUG, logging.INFO).
     - log_filename: The name of the log file.
     - log_dir: Directory where the log file will be saved. Defaults to the system's temp dir.
@@ -37,19 +39,21 @@ def setup_logging(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
     json_formatter = logging.Formatter(
-        json.dumps({
-            "timestamp": "%(asctime)s",
-            "logger": "%(name)s",
-            "level": "%(levelname)s",
-            "message": "%(message)s",
-        })
+        json.dumps(
+            {
+                "timestamp": "%(asctime)s",
+                "logger": "%(name)s",
+                "level": "%(levelname)s",
+                "message": "%(message)s",
+            }
+        )
     )
 
     # Choose formatter based on user preference
     formatter = json_formatter if enable_json else plain_formatter
 
     # Create custom logger
-    logger = logging.getLogger("RC")
+    logger = logging.getLogger(name)
     logger.setLevel(log_level)
 
     # Prevent duplicate handlers
@@ -67,14 +71,14 @@ def setup_logging(
         file_handler = RotatingFileHandler(
             log_file_path, maxBytes=max_log_size, backupCount=backup_count
         )
-        file_handler.setLevel(logging.DEBUG) # TODO: not working
+        file_handler.setLevel(logging.DEBUG)  # TODO: not working
         file_handler.setFormatter(json_formatter)
         logger.addHandler(file_handler)
     except (OSError, IOError) as e:
         logger.warning(f"Failed to write to log file {log_file_path}: {e}")
 
     # Log setup details
-    logger.info(f"Logging initialized. Log file: {log_file_path}")
+    logger.debug(f"Logging initialized. Log file: {log_file_path}")
     return logger
 
 
@@ -82,10 +86,20 @@ def log_uncaught_exceptions(logger) -> None:
     """
     Logs any uncaught exceptions globally for better diagnostics.
     """
+
     def handle_exception(exc_type, exc_value, exc_traceback):
         if issubclass(exc_type, KeyboardInterrupt):
             sys.__excepthook__(exc_type, exc_value, exc_traceback)
             return
-        logger.critical("Uncaught Exception", exc_info=(exc_type, exc_value, exc_traceback))
+        logger.critical(
+            "Uncaught Exception", exc_info=(exc_type, exc_value, exc_traceback)
+        )
 
     sys.excepthook = handle_exception
+
+
+def set_global_log_level(log_level):
+    """
+    Set log level for all loggers.
+    """
+    logging.getLogger().setLevel(log_level)
