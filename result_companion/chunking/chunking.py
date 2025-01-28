@@ -10,15 +10,6 @@ from langchain_core.runnables import RunnableSerializable
 from result_companion.analizers.models import MODELS
 from result_companion.chunking.utils import Chunking
 
-# from langchain_ollama.llms import OllamaLLM
-# from langchain_openai import AzureChatOpenAI
-# from langchain_aws import BedrockLLM
-# from typing import Callable, Tuple
-#
-# from typing import Tuple
-#
-# MODELS = Tuple[OllamaLLM | AzureChatOpenAI | BedrockLLM, Callable]
-
 
 def build_sumarization_chain(
     prompt: PromptTemplate, model: MODELS

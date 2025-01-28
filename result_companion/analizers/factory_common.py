@@ -71,7 +71,6 @@ async def execute_llm_and_get_results(
             )
         else:
             chain = compose_chain(prompt, model)
-            # TODO: something wrong here
             corutines.append(
                 accumulate_llm_results_for_summarizaton_chain(
                     test_case=test_case,
