@@ -8,6 +8,8 @@ The package reads test artifacts from `output.xml` files and recursively analyze
 
 One of the key features is that users can customize the behavior of the application by altering the system prompt and other parameters, greatly expanding the capabilities of Result Companion.
 
+![Demo](assets/demo.gif)
+
 ## Features
 
 - **Integration with Robot Framework**: Analyzes test cases and logs from Robot Framework's `output.xml`.
