@@ -169,8 +169,6 @@ def test_main_e2e_execution(
             config=None,
             report="/tmp/report.html",
             diff=None,
-            # TODO: to be removed
-            local_model="llama3.2",
         )
     )
 

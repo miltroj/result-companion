@@ -69,13 +69,4 @@ def parse_args(
         help="Diff with other XML file",
         type=file_exists,
     )
-    # TODO: remove this, since it should be in config
-    parser.add_argument(
-        "-lm",
-        "--local-model",
-        required=False,
-        help="Local Ollama model name",
-        type=str,
-        default="llama3.2",
-    )
     return parser
