@@ -8,6 +8,8 @@ The package reads test artifacts from `output.xml` files and recursively analyze
 
 One of the key features is that users can customize the behavior of the application by altering the system prompt and other parameters, greatly expanding the capabilities of Result Companion.
 
+![Demo](assets/demo.gif)
+
 ## Features
 
 - **Integration with Robot Framework**: Analyzes test cases and logs from Robot Framework's `output.xml`.
@@ -31,11 +33,11 @@ To install Result Companion, follow these steps:
 
 2. Create a virtual environment:
     ```bash
-    python -m venv result-companion-env source result-companion-env/bin/activate  # For Linux/macOS result-companion-env\Scripts\activate  # For Windows
+    python -m venv result-companion-env && source result-companion-env/bin/activate  # For Linux/macOS result-companion-env\Scripts\activate  # For Windows
     ```
 3. Install the required dependencies with Poetry:
     ```bash
-   poetry install
+   python -m poetry install
    ```
    This will create a virtual environment and install all the necessary dependencies for the Result Companion project.
 
@@ -63,7 +65,7 @@ ollama --version
 Once Ollama is installed, you can download and install the Deepseer-r1 model by running the following command in your terminal:
 
 ```bash
-ollama pull deepseer-r1
+ollama run deepseek-r1:1.5b
 ```
 
 This will download the model and prepare it for use locally.
@@ -91,7 +93,7 @@ After installation, you can run Result Companion to analyze your Robot Framework
 
 Example command:
 ```bash
-result-companion --help
+result-companion -o output.xml -r log_with_results.html
 ```
 
 For more detailed usage and additional configuration options, refer to the `examples/` folder in the repository, which includes different example setups and use cases. You can find the relevant README file there for further instructions.
@@ -145,4 +147,4 @@ Result Companion is licensed under the [Apache 2.0 License](LICENSE).
 
 ---
 
-For further documentation, including setup instructions and configuration examples, please visit the `examples/` folder in the repository.
+For further documentation, including setup instructions and configuration examples, please visit the [Examples](examples/EXAMPLES.md) folder in the repository.
