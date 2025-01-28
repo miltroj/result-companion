@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import time
 from sys import argv
 
@@ -16,7 +15,7 @@ from result_companion.html.html_creator import create_llm_html_log
 from result_companion.parsers.cli_parser import parse_args, OutputLogLevel
 from result_companion.parsers.config import LLMFactoryModel, load_config
 from result_companion.parsers.result_parser import get_robot_results_from_file_as_dict
-from result_companion.utils.logging_config import setup_logging
+from result_companion.utils.logging_config import setup_logging, log_uncaught_exceptions
 from result_companion.utils.utils import file_exists
 
 
@@ -48,12 +47,12 @@ def init_llm_with_strategy_factory(
 
 async def _main(args=argv[1:], file_exists=file_exists) -> bool:
     arguments = parse_args(file_exists=file_exists).parse_args(args)
-    setup_logging(log_level=arguments.log_level)
-    logging.info(arguments)
+    logger = setup_logging(log_level=arguments.log_level)
+    log_uncaught_exceptions(logger)
+    logger.info(arguments)
     start = time.time()
     # TODO: move to testable method
     config = load_config(arguments)
-
     # TODO: set output log level
     test_cases = get_robot_results_from_file_as_dict(
         file_path=arguments.output, log_level=OutputLogLevel.TRACE
@@ -64,13 +63,13 @@ async def _main(args=argv[1:], file_exists=file_exists) -> bool:
     model, model_init_strategy = init_llm_with_strategy_factory(config.llm_factory)
 
     if model_init_strategy:
-        logging.debug(
+        logger.debug(
             f"Using init strategy: {model_init_strategy} with parameters: {config.llm_factory.parameters}"
         )
         model_init_strategy(**config.llm_factory.strategy.parameters)
 
-    logging.debug(f"Prompt template: {template}")
-    logging.debug(f"Question loaded {question_from_config_file=}")
+    logger.debug(f"Prompt template: {template}")
+    logger.debug(f"Question loaded {question_from_config_file=}")
     prompt_template = ChatPromptTemplate.from_template(template)
 
     llm_results = await execute_llm_and_get_results(
@@ -84,7 +83,7 @@ async def _main(args=argv[1:], file_exists=file_exists) -> bool:
             llm_results=llm_results,
         )
     stop = time.time()
-    logging.debug(f"Execution time: {stop - start}")
+    logger.debug(f"Execution time: {stop - start}")
     return True
 
 
