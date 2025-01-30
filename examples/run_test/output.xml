@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot generator="Robot 7.1.1 (Python 3.10.10 on darwin)" generated="2024-12-19T17:17:29.035617" rpa="false" schemaversion="5">
+<suite id="s1" name="E2E" source="/Users/mtroj/Repos/rf_result_companion/tests/integration/e2e">
+<suite id="s1-s1" name="Neasted Suite" source="/Users/mtroj/Repos/rf_result_companion/tests/integration/e2e/neasted_suite">
+<suite id="s1-s1-s1" name="Test Neasted" source="/Users/mtroj/Repos/rf_result_companion/tests/integration/e2e/neasted_suite/test_neasted.robot">
+<test id="s1-s1-s1-t1" name="Test Neasted Test Case" line="11">
+<kw name="Log" owner="BuiltIn">
+<msg time="2024-12-19T17:17:29.050008" level="TRACE">Arguments: [ 'abcd' ]</msg>
+<msg time="2024-12-19T17:17:29.050057" level="INFO">abcd</msg>
+<msg time="2024-12-19T17:17:29.050077" level="TRACE">Return: None</msg>
+<arg>${test_var}</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2024-12-19T17:17:29.049933" elapsed="0.000163"/>
+</kw>
+<status status="PASS" start="2024-12-19T17:17:29.049489" elapsed="0.000671"/>
+</test>
+<status status="PASS" start="2024-12-19T17:17:29.048852" elapsed="0.001485"/>
+</suite>
+<status status="PASS" start="2024-12-19T17:17:29.048318" elapsed="0.002682"/>
+</suite>
+<suite id="s1-s2" name="Test Entrypoints" source="/Users/mtroj/Repos/rf_result_companion/tests/integration/e2e/test_entrypoints.robot">
+<test id="s1-s2-t1" name="Ollama Local Model Run Should Succede" line="18">
+<kw name="File Should Exist" owner="OperatingSystem">
+<msg time="2024-12-19T17:17:29.059252" level="TRACE">Arguments: [ '/Users/mtroj/Repos/rf_result_companion/tests/integration/e2e/../../../output.xml' ]</msg>
+<msg time="2024-12-19T17:17:29.059335" level="INFO" html="true">File '&lt;a href="file:///Users/mtroj/Repos/rf_result_companion/output.xml"&gt;/Users/mtroj/Repos/rf_result_companion/output.xml&lt;/a&gt;' exists.</msg>
+<msg time="2024-12-19T17:17:29.059360" level="TRACE">Return: None</msg>
+<arg>${output_file_with_failures_to_analise}</arg>
+<doc>Fails unless the given ``path`` points to an existing file.</doc>
+<status status="PASS" start="2024-12-19T17:17:29.059171" elapsed="0.000208"/>
+</kw>
+<kw name="Cleanup Test Artefacts">
+<msg time="2024-12-19T17:17:29.059704" level="TRACE">Arguments: [  ]</msg>
+<kw name="Run Keyword And Continue On Failure" owner="BuiltIn">
+<msg time="2024-12-19T17:17:29.059971" level="TRACE">Arguments: [ 'Remove File' | '${ollama_log_file}' ]</msg>
+<kw name="Remove File" owner="OperatingSystem">
+<msg time="2024-12-19T17:17:29.060134" level="TRACE">Arguments: [ '/Users/mtroj/Repos/rf_result_companion/tests/integration/e2e/../../../_tmp_artefacts/e2e/llm_log_ollama.html' ]</msg>
+<msg time="2024-12-19T17:17:29.060788" level="INFO" html="true">Removed file '&lt;a href="file:///Users/mtroj/Repos/rf_result_companion/_tmp_artefacts/e2e/llm_log_ollama.html"&gt;/Users/mtroj/Repos/rf_result_companion/_tmp_artefacts/e2e/llm_log_ollama.html&lt;/a&gt;'.</msg>
+<msg time="2024-12-19T17:17:29.060910" level="TRACE">Return: None</msg>
+<arg>${ollama_log_file}</arg>
+<doc>Removes a file with the given path.</doc>
+<status status="PASS" start="2024-12-19T17:17:29.060072" elapsed="0.000867"/>
+</kw>
+<msg time="2024-12-19T17:17:29.060980" level="TRACE">Return: None</msg>
+<arg>Remove File</arg>
+<arg>${ollama_log_file}</arg>
+<doc>Runs the keyword and continues execution even if a failure occurs.</doc>
+<status status="PASS" start="2024-12-19T17:17:29.059905" elapsed="0.001095"/>
+</kw>
+<kw name="Run Keyword And Continue On Failure" owner="BuiltIn">
+<msg time="2024-12-19T17:17:29.061138" level="TRACE">Arguments: [ 'Remove File' | '${custom_model_log_file}' ]</msg>
+<kw name="Remove File" owner="OperatingSystem">
+<msg time="2024-12-19T17:17:29.061327" level="TRACE">Arguments: [ '/Users/mtroj/Repos/rf_result_companion/tests/integration/e2e/../../../_tmp_artefacts/e2e/llm_log_custom_model.html' ]</msg>
+<msg time="2024-12-19T17:17:29.061416" level="INFO" html="true">File '&lt;a href="file:///Users/mtroj/Repos/rf_result_companion/_tmp_artefacts/e2e/llm_log_custom_model.html"&gt;/Users/mtroj/Repos/rf_result_companion/_tmp_artefacts/e2e/llm_log_custom_model.html&lt;/a&gt;' does not exist.</msg>
+<msg time="2024-12-19T17:17:29.061439" level="TRACE">Return: None</msg>
+<arg>${custom_model_log_file}</arg>
+<doc>Removes a file with the given path.</doc>
+<status status="PASS" start="2024-12-19T17:17:29.061234" elapsed="0.000221"/>
+</kw>
+<msg time="2024-12-19T17:17:29.061477" level="TRACE">Return: None</msg>
+<arg>Remove File</arg>
+<arg>${custom_model_log_file}</arg>
+<doc>Runs the keyword and continues execution even if a failure occurs.</doc>
+<status status="PASS" start="2024-12-19T17:17:29.061090" elapsed="0.000402"/>
+</kw>
+<msg time="2024-12-19T17:17:29.061523" level="TRACE">Return: None</msg>
+<status status="PASS" start="2024-12-19T17:17:29.059580" elapsed="0.001958"/>
+</kw>
+<kw name="Run Process" owner="Process">
+<msg time="2024-12-19T17:17:29.061705" level="TRACE">Arguments: [ 'poetry run python /Users/mtroj/Repos/rf_result_companion/tests/integration/e2e/../../../test_result_companion/entrypoints/run_ollama.py -o /Users/mtroj/Repos/rf_result_companion/tests/integration/e2e/../../../output.xml -r /Users/mtroj/Repos/rf_result_companion/tests/integration/e2e/../../../_tmp_artefacts/e2e/llm_log_ollama.html' | shell='True' ]</msg>
+<msg time="2024-12-19T17:17:29.061830" level="INFO">Starting process:
+poetry run python /Users/mtroj/Repos/rf_result_companion/tests/integration/e2e/../../../test_result_companion/entrypoints/run_ollama.py -o /Users/mtroj/Repos/rf_result_companion/tests/integration/e2e/../../../output.xml -r /Users/mtroj/Repos/rf_result_companion/tests/integration/e2e/../../../_tmp_artefacts/e2e/llm_log_ollama.html</msg>
+<msg time="2024-12-19T17:17:29.061852" level="DEBUG">Process configuration:
+cwd:     /Users/mtroj/Repos/rf_result_companion
+shell:   True
+stdout:  PIPE
+stderr:  PIPE
+stdin:   None
+alias:   None
+env:     None</msg>
+<msg time="2024-12-19T17:17:29.064445" level="INFO">Waiting for process to complete.</msg>
+<msg time="2024-12-19T17:17:30.252542" level="INFO">Process completed.</msg>
+<msg time="2024-12-19T17:17:30.252711" level="TRACE">Return: &lt;robot.libraries.Process.ExecutionResult object at 0x10431ab00&gt;</msg>
+<msg time="2024-12-19T17:17:30.252894" level="INFO">${result} = &lt;result object with rc 1&gt;</msg>
+<var>${result}</var>
+<arg>poetry run python ${ollama_entrypoint} -o ${output_file_with_failures_to_analise} -r ${ollama_log_file}</arg>
+<arg>shell=True</arg>
+<doc>Runs a process and waits for it to complete.</doc>
+<status status="PASS" start="2024-12-19T17:17:29.061602" elapsed="1.191320"/>
+</kw>
+<kw name="File Should Exist" owner="OperatingSystem">
+<msg time="2024-12-19T17:17:30.253466" level="TRACE">Arguments: [ '/Users/mtroj/Repos/rf_result_companion/tests/integration/e2e/../../../_tmp_artefacts/e2e/llm_log_ollama.html' ]</msg>
+<msg time="2024-12-19T17:17:30.253698" level="FAIL">File '/Users/mtroj/Repos/rf_result_companion/_tmp_artefacts/e2e/llm_log_ollama.html' does not exist.</msg>
+<msg time="2024-12-19T17:17:30.253748" level="DEBUG">Traceback (most recent call last):
+  None
+AssertionError: File '/Users/mtroj/Repos/rf_result_companion/_tmp_artefacts/e2e/llm_log_ollama.html' does not exist.</msg>
+<arg>${ollama_log_file}</arg>
+<doc>Fails unless the given ``path`` points to an existing file.</doc>
+<status status="FAIL" start="2024-12-19T17:17:30.253260" elapsed="0.000502">File '/Users/mtroj/Repos/rf_result_companion/_tmp_artefacts/e2e/llm_log_ollama.html' does not exist.</status>
+</kw>
+<kw name="Get File" owner="OperatingSystem">
+<var>${file_content}</var>
+<arg>${ollama_log_file}</arg>
+<doc>Returns the contents of a specified file.</doc>
+<status status="NOT RUN" start="2024-12-19T17:17:30.253856" elapsed="0.000013"/>
+</kw>
+<kw name="Should Contain" owner="BuiltIn">
+<arg>${file_content}</arg>
+<arg>LLM Response</arg>
+<doc>Fails if ``container`` does not contain ``item`` one or more times.</doc>
+<status status="NOT RUN" start="2024-12-19T17:17:30.253931" elapsed="0.000009"/>
+</kw>
+<status status="FAIL" start="2024-12-19T17:17:29.058893" elapsed="1.195154">File '/Users/mtroj/Repos/rf_result_companion/_tmp_artefacts/e2e/llm_log_ollama.html' does not exist.</status>
+</test>
+<status status="FAIL" start="2024-12-19T17:17:29.051235" elapsed="1.203057"/>
+</suite>
+<status status="FAIL" start="2024-12-19T17:17:29.036868" elapsed="1.217691"/>
+</suite>
+<statistics>
+<total>
+<stat pass="1" fail="1" skip="0">All Tests</stat>
+</total>
+<tag>
+</tag>
+<suite>
+<stat pass="1" fail="1" skip="0" id="s1" name="E2E">E2E</stat>
+<stat pass="1" fail="0" skip="0" id="s1-s1" name="Neasted Suite">E2E.Neasted Suite</stat>
+<stat pass="1" fail="0" skip="0" id="s1-s1-s1" name="Test Neasted">E2E.Neasted Suite.Test Neasted</stat>
+<stat pass="0" fail="1" skip="0" id="s1-s2" name="Test Entrypoints">E2E.Test Entrypoints</stat>
+</suite>
+</statistics>
+<errors>
+</errors>
+</robot>
