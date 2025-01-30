@@ -80,7 +80,11 @@ async def _main(args=argv[1:], file_exists=file_exists) -> bool:
     prompt_template = ChatPromptTemplate.from_template(template)
 
     llm_results = await execute_llm_and_get_results(
-        test_cases, config, prompt_template, model, arguments.include_passing
+        test_cases,
+        config,
+        prompt_template,
+        model,
+        include_passing=arguments.include_passing,
     )
 
     if arguments.report:

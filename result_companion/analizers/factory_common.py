@@ -60,10 +60,9 @@ async def execute_llm_and_get_results(
     corutines = []
     logger.info(f"Executing chain, {len(test_cases)=}, {concurrency=}")
     for test_case in test_cases:
-        if include_passing:
-            if test_case.get("status") == "PASS":
-                logger.debug(f"Skipping, passing tests {test_case['name']!r}!")
-                continue
+        if test_case.get("status") == "PASS" and not include_passing:
+            logger.debug(f"Skipping, passing tests {test_case['name']!r}!")
+            continue
 
         raw_test_case_text = str(test_case)
         chunk = calculate_chunk_size(
