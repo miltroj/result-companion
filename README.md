@@ -30,14 +30,9 @@ To install Result Companion, follow these steps:
    ```bash
    curl -sSL https://install.python-poetry.org | python3 -
    ```
-
-2. Create a virtual environment:
+2. Install the required dependencies with Poetry:
     ```bash
-    python -m venv result-companion-env && source result-companion-env/bin/activate  # For Linux/macOS result-companion-env\Scripts\activate  # For Windows
-    ```
-3. Install the required dependencies with Poetry:
-    ```bash
-   python -m poetry install
+   python -m poetry install --with=dev
    ```
    This will create a virtual environment and install all the necessary dependencies for the Result Companion project.
 
@@ -85,6 +80,15 @@ The output should include the `deepseer-r1` model, indicating it is ready for us
 With these steps completed, your environment is set up for both the project and local model usage.
 
 
+### Quick Test
+
+To quickly test the solution, run:
+
+```
+inv run-result-companion-test
+```
+
+
 ## Usage
 
 ### Running Result Companion
@@ -93,7 +97,7 @@ After installation, you can run Result Companion to analyze your Robot Framework
 
 Example command:
 ```bash
-result-companion -o output.xml -r log_with_results.html
+poetry run result-companion -o output.xml -r log_with_results.html
 ```
 
 For more detailed usage and additional configuration options, refer to the `examples/` folder in the repository, which includes different example setups and use cases. You can find the relevant README file there for further instructions.
@@ -140,6 +144,23 @@ Feel free to contribute to Result Companion! You can:
 - Submit a pull request with your improvements.
 
 For bug reports or feature requests, please open an issue on the GitHub repository.
+
+## Running Tests
+
+To ensure the correctness of the **Result Companion**, you can run tests using `invoke` commands:
+
+- Run unittests:
+  ```
+  inv unittests
+  ```
+
+- Run tests with coverage:
+  ```
+  inv test_coverage
+  ```
+
+Make sure you have installed poetry with dev dependencies:
+
 
 ## License
 
