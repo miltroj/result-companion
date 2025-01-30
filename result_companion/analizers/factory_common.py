@@ -51,6 +51,7 @@ async def execute_llm_and_get_results(
     prompt: ChatPromptTemplate,
     model: MODELS,
     concurrency: int = 1,
+    include_passing: bool = True,
 ) -> dict:
     question_from_config_file = config.llm_config.question_prompt
     tokenizer = config.tokenizer
@@ -59,6 +60,10 @@ async def execute_llm_and_get_results(
     corutines = []
     logger.info(f"Executing chain, {len(test_cases)=}, {concurrency=}")
     for test_case in test_cases:
+        if include_passing:
+            if test_case.get("status") == "PASS":
+                logger.debug(f"Skipping, passing tests {test_case['name']!r}!")
+                continue
 
         raw_test_case_text = str(test_case)
         chunk = calculate_chunk_size(

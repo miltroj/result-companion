@@ -69,6 +69,22 @@ def test_diff_file_exists(file_exists_true) -> None:
     assert args.diff == diff
 
 
+def test_include_passing_tests(file_exists_true) -> None:
+    path = "/my/output.xml"
+    diff = "/my/diff.xml"
+    args = parse_args(file_exists=file_exists_true).parse_args(
+        ["-o", path, "-d", diff, "-i"]
+    )
+    assert args.include_passing is True
+
+
+def test_by_default_skip_passing_tests(file_exists_true) -> None:
+    path = "/my/output.xml"
+    diff = "/my/diff.xml"
+    args = parse_args(file_exists=file_exists_true).parse_args(["-o", path, "-d", diff])
+    assert args.include_passing is False
+
+
 def test_log_level_note_existing_error() -> None:
     with pytest.raises(SystemExit):
         parse_args().parse_args(["-o", "output.xml", "-l", "Not Existing"])

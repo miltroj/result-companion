@@ -141,7 +141,6 @@ def test_main_e2e_execution(
     )
 
     mocked_execute_llm_chain.return_value = {
-        "test1": "llm_result_1",
         "test2": "llm_result_2",
     }
 
@@ -169,6 +168,7 @@ def test_main_e2e_execution(
             config=None,
             report="/tmp/report.html",
             diff=None,
+            include_passing=False,
         )
     )
 
@@ -203,12 +203,12 @@ def test_main_e2e_execution(
         ),
         ChatPromptTemplate.from_template("my_template {question}"),
         mocked_azure_model(),
+        False,
     )
     mocked_html_creation.assert_called_once_with(
         input_result_path="output.xml",
         llm_output_path="/tmp/report.html",
         llm_results={
-            "test1": "llm_result_1",
             "test2": "llm_result_2",
         },
     )
