@@ -13,7 +13,7 @@ from result_companion.chunking.chunking import (
     accumulate_llm_results_for_summarizaton_chain,
 )
 from result_companion.chunking.utils import calculate_chunk_size
-from result_companion.parsers.config import LLMFactoryModel
+from result_companion.parsers.config import DefaultConfigModel
 from result_companion.utils.logging_config import setup_logging
 
 logger = setup_logging("llm")
@@ -47,7 +47,7 @@ def compose_chain(prompt: ChatPromptTemplate, model: MODELS) -> RunnableSerializ
 
 async def execute_llm_and_get_results(
     test_cases: list,
-    config: LLMFactoryModel,
+    config: DefaultConfigModel,
     prompt: ChatPromptTemplate,
     model: MODELS,
     concurrency: int = 1,
