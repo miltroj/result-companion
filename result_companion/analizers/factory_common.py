@@ -13,7 +13,7 @@ from result_companion.chunking.chunking import (
     accumulate_llm_results_for_summarizaton_chain,
 )
 from result_companion.chunking.utils import calculate_chunk_size
-from result_companion.parsers.config import LLMFactoryModel
+from result_companion.parsers.config import DefaultConfigModel
 from result_companion.utils.logging_config import setup_logging
 
 logger = setup_logging("llm")
@@ -47,10 +47,11 @@ def compose_chain(prompt: ChatPromptTemplate, model: MODELS) -> RunnableSerializ
 
 async def execute_llm_and_get_results(
     test_cases: list,
-    config: LLMFactoryModel,
+    config: DefaultConfigModel,
     prompt: ChatPromptTemplate,
     model: MODELS,
     concurrency: int = 1,
+    include_passing: bool = True,
 ) -> dict:
     question_from_config_file = config.llm_config.question_prompt
     tokenizer = config.tokenizer
@@ -59,6 +60,9 @@ async def execute_llm_and_get_results(
     corutines = []
     logger.info(f"Executing chain, {len(test_cases)=}, {concurrency=}")
     for test_case in test_cases:
+        if test_case.get("status") == "PASS" and not include_passing:
+            logger.debug(f"Skipping, passing tests {test_case['name']!r}!")
+            continue
 
         raw_test_case_text = str(test_case)
         chunk = calculate_chunk_size(

@@ -56,7 +56,7 @@ async def summarize_test_case(test_case, chunks, llm, question_prompt, chain):
     logger.info(
         f"### For test case {test_case['name']}, {len(chunks)=}",
     )
-
+    # TODO: move to default_config.yaml
     summarization_prompt = PromptTemplate(
         input_variables=["text"],
         template=(

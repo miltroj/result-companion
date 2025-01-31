@@ -69,4 +69,11 @@ def parse_args(
         help="Diff with other XML file",
         type=file_exists,
     )
+    parser.add_argument(
+        "-i",
+        "--include-passing",
+        required=False,
+        help="Make sure to include PASS test cases!",
+        action="store_true",
+    )
     return parser
