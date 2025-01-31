@@ -5,16 +5,13 @@ from result_companion.parsers.config import (
     LLMFactoryModel,
     TokenizerModel,
 )
+from pathlib import Path
 from pytest_mock import MockerFixture
 import pytest
 from pydantic import ValidationError
 from unittest.mock import mock_open
 
 prompt_template = {"prompt_template": "{question} {cotext}"}
-
-
-def default_file_exists(*args, **kwargs) -> bool:
-    return True
 
 
 def test_reading_yaml_from_file(mocker: MockerFixture) -> None:
@@ -30,7 +27,7 @@ def test_load_default_config(mocker: MockerFixture) -> None:
     mocker.patch("builtins.open", mock_data)
 
     config = ConfigLoader(
-        default_config_file="default_config.yaml", file_exists=default_file_exists
+        default_config_file="default_config.yaml"
     ).load_config()
     assert config.llm_config.question_prompt == "Test prompt message."
     assert config.llm_config.prompt_template == "question context"
@@ -43,7 +40,7 @@ def test_reading_existing_user_config_not_default(mocker: MockerFixture) -> None
     )
     mocker.patch("builtins.open", mock_data)
     config = ConfigLoader(
-        default_config_file="default_config.yaml", file_exists=default_file_exists
+        default_config_file="default_config.yaml"
     ).load_config("mocked_user_config.yaml")
     assert config.llm_config.question_prompt == "User config."
     assert config.llm_config.prompt_template == "question context"
@@ -133,9 +130,9 @@ def test_user_llm_config_takes_precedense_over_default(mocker):
 
     # Load the config using the mocked file contents
     config_loader = ConfigLoader(
-        default_config_file="default_config.yaml", file_exists=default_file_exists
+        default_config_file=Path("default_config.yaml")
     )
-    config = config_loader.load_config(user_config_file="user_config.yaml")
+    config = config_loader.load_config(user_config_file=Path("user_config.yaml"))
 
     # Check that the user config takes precedence over the default config
     assert config.llm_config.question_prompt == "User question prompt"

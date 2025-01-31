@@ -98,8 +98,8 @@ def log_uncaught_exceptions(logger) -> None:
     sys.excepthook = handle_exception
 
 
-def set_global_log_level(log_level):
+def set_global_log_level(log_level) -> None:
     """
     Set log level for all loggers.
     """
-    logging.getLogger().setLevel(log_level)
+    logging.getLogger().setLevel(str(log_level))

@@ -150,6 +150,12 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
+# robot
+log.html
+log*.html
+output.xml
+report.html
+
 # Pyre type checker
 .pyre/
 
