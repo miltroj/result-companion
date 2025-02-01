@@ -1,5 +1,4 @@
 import os
-from argparse import Namespace
 from enum import Enum
 from pathlib import Path
 
@@ -7,7 +6,6 @@ import yaml
 from pydantic import BaseModel, Field, ValidationError
 
 from result_companion.utils.logging_config import setup_logging
-from result_companion.utils.utils import ExceptionType, file_exists
 
 logger = setup_logging("CONFIG")
 
@@ -77,22 +75,19 @@ class CustomModelEndpointConfig(DefaultConfigModel):
 class ConfigLoader:
     def __init__(
         self,
-        default_config_file: str | None = None,
-        file_exists: callable = file_exists,
+        default_config_file: Path | None = None,
     ):
         self.default_config_file = default_config_file
-        self.file_exists = file_exists
-        self.file_exists(default_config_file, ExceptionType.REGULAR)
 
     @staticmethod
-    def _read_yaml_file(file_path: str) -> dict:
+    def _read_yaml_file(file_path: Path) -> dict:
         with open(file_path, "r") as file:
             return yaml.safe_load(file)
 
-    def load_config(self, user_config_file: str = None) -> DefaultConfigModel:
+    def load_config(self, user_config_file: Path = None) -> DefaultConfigModel:
         """Load and validate the YAML configuration file, with defaults."""
         default_config = self._read_yaml_file(self.default_config_file)
-        if user_config_file and self.file_exists(user_config_file, ExceptionType.NONE):
+        if user_config_file:
             user_config = self._read_yaml_file(user_config_file)
         else:
             logger.info(
@@ -128,12 +123,12 @@ class ConfigLoader:
         return validated_config
 
 
-def load_config(args: Namespace) -> DefaultConfigModel:
+def load_config(config_path: Path | None = None) -> DefaultConfigModel:
     current_dir = os.path.dirname(os.path.abspath(__file__))
     config_file_path = os.path.join(current_dir, "..", "configs", "default_config.yaml")
 
-    config_loader = ConfigLoader(default_config_file=Path(config_file_path).resolve())
-    config = config_loader.load_config(user_config_file=args.config)
+    config_loader = ConfigLoader(default_config_file=config_file_path)
+    config = config_loader.load_config(user_config_file=config_path)
     logger.debug(f"{config=}")
     return config
 
