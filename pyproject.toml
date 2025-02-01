@@ -23,7 +23,7 @@ langchain-text-splitters = "^0.3.4"
 markdown = "^3.7"
 
 [tool.poetry.scripts]
-result-companion = "result_companion.cli.run_factory_splitting:app"
+result-companion = "result_companion.cli.cli_app:app"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.10.0"

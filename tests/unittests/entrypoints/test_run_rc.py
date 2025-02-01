@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 from langchain_core.prompts import ChatPromptTemplate
 
-from result_companion.cli.run_factory_splitting import (
+from result_companion.entrypoints.run_rc import (
     _main,
     init_llm_with_strategy_factory,
 )
@@ -88,22 +88,22 @@ def test_fail_llm_init_on_unsupported_llm_parameters():
 
 
 @patch(
-    "result_companion.cli.run_factory_splitting.create_llm_html_log",
+    "result_companion.entrypoints.run_rc.create_llm_html_log",
     autospec=True,
 )
 @patch(
-    "result_companion.cli.run_factory_splitting.AzureChatOpenAI",
+    "result_companion.entrypoints.run_rc.AzureChatOpenAI",
     autospec=True,
 )
 @patch(
-    "result_companion.cli.run_factory_splitting.execute_llm_and_get_results",
+    "result_companion.entrypoints.run_rc.execute_llm_and_get_results",
     autospec=True,
 )
 @patch(
-    "result_companion.cli.run_factory_splitting.get_robot_results_from_file_as_dict",
+    "result_companion.entrypoints.run_rc.get_robot_results_from_file_as_dict",
     autospec=True,
 )
-@patch("result_companion.cli.run_factory_splitting.load_config", autospec=True)
+@patch("result_companion.entrypoints.run_rc.load_config", autospec=True)
 def test_main_e2e_execution(
     mock_config_loading,
     mocked_get_robot_results,
