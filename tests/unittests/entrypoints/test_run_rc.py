@@ -5,9 +5,10 @@ from unittest.mock import patch
 import pytest
 from langchain_core.prompts import ChatPromptTemplate
 
-from result_companion.cli.run_factory_splitting import (
+from result_companion.entrypoints.run_rc import (
     _main,
     init_llm_with_strategy_factory,
+    run_rc,
 )
 from result_companion.utils.log_levels import LogLevels
 from result_companion.parsers.config import (
@@ -88,22 +89,22 @@ def test_fail_llm_init_on_unsupported_llm_parameters():
 
 
 @patch(
-    "result_companion.cli.run_factory_splitting.create_llm_html_log",
+    "result_companion.entrypoints.run_rc.create_llm_html_log",
     autospec=True,
 )
 @patch(
-    "result_companion.cli.run_factory_splitting.AzureChatOpenAI",
+    "result_companion.entrypoints.run_rc.AzureChatOpenAI",
     autospec=True,
 )
 @patch(
-    "result_companion.cli.run_factory_splitting.execute_llm_and_get_results",
+    "result_companion.entrypoints.run_rc.execute_llm_and_get_results",
     autospec=True,
 )
 @patch(
-    "result_companion.cli.run_factory_splitting.get_robot_results_from_file_as_dict",
+    "result_companion.entrypoints.run_rc.get_robot_results_from_file_as_dict",
     autospec=True,
 )
-@patch("result_companion.cli.run_factory_splitting.load_config", autospec=True)
+@patch("result_companion.entrypoints.run_rc.load_config", autospec=True)
 def test_main_e2e_execution(
     mock_config_loading,
     mocked_get_robot_results,
@@ -143,15 +144,19 @@ def test_main_e2e_execution(
     }
 
     result = asyncio.run(
-        _main(output=Path("output.xml"), log_level="DEBUG", config=None, report="/tmp/report.html", diff=None, include_passing=False)
+        _main(
+            output=Path("output.xml"),
+            log_level="DEBUG",
+            config=None,
+            report="/tmp/report.html",
+            include_passing=False,
+        )
     )
 
     mocked_get_robot_results.assert_called_once_with(
-        file_path=Path('output.xml'), log_level=LogLevels.TRACE
+        file_path=Path("output.xml"), log_level=LogLevels.TRACE
     )
-    mock_config_loading.assert_called_once_with(
-        None
-    )
+    mock_config_loading.assert_called_once_with(None)
 
     mocked_execute_llm_chain.assert_called_once_with(
         {
@@ -194,3 +199,26 @@ def test_main_e2e_execution(
         },
     )
     assert result is True
+
+
+def test_succesfully_run_rc():
+    with patch(
+        "result_companion.entrypoints.run_rc._main",
+        return_value="RESULT",
+        autospec=True,
+    ) as mocked_main:
+        result = run_rc(
+            output=Path("output.xml"),
+            log_level="DEBUG",
+            config=None,
+            report="/tmp/report.html",
+            include_passing=False,
+        )
+        mocked_main.assert_called_once_with(
+            output=Path("output.xml"),
+            log_level="DEBUG",
+            config=None,
+            report="/tmp/report.html",
+            include_passing=False,
+        )
+        assert result == "RESULT"

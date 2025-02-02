@@ -1,7 +1,5 @@
 import asyncio
 import time
-import typer
-
 from pathlib import Path
 from typing import Optional
 
@@ -15,9 +13,9 @@ from result_companion.analizers.factory_common import execute_llm_and_get_result
 from result_companion.analizers.local.ollama_runner import ollama_on_init_strategy
 from result_companion.analizers.models import MODELS
 from result_companion.html.html_creator import create_llm_html_log
-from result_companion.utils.log_levels import LogLevels
 from result_companion.parsers.config import LLMFactoryModel, load_config
 from result_companion.parsers.result_parser import get_robot_results_from_file_as_dict
+from result_companion.utils.log_levels import LogLevels
 from result_companion.utils.logging_config import (
     log_uncaught_exceptions,
     set_global_log_level,
@@ -54,7 +52,13 @@ def init_llm_with_strategy_factory(
         ) from e
 
 
-async def _main(output: Path, log_level: LogLevels, config: Optional[Path], report: Optional[str], diff: Optional[Path], include_passing: bool) -> bool:
+async def _main(
+    output: Path,
+    log_level: LogLevels,
+    config: Optional[Path],
+    report: Optional[str],
+    include_passing: bool,
+) -> bool:
     set_global_log_level(log_level=str(log_level))
     logger.info(f"Starting Result Companion!")
     start = time.time()
@@ -67,7 +71,9 @@ async def _main(output: Path, log_level: LogLevels, config: Optional[Path], repo
 
     question_from_config_file = parsed_config.llm_config.question_prompt
     template = parsed_config.llm_config.prompt_template
-    model, model_init_strategy = init_llm_with_strategy_factory(parsed_config.llm_factory)
+    model, model_init_strategy = init_llm_with_strategy_factory(
+        parsed_config.llm_factory
+    )
 
     if model_init_strategy:
         logger.debug(
@@ -98,31 +104,19 @@ async def _main(output: Path, log_level: LogLevels, config: Optional[Path], repo
     return True
 
 
-app = typer.Typer()
-
-@app.command()
-def main(
-    output: Path = typer.Option(..., "-o", "--output", exists=True, file_okay=True, dir_okay=False, readable=True, help="Output.xml file path"),
-    log_level: LogLevels = typer.Option(LogLevels.INFO, "-l", "--log-level", help="Log level verbosity", case_sensitive=True),
-    config: Optional[Path] = typer.Option(None, "-c", "--config", exists=True, file_okay=True, dir_okay=False, readable=True, help="YAML Config file path"),
-    report: Optional[str] = typer.Option(None, "-r", "--report", help="Write LLM Report to HTML file"),
-    diff: Optional[Path] = typer.Option(None, "-d", "--diff", exists=True, file_okay=True, dir_okay=False, readable=True, help="Diff with other XML file"),
-    include_passing: bool = typer.Option(False, "-i", "--include-passing", help="Include PASS test cases"),
-):
-    """Test Result Companion - CLI"""
-    typer.echo(f"Output: {output}")
-    typer.echo(f"Log Level: {log_level}")
-    typer.echo(f"Config: {config}")
-    typer.echo(f"Report: {report}")
-    typer.echo(f"Diff: {diff}")
-    typer.echo(f"Include Passing: {include_passing}")
-
-    asyncio.run(_main(output=output,
-                      log_level=log_level,
-                      config=config,
-                      report=report,
-                      diff=diff,
-                      include_passing=include_passing))
-
-if __name__ == "__main__":
-    app()
+def run_rc(
+    output: Path,
+    log_level: LogLevels,
+    config: Optional[Path],
+    report: Optional[str],
+    include_passing: bool,
+) -> bool:
+    return asyncio.run(
+        _main(
+            output=output,
+            log_level=log_level,
+            config=config,
+            report=report,
+            include_passing=include_passing,
+        )
+    )
