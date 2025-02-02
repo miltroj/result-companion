@@ -2,9 +2,7 @@ import subprocess
 
 import requests
 
-from result_companion.utils.logging_config import setup_logging
-
-logger = setup_logging("OLLAMA")
+from result_companion.utils.logging_config import logger
 
 
 def check_ollama_installed(ollama_version: list = ["ollama", "--version"]) -> None:

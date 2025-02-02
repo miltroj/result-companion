@@ -98,8 +98,14 @@ def log_uncaught_exceptions(logger) -> None:
     sys.excepthook = handle_exception
 
 
-def set_global_log_level(log_level) -> None:
+def set_global_log_level(logger, log_level) -> None:
     """
     Set log level for all loggers.
     """
-    logging.getLogger().setLevel(str(log_level))
+    if logger:
+        logger.setLevel(log_level)
+        for handler in logger.handlers:
+            handler.setLevel(log_level)
+
+
+logger = setup_logging("RC")

@@ -4,9 +4,7 @@ from dataclasses import dataclass
 import tiktoken
 
 from result_companion.parsers.config import TokenizerModel
-from result_companion.utils.logging_config import setup_logging
-
-logger = setup_logging("utils")
+from result_companion.utils.logging_config import logger
 
 
 @dataclass

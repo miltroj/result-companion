@@ -9,9 +9,7 @@ from langchain_core.runnables import RunnableSerializable
 
 from result_companion.analizers.models import MODELS
 from result_companion.chunking.utils import Chunking
-from result_companion.utils.logging_config import setup_logging
-
-logger = setup_logging("chunking")
+from result_companion.utils.logging_config import logger
 
 
 def build_sumarization_chain(
