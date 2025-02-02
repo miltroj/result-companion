@@ -19,10 +19,9 @@ from result_companion.utils.log_levels import LogLevels
 from result_companion.utils.logging_config import (
     log_uncaught_exceptions,
     set_global_log_level,
-    setup_logging,
+    logger,
 )
 
-logger = setup_logging("RC")
 log_uncaught_exceptions(logger)
 
 
@@ -59,7 +58,7 @@ async def _main(
     report: Optional[str],
     include_passing: bool,
 ) -> bool:
-    set_global_log_level(log_level=str(log_level))
+    set_global_log_level(logger=logger, log_level=str(log_level))
     logger.info(f"Starting Result Companion!")
     start = time.time()
     # TODO: move to testable method
