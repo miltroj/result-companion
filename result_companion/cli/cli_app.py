@@ -41,16 +41,6 @@ def main(
     report: Optional[str] = typer.Option(
         None, "-r", "--report", help="Write LLM Report to HTML file"
     ),
-    diff: Optional[Path] = typer.Option(
-        None,
-        "-d",
-        "--diff",
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
-        readable=True,
-        help="Diff with other XML file",
-    ),
     include_passing: bool = typer.Option(
         False, "-i", "--include-passing", help="Include PASS test cases"
     ),
@@ -61,11 +51,10 @@ def main(
     typer.echo(f"Log Level: {log_level}")
     typer.echo(f"Config: {config}")
     typer.echo(f"Report: {report}")
-    typer.echo(f"Diff: {diff}")
     typer.echo(f"Include Passing: {include_passing}")
     run = _main_func.obj.get("main")
     if run:
-        run(output, log_level, config, report, diff, include_passing)
+        run(output, log_level, config, report, include_passing)
 
 
 if __name__ == "__main__":

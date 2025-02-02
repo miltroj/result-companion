@@ -8,6 +8,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from result_companion.entrypoints.run_rc import (
     _main,
     init_llm_with_strategy_factory,
+    run_rc,
 )
 from result_companion.utils.log_levels import LogLevels
 from result_companion.parsers.config import (
@@ -143,15 +144,19 @@ def test_main_e2e_execution(
     }
 
     result = asyncio.run(
-        _main(output=Path("output.xml"), log_level="DEBUG", config=None, report="/tmp/report.html", diff=None, include_passing=False)
+        _main(
+            output=Path("output.xml"),
+            log_level="DEBUG",
+            config=None,
+            report="/tmp/report.html",
+            include_passing=False,
+        )
     )
 
     mocked_get_robot_results.assert_called_once_with(
-        file_path=Path('output.xml'), log_level=LogLevels.TRACE
+        file_path=Path("output.xml"), log_level=LogLevels.TRACE
     )
-    mock_config_loading.assert_called_once_with(
-        None
-    )
+    mock_config_loading.assert_called_once_with(None)
 
     mocked_execute_llm_chain.assert_called_once_with(
         {
@@ -194,3 +199,26 @@ def test_main_e2e_execution(
         },
     )
     assert result is True
+
+
+def test_succesfully_run_rc():
+    with patch(
+        "result_companion.entrypoints.run_rc._main",
+        return_value="RESULT",
+        autospec=True,
+    ) as mocked_main:
+        result = run_rc(
+            output=Path("output.xml"),
+            log_level="DEBUG",
+            config=None,
+            report="/tmp/report.html",
+            include_passing=False,
+        )
+        mocked_main.assert_called_once_with(
+            output=Path("output.xml"),
+            log_level="DEBUG",
+            config=None,
+            report="/tmp/report.html",
+            include_passing=False,
+        )
+        assert result == "RESULT"

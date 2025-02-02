@@ -57,7 +57,6 @@ async def _main(
     log_level: LogLevels,
     config: Optional[Path],
     report: Optional[str],
-    diff: Optional[Path],
     include_passing: bool,
 ) -> bool:
     set_global_log_level(log_level=str(log_level))
@@ -110,16 +109,14 @@ def run_rc(
     log_level: LogLevels,
     config: Optional[Path],
     report: Optional[str],
-    diff: Optional[Path],
     include_passing: bool,
 ) -> bool:
-    asyncio.run(
+    return asyncio.run(
         _main(
             output=output,
             log_level=log_level,
             config=config,
             report=report,
-            diff=diff,
             include_passing=include_passing,
         )
     )

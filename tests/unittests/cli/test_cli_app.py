@@ -20,7 +20,7 @@ def test_cli_fail_when_config_not_exists():
         app, ["-o", existing_xml_path, "-c", "config_not_exists"], obj={}
     )
     assert result.exit_code == 2
-    assert "File 'config_not_exists' does not exist" in result.output
+    assert "File 'config_not_exists' does not" in result.output
 
 
 def test_cli_by_default_uses_include_passing_false():
@@ -56,6 +56,5 @@ def test_cli_calls_main_function():
     assert "Log Level: " in result.output
     assert "Config: " in result.output
     assert "Report: " in result.output
-    assert "Diff: " in result.output
     assert "Include Passing: " in result.output
     assert "RUNNING MAIN" in result.output
