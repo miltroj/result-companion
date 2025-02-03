@@ -2,8 +2,8 @@ from pathlib import Path
 
 from robot.api import ExecutionResult, ResultVisitor
 
-from result_companion.utils.log_levels import LogLevels
-from result_companion.utils.logging_config import logger
+from result_companion.core.utils.log_levels import LogLevels
+from result_companion.core.utils.logging_config import logger
 
 
 def search_for_test_caseses(

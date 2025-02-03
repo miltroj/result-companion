@@ -5,7 +5,7 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, Field, ValidationError
 
-from result_companion.utils.logging_config import logger
+from result_companion.core.utils.logging_config import logger
 
 
 class ModelType(str, Enum):

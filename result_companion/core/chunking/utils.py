@@ -3,8 +3,8 @@ from dataclasses import dataclass
 
 import tiktoken
 
-from result_companion.parsers.config import TokenizerModel
-from result_companion.utils.logging_config import logger
+from result_companion.core.parsers.config import TokenizerModel
+from result_companion.core.utils.logging_config import logger
 
 
 @dataclass

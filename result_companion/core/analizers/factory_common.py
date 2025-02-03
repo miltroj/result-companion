@@ -8,13 +8,13 @@ from langchain_core.runnables import RunnableSerializable
 from langchain_ollama.llms import OllamaLLM
 from langchain_openai import AzureChatOpenAI
 
-from result_companion.analizers.common import run_with_semaphore
-from result_companion.chunking.chunking import (
+from result_companion.core.analizers.common import run_with_semaphore
+from result_companion.core.chunking.chunking import (
     accumulate_llm_results_for_summarizaton_chain,
 )
-from result_companion.chunking.utils import calculate_chunk_size
-from result_companion.parsers.config import DefaultConfigModel
-from result_companion.utils.logging_config import logger
+from result_companion.core.chunking.utils import calculate_chunk_size
+from result_companion.core.parsers.config import DefaultConfigModel
+from result_companion.core.utils.logging_config import logger
 
 MODELS = Tuple[OllamaLLM | AzureChatOpenAI | BedrockLLM, Callable]
 

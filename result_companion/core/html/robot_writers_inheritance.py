@@ -14,7 +14,6 @@ LLM_LOG = Path(__file__).parent / "templates" / "llm_template.html"
 
 
 class LLMHtmlTemplate:  # HtmlTemplate
-
     def __init__(self, path):
         self._path = path
 
@@ -25,7 +24,6 @@ class LLMHtmlTemplate:  # HtmlTemplate
 
 
 class LLMHtmlFileWriter(HtmlFileWriter):
-
     def __init__(self, output, model_writer):
         super().__init__(output, model_writer)
 
