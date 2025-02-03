@@ -1,0 +1,72 @@
+name: Run Unit Tests
+
+on:
+  push:
+    branches:
+      - '*'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "export PATH=$HOME/.local/bin:$PATH" >> $GITHUB_ENV
+
+      - name: Load cached dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pypoetry
+          key: poetry-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            poetry-${{ runner.os }}-${{ matrix.python-version }}-
+
+      - name: Install dependencies
+        run: poetry install --with=dev
+
+      - name: Run unit tests
+        run: poetry run pytest -vv tests/unittests/
+
+      - name: Run coverage
+        run: poetry run pytest --cov=result_companion tests/unittests
+#
+#      - name: Run isort check
+#        run: poetry run isort --check --profile black .
+#
+#      - name: Run Black check
+#        run: poetry run black --check .
+#
+#      - name: Run unit tests with coverage
+#        run: poetry run pytest --cov=result_companion --cov-report=xml --cov-fail-under=$(cat .coverage_threshold || echo 0)
+#
+#      - name: Upload coverage report
+#        uses: codecov/codecov-action@v3
+#        with:
+#          files: coverage.xml
+#          fail_ci_if_error: true
+#
+#      - name: Check coverage threshold
+#        run: |
+#          COVERAGE=$(poetry run coverage report | grep TOTAL | awk '{print $NF}' | sed 's/%//')
+#          PREV_COVERAGE=$(cat .coverage_threshold || echo 0)
+#          if (( $(echo "$COVERAGE < $PREV_COVERAGE" | bc -l) )); then
+#            echo "Coverage decreased! Previous: $PREV_COVERAGE%, Current: $COVERAGE%"
+#            exit 1
+#          fi
+#          echo $COVERAGE > .coverage_threshold
