@@ -2,7 +2,7 @@ import sys
 
 import pytest
 
-from result_companion.analizers.local.ollama_runner import (
+from result_companion.core.analizers.local.ollama_runner import (
     check_ollama_installed,
     start_ollama_server,
 )
