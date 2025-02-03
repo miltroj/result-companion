@@ -1,8 +1,8 @@
 import pytest
 from langchain_core.prompts import ChatPromptTemplate
 
-from result_companion.analizers.factory_common import execute_llm_and_get_results
-from result_companion.parsers.config import (
+from result_companion.core.analizers.factory_common import execute_llm_and_get_results
+from result_companion.core.parsers.config import (
     DefaultConfigModel,
     LLMConfigModel,
     LLMFactoryModel,

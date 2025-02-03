@@ -10,8 +10,8 @@ from result_companion.entrypoints.run_rc import (
     init_llm_with_strategy_factory,
     run_rc,
 )
-from result_companion.utils.log_levels import LogLevels
-from result_companion.parsers.config import (
+from result_companion.core.utils.log_levels import LogLevels
+from result_companion.core.parsers.config import (
     DefaultConfigModel,
     LLMConfigModel,
     LLMFactoryModel,

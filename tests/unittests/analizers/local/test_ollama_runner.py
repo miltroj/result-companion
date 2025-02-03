@@ -1,4 +1,7 @@
-from result_companion.analizers.local.ollama_runner import check_ollama_installed, start_ollama_server
+from result_companion.core.analizers.local.ollama_runner import (
+    check_ollama_installed,
+    start_ollama_server,
+)
 import sys
 import pytest
 

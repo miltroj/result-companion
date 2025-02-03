@@ -5,13 +5,13 @@ from langchain.prompts import PromptTemplate
 from langchain_community.llms.fake import FakeListLLM
 from langchain_core.output_parsers import StrOutputParser
 
-from result_companion.chunking.chunking import (
+from result_companion.core.chunking.chunking import (
     accumulate_llm_results_for_summarizaton_chain,
     build_sumarization_chain,
     split_text_into_chunks_using_text_splitter,
     summarize_test_case,
 )
-from result_companion.chunking.utils import Chunking
+from result_companion.core.chunking.utils import Chunking
 
 
 def test_recursive_text_splitting():
@@ -52,7 +52,7 @@ async def test_building_fake_chain() -> None:
 
 
 @pytest.mark.asyncio
-@patch("result_companion.chunking.chunking.build_sumarization_chain")
+@patch("result_companion.core.chunking.chunking.build_sumarization_chain")
 async def test_executing_summarization_chain(mock_building_chain) -> None:
     text_prompt = PromptTemplate(
         input_variables=["text"],
@@ -113,7 +113,22 @@ async def test_splitting_into_chunks_and_accumulatiing_summary_results() -> None
     result = await accumulate_llm_results_for_summarizaton_chain(
         test_case, question_prompt, chain, chunking_strategy, fake_llm
     )
-    expected_chunks = ["{'nam", "e':", "'chu", 'nking', '_test', '_case', '_name', "',", "'con", "tent'", ':', "'aaa", 'aaaaa', "aa'}"]
+    expected_chunks = [
+        "{'nam",
+        "e':",
+        "'chu",
+        "nking",
+        "_test",
+        "_case",
+        "_name",
+        "',",
+        "'con",
+        "tent'",
+        ":",
+        "'aaa",
+        "aaaaa",
+        "aa'}",
+    ]
 
     assert result == ("final summary", "chunking_test_case_name", expected_chunks)
     # add assert for the number of api calls

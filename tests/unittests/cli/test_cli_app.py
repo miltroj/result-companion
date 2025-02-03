@@ -3,7 +3,7 @@ from pathlib import Path
 from typer import echo
 from typer.testing import CliRunner
 
-from result_companion.cli.cli_app import app
+from result_companion.entrypoints.cli.cli_app import app
 
 runner = CliRunner()
 existing_xml_path = Path(__file__).parent / "empty.xml"

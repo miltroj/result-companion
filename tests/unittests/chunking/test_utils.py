@@ -1,8 +1,8 @@
-from result_companion.chunking.utils import (
+from result_companion.core.chunking.utils import (
     calculate_chunk_size,
     calculate_overall_chunk_size,
 )
-from result_companion.parsers.config import TokenizerModel
+from result_companion.core.parsers.config import TokenizerModel
 
 
 def test_calculating_overall_chunk_size() -> None:
