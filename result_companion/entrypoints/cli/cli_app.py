@@ -4,7 +4,7 @@ from typing import Optional
 import typer
 
 from result_companion.entrypoints.run_rc import run_rc
-from result_companion.utils.log_levels import LogLevels
+from result_companion.core.utils.log_levels import LogLevels
 
 app = typer.Typer(context_settings={"obj": {"main": run_rc}})
 
