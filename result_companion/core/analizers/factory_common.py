@@ -67,6 +67,7 @@ async def execute_llm_and_get_results(
             raw_test_case_text, question_from_config_file, tokenizer
         )
 
+        # TODO: zero chunk size seems magical
         if chunk.chunk_size == 0:
             chain = default_chain(prompt, model)
             corutines.append(
