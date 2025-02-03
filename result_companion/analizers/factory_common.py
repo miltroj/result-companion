@@ -16,7 +16,6 @@ from result_companion.chunking.utils import calculate_chunk_size
 from result_companion.parsers.config import DefaultConfigModel
 from result_companion.utils.logging_config import logger
 
-
 MODELS = Tuple[OllamaLLM | AzureChatOpenAI | BedrockLLM, Callable]
 
 

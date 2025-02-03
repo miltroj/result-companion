@@ -40,20 +40,21 @@ jobs:
       - name: Install dependencies
         run: poetry install --with=dev
 
+      - name: Run Black check
+        run: poetry run black --check .
+
+      - name: Run isort check
+        run: poetry run isort --check --profile black .
+
       - name: Run unit tests
         run: poetry run pytest -vv tests/unittests/
 
       - name: Run coverage
-        run: poetry run pytest --cov=result_companion tests/unittests
-#
-#      - name: Run isort check
-#        run: poetry run isort --check --profile black .
-#
-#      - name: Run Black check
-#        run: poetry run black --check .
-#
+        run: poetry run pytest --cov=result_companion
+
+# TODO: set it up together with Milosz :-)
 #      - name: Run unit tests with coverage
-#        run: poetry run pytest --cov=result_companion --cov-report=xml --cov-fail-under=$(cat .coverage_threshold || echo 0)
+#        run: poetry run pytest --cov=result_companion --cov-report=xml --cov-fail-under=$(cat .coverage_threshold || echo 0) tests/unittests
 #
 #      - name: Upload coverage report
 #        uses: codecov/codecov-action@v3

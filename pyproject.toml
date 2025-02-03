@@ -26,9 +26,9 @@ markdown = "^3.7"
 result-companion = "result_companion.cli.cli_app:app"
 
 [tool.poetry.group.dev.dependencies]
-black = "^24.10.0"
+black = "25.1.0"
 flake8 = "^7.1.1"
-isort = "^5.13.2"
+isort = "6.0.0"
 mypy = "^1.13.0"
 pytest = "^8.3.3"
 invoke = "^2.2.0"

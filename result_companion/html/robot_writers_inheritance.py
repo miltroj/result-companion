@@ -1,15 +1,14 @@
-from robot.reporting.resultwriter import Results
-from robot.api import ExecutionResult
-from robot.reporting.resultwriter import ResultWriter
-from robot.conf import RebotSettings
-from robot.reporting.logreportwriters import LogWriter
 from pathlib import Path
+from unittest.mock import patch
+
+from robot.api import ExecutionResult
+from robot.conf import RebotSettings
 from robot.htmldata import (
     HtmlFileWriter,
 )
+from robot.reporting.logreportwriters import LogWriter, RobotModelWriter
+from robot.reporting.resultwriter import Results, ResultWriter
 from robot.utils import file_writer
-from robot.reporting.logreportwriters import RobotModelWriter
-from unittest.mock import patch
 
 LLM_LOG = Path(__file__).parent / "templates" / "llm_template.html"
 

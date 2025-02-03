@@ -113,7 +113,22 @@ async def test_splitting_into_chunks_and_accumulatiing_summary_results() -> None
     result = await accumulate_llm_results_for_summarizaton_chain(
         test_case, question_prompt, chain, chunking_strategy, fake_llm
     )
-    expected_chunks = ["{'nam", "e':", "'chu", 'nking', '_test', '_case', '_name', "',", "'con", "tent'", ':', "'aaa", 'aaaaa', "aa'}"]
+    expected_chunks = [
+        "{'nam",
+        "e':",
+        "'chu",
+        "nking",
+        "_test",
+        "_case",
+        "_name",
+        "',",
+        "'con",
+        "tent'",
+        ":",
+        "'aaa",
+        "aaaaa",
+        "aa'}",
+    ]
 
     assert result == ("final summary", "chunking_test_case_name", expected_chunks)
     # add assert for the number of api calls
