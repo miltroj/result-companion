@@ -27,14 +27,23 @@ To install Result Companion, follow these steps:
 1. Install [Poetry](https://python-poetry.org/docs/#installation) for managing dependencies and virtual environments.
    
    If you don't have Poetry installed, you can install it via:
-   ```bash
-   curl -sSL https://install.python-poetry.org | python3 -
-   ```
+    ```bash
+    curl -sSL https://install.python-poetry.org | python3 -
+    ```
 2. Install the required dependencies with Poetry:
     ```bash
-   python -m poetry install --with=dev
-   ```
+    python -m poetry install --with=dev
+    ```
    This will create a virtual environment and install all the necessary dependencies for the Result Companion project.
+3. Install pre-commit:
+    ```bash
+    poetry run pre-commit install
+    ```
+   To run on all files:
+    ```bash
+    poetry run pre-commit run --all-files --verbose
+    ```
+   
 
 ### Local Model Installation
 To use the **Deepseer-r1** model locally, follow these steps:

@@ -10,7 +10,6 @@ from result_companion.entrypoints.run_rc import (
     init_llm_with_strategy_factory,
     run_rc,
 )
-from result_companion.utils.log_levels import LogLevels
 from result_companion.parsers.config import (
     DefaultConfigModel,
     LLMConfigModel,
@@ -20,6 +19,7 @@ from result_companion.parsers.config import (
     TokenizerModel,
     TokenizerTypes,
 )
+from result_companion.utils.log_levels import LogLevels
 
 
 def test_init_llm_model_without_setup_strategy():

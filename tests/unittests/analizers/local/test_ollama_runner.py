@@ -1,6 +1,11 @@
-from result_companion.analizers.local.ollama_runner import check_ollama_installed, start_ollama_server
 import sys
+
 import pytest
+
+from result_companion.analizers.local.ollama_runner import (
+    check_ollama_installed,
+    start_ollama_server,
+)
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Test not applicable on Windows")

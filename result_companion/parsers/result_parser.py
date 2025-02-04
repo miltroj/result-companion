@@ -1,4 +1,5 @@
 from pathlib import Path
+
 from robot.api import ExecutionResult, ResultVisitor
 
 from result_companion.utils.log_levels import LogLevels

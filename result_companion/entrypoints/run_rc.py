@@ -18,8 +18,8 @@ from result_companion.parsers.result_parser import get_robot_results_from_file_a
 from result_companion.utils.log_levels import LogLevels
 from result_companion.utils.logging_config import (
     log_uncaught_exceptions,
-    set_global_log_level,
     logger,
+    set_global_log_level,
 )
 
 log_uncaught_exceptions(logger)

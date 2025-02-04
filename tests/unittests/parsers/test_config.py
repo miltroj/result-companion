@@ -1,15 +1,17 @@
+from pathlib import Path
+from unittest.mock import mock_open
+
+import pytest
+from pydantic import ValidationError
+from pytest_mock import MockerFixture
+
 from result_companion.parsers.config import (
     ConfigLoader,
     DefaultConfigModel,
-    LLMInitStrategyModel,
     LLMFactoryModel,
+    LLMInitStrategyModel,
     TokenizerModel,
 )
-from pathlib import Path
-from pytest_mock import MockerFixture
-import pytest
-from pydantic import ValidationError
-from unittest.mock import mock_open
 
 prompt_template = {"prompt_template": "{question} {cotext}"}
 
@@ -26,9 +28,7 @@ def test_load_default_config(mocker: MockerFixture) -> None:
     )
     mocker.patch("builtins.open", mock_data)
 
-    config = ConfigLoader(
-        default_config_file="default_config.yaml"
-    ).load_config()
+    config = ConfigLoader(default_config_file="default_config.yaml").load_config()
     assert config.llm_config.question_prompt == "Test prompt message."
     assert config.llm_config.prompt_template == "question context"
     assert config.version == 1.0
@@ -39,9 +39,9 @@ def test_reading_existing_user_config_not_default(mocker: MockerFixture) -> None
         read_data="version: 1.0\nllm_config:\n  question_prompt: User config.\n  prompt_template: question context\nllm_factory:\n  model_type: local_model\n  parameters: {}\ntokenizer:\n  ollama:\n  tokenizer: ollama_tokenizer\n  max_content_tokens: 1234"
     )
     mocker.patch("builtins.open", mock_data)
-    config = ConfigLoader(
-        default_config_file="default_config.yaml"
-    ).load_config("mocked_user_config.yaml")
+    config = ConfigLoader(default_config_file="default_config.yaml").load_config(
+        "mocked_user_config.yaml"
+    )
     assert config.llm_config.question_prompt == "User config."
     assert config.llm_config.prompt_template == "question context"
     assert config.version == 1.0
@@ -74,7 +74,13 @@ def test_default_config_model_drops_redundant_parameters() -> None:
         },
         redundant="redundant",
         **{"llm_factory": {"model_type": "local", "parameters": {}}},
-        **{"tokenizer": {"tokenizer": "ollama_tokenizer", "max_content_tokens": 1234, "redundant": "redundant"}}
+        **{
+            "tokenizer": {
+                "tokenizer": "ollama_tokenizer",
+                "max_content_tokens": 1234,
+                "redundant": "redundant",
+            }
+        }
     )
     assert config.llm_config.question_prompt == "Test prompt message."
     assert config.llm_config.prompt_template == "{question} {cotext}"
@@ -129,9 +135,7 @@ def test_user_llm_config_takes_precedense_over_default(mocker):
     mocker.patch("builtins.open", mock_open_instance)
 
     # Load the config using the mocked file contents
-    config_loader = ConfigLoader(
-        default_config_file=Path("default_config.yaml")
-    )
+    config_loader = ConfigLoader(default_config_file=Path("default_config.yaml"))
     config = config_loader.load_config(user_config_file=Path("user_config.yaml"))
 
     # Check that the user config takes precedence over the default config
