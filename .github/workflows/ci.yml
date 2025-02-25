@@ -49,25 +49,23 @@ jobs:
       - name: Run unit tests
         run: poetry run pytest -vv tests/unittests/
 
-      - name: Run coverage
-        run: poetry run pytest --cov=result_companion
+      - name: Run unit tests with coverage
+        run: poetry run pytest --cov=result_companion --cov-report=xml --cov-fail-under=$(cat .coverage_threshold || echo 0) tests/unittests
 
-# TODO: set it up together with Milosz :-)
-#      - name: Run unit tests with coverage
-#        run: poetry run pytest --cov=result_companion --cov-report=xml --cov-fail-under=$(cat .coverage_threshold || echo 0) tests/unittests
-#
-#      - name: Upload coverage report
-#        uses: codecov/codecov-action@v3
-#        with:
-#          files: coverage.xml
-#          fail_ci_if_error: true
-#
-#      - name: Check coverage threshold
-#        run: |
-#          COVERAGE=$(poetry run coverage report | grep TOTAL | awk '{print $NF}' | sed 's/%//')
-#          PREV_COVERAGE=$(cat .coverage_threshold || echo 0)
-#          if (( $(echo "$COVERAGE < $PREV_COVERAGE" | bc -l) )); then
-#            echo "Coverage decreased! Previous: $PREV_COVERAGE%, Current: $COVERAGE%"
-#            exit 1
-#          fi
-#          echo $COVERAGE > .coverage_threshold
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v3
+        with:
+          files: coverage.xml
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: miltroj/result-companion
+
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(poetry run coverage report | grep TOTAL | awk '{print $NF}' | sed 's/%//')
+          PREV_COVERAGE=$(cat .coverage_threshold || echo 0)
+          if (( $(echo "$COVERAGE < $PREV_COVERAGE" | bc -l) )); then
+            echo "Coverage decreased! Previous: $PREV_COVERAGE%, Current: $COVERAGE%"
+            exit 1
+          fi
+          echo $COVERAGE > .coverage_threshold
