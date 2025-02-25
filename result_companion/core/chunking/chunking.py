@@ -7,9 +7,9 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableSerializable
 
-from result_companion.analizers.models import MODELS
-from result_companion.chunking.utils import Chunking
-from result_companion.utils.logging_config import logger
+from result_companion.core.analizers.models import MODELS
+from result_companion.core.chunking.utils import Chunking
+from result_companion.core.utils.logging_config import logger
 
 
 def build_sumarization_chain(

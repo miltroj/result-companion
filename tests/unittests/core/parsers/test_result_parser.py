@@ -1,4 +1,4 @@
-from result_companion.parsers.result_parser import (
+from result_companion.core.parsers.result_parser import (
     remove_redundant_fields,
     search_for_test_caseses,
 )

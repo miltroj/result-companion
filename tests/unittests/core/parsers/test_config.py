@@ -5,7 +5,7 @@ import pytest
 from pydantic import ValidationError
 from pytest_mock import MockerFixture
 
-from result_companion.parsers.config import (
+from result_companion.core.parsers.config import (
     ConfigLoader,
     DefaultConfigModel,
     LLMFactoryModel,

@@ -1,11 +1,12 @@
 import pytest
 
-from result_companion.analizers.common import run_llm_based_analysis_and_stream_results
+from result_companion.core.analizers.common import (
+    run_llm_based_analysis_and_stream_results,
+)
 
 
 @pytest.mark.asyncio
 async def test_run_llm_based_analysis_and_stream_results():
-
     class TestAsyncGenerator:
         def __init__(self, responses):
             self.responses = responses

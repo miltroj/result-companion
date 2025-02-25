@@ -9,14 +9,16 @@ from langchain_ollama.llms import OllamaLLM
 from langchain_openai import AzureChatOpenAI
 from pydantic import ValidationError
 
-from result_companion.analizers.factory_common import execute_llm_and_get_results
-from result_companion.analizers.local.ollama_runner import ollama_on_init_strategy
-from result_companion.analizers.models import MODELS
-from result_companion.html.html_creator import create_llm_html_log
-from result_companion.parsers.config import LLMFactoryModel, load_config
-from result_companion.parsers.result_parser import get_robot_results_from_file_as_dict
-from result_companion.utils.log_levels import LogLevels
-from result_companion.utils.logging_config import (
+from result_companion.core.analizers.factory_common import execute_llm_and_get_results
+from result_companion.core.analizers.local.ollama_runner import ollama_on_init_strategy
+from result_companion.core.analizers.models import MODELS
+from result_companion.core.html.html_creator import create_llm_html_log
+from result_companion.core.parsers.config import LLMFactoryModel, load_config
+from result_companion.core.parsers.result_parser import (
+    get_robot_results_from_file_as_dict,
+)
+from result_companion.core.utils.log_levels import LogLevels
+from result_companion.core.utils.logging_config import (
     log_uncaught_exceptions,
     logger,
     set_global_log_level,

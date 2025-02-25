@@ -3,9 +3,7 @@ from unittest.mock import patch
 
 from robot.api import ExecutionResult
 from robot.conf import RebotSettings
-from robot.htmldata import (
-    HtmlFileWriter,
-)
+from robot.htmldata import HtmlFileWriter
 from robot.reporting.logreportwriters import LogWriter, RobotModelWriter
 from robot.reporting.resultwriter import Results, ResultWriter
 from robot.utils import file_writer
@@ -14,7 +12,6 @@ LLM_LOG = Path(__file__).parent / "templates" / "llm_template.html"
 
 
 class LLMHtmlTemplate:  # HtmlTemplate
-
     def __init__(self, path):
         self._path = path
 
@@ -25,7 +22,6 @@ class LLMHtmlTemplate:  # HtmlTemplate
 
 
 class LLMHtmlFileWriter(HtmlFileWriter):
-
     def __init__(self, output, model_writer):
         super().__init__(output, model_writer)
 
