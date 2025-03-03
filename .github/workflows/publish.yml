@@ -1,0 +1,40 @@
+name: Publish Package to Test PyPI
+
+# on:
+#   push:
+#     tags:
+#       - 'v*.*.*'  # Trigger on version tags like v1.2.3
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'  # Adjust as needed
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          # Ensure poetry is available on PATH:
+          echo "${HOME}/.local/bin" >> $GITHUB_PATH
+
+      - name: Configure Poetry for Test PyPI
+        run: |
+          # Set Test PyPI as a repository
+          poetry config repositories.testpypi https://test.pypi.org/legacy/
+          # Configure the API token from GitHub Secrets
+          poetry config pypi-token.testpypi ${{ secrets.TEST_PYPI_TOKEN }}
+
+      - name: Build and Publish to Test PyPI
+        run: poetry publish -r testpypi --build
+
+      - name: Test Package Installation
+        run: |
+          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ result-companion
+          # Run your test command here, e.g.:
+          result-companion --help
