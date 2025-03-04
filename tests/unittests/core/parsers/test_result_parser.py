@@ -1,5 +1,4 @@
 from result_companion.core.parsers.result_parser import (
-    add_unique_sufix_for_test_cases_with_duplicated_names,
     remove_redundant_fields,
     search_for_test_caseses,
 )
@@ -207,21 +206,3 @@ def test_removing_redundant_fields():
         "name": "Ollama Local Model Run Should Succede",
         "status": "FAIL",
     }
-
-
-def test_adding_unique_sufix_to_test_cases_with_duplicated_names():
-    data = [
-        {"name": "Test Case 1"},
-        {"name": "Test Case 1"},
-        {"name": "Test Case 2"},
-        {"name": "Test Case 2"},
-        {"name": "Unique Name"},
-    ]
-    result = add_unique_sufix_for_test_cases_with_duplicated_names(
-        data, random_sufix="123"
-    )
-    assert result[0] == {"name": "Test Case 1_123"}
-    assert result[1] == {"name": "Test Case 1_123"}
-    assert result[2] == {"name": "Test Case 2_123"}
-    assert result[3] == {"name": "Test Case 2_123"}
-    assert result[4] == {"name": "Unique Name"}

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import markdown
 
-from result_companion.core.html.robot_writers_inheritance import (
+from result_companion.core.html.result_writer import (
     create_base_llm_result_log,
 )
 
