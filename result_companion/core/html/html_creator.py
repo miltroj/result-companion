@@ -2,9 +2,7 @@ from pathlib import Path
 
 import markdown
 
-from result_companion.core.html.result_writer import (
-    create_base_llm_result_log,
-)
+from result_companion.core.html.result_writer import create_base_llm_result_log
 
 
 def _escape_multilines_in_html(html: str) -> str:
