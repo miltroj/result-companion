@@ -8,6 +8,8 @@ from robot.reporting.logreportwriters import LogWriter, RobotModelWriter
 from robot.reporting.resultwriter import Results, ResultWriter
 from robot.utils import file_writer
 
+from result_companion.core.results.visitors import UniqueNameResultVisitor
+
 LLM_LOG = Path(__file__).parent / "templates" / "llm_template.html"
 
 
@@ -74,6 +76,7 @@ def create_base_llm_result_log(
     input_result_path: "Path|str", llm_output_path: "Path|str"
 ):
     results = ExecutionResult(input_result_path)
+    results.visit(UniqueNameResultVisitor())
     writer = LLMResultWriter(results)
     with patch("robot.htmldata.htmlfilewriter.HtmlTemplate", new=LLMHtmlTemplate):
         writer.write_results(report=None, log=llm_output_path, xunit=None)

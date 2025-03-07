@@ -1,7 +1,8 @@
 from pathlib import Path
 
-from robot.api import ExecutionResult, ResultVisitor
+from robot.api import ExecutionResult
 
+from result_companion.core.results.visitors import UniqueNameResultVisitor
 from result_companion.core.utils.log_levels import LogLevels
 from result_companion.core.utils.logging_config import logger
 
@@ -66,7 +67,7 @@ def get_robot_results_from_file_as_dict(
 ) -> list[dict]:
     logger.debug(f"Getting robot results from {file_path}")
     result = ExecutionResult(file_path)
-    result.visit(ResultVisitor())
+    result.visit(UniqueNameResultVisitor())
     all_results = result.suite.to_dict()
     all_results = search_for_test_caseses(all_results)
     all_results = remove_redundant_fields(all_results)
