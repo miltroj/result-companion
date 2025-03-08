@@ -9,6 +9,20 @@ from result_companion.entrypoints.run_rc import run_rc
 app = typer.Typer(context_settings={"obj": {"main": run_rc}})
 
 
+try:
+    from importlib.metadata import version as get_version
+except ImportError:
+    from importlib_metadata import version as get_version
+
+VERSION = get_version("result-companion")
+
+
+def version_callback(value: bool):
+    if value:
+        typer.echo(f"result-companion version: {VERSION}")
+        raise typer.Exit()
+
+
 @app.command()
 def main(
     output: Path = typer.Option(
@@ -43,6 +57,14 @@ def main(
     ),
     include_passing: bool = typer.Option(
         False, "-i", "--include-passing", help="Include PASS test cases"
+    ),
+    version: Optional[bool] = typer.Option(
+        None,
+        "--version",
+        "-v",
+        help="Show the version and exit",
+        callback=version_callback,
+        is_eager=True,
     ),
     _main_func: typer.Context = run_rc,
 ):
