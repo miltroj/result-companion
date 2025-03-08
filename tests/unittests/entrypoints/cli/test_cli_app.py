@@ -58,3 +58,9 @@ def test_cli_calls_main_function():
     assert "Report: " in result.output
     assert "Include Passing: " in result.output
     assert "RUNNING MAIN" in result.output
+
+
+def test_cli_version():
+    result = runner.invoke(app, ["--version"], obj={})
+    assert result.exit_code == 0
+    assert "result-companion version:" in result.output
