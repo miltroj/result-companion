@@ -1,33 +1,12 @@
 import json
 from pathlib import Path
 
-import markdown
-
 from result_companion.core.html.result_writer import create_base_llm_result_log
 
 
-def transform_llm_response(response: str) -> str:
-    """
-    Convert markdown response to HTML.
-    Additional sanitization (using, e.g., bleach) can be added here.
-    """
-    html_content = markdown.markdown(response)
-    return html_content
-
-
 def append_llm_js_mappings(test_llm_results: dict, path: str) -> None:
-    """
-    Append LLM responses as a JavaScript mapping to the given HTML file.
-    Each LLM response is first transformed and then safely serialized to JSON.
-    """
-    # Transform each LLM response (e.g., markdown -> HTML)
-    transformed_results = {
-        # test_name: transform_llm_response(response)
-        test_name: response
-        for test_name, response in test_llm_results.items()
-    }
     # Serialize the mapping to a JSON string ensuring proper escaping.
-    js_object = json.dumps(transformed_results)
+    js_object = json.dumps(test_llm_results)
     # Build the script template. Using json.dumps ensures valid JS syntax.
     template = (
         '\n<script type="text/javascript">\n'
