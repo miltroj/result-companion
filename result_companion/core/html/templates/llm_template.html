@@ -36,6 +36,12 @@
   </ul>
 </div>
 <script type="text/javascript">removeJavaScriptDisabledWarning();</script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script type="text/javascript">
+function markdownToHtml(markdownText) {
+    return marked.parse(markdownText);
+}
+</script>
 <div id="header"></div>
 <div id="statistics-container"></div>
 
@@ -301,7 +307,8 @@ function addExecutionLog(main) {
       <h3>LLM Response</h3>
       <button class="toggle-button">+</button>
       <div class="llm-message" style="display: none;">
-          <p>{{html llm_message }}</p>
+        <p>{{html markdownToHtml(llm_message)}}</p>
+        <!-- <p>{{html llm_message}}</p> -->
       </div>
   </div>
   </div>
