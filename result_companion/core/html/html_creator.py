@@ -1,31 +1,20 @@
+import json
 from pathlib import Path
-
-import markdown
 
 from result_companion.core.html.result_writer import create_base_llm_result_log
 
 
-def _escape_multilines_in_html(html: str) -> str:
-    return html.replace("\n", "<br>").replace('"', '\\"')
-
-
 def append_llm_js_mappings(test_llm_results: dict, path: str) -> None:
-    final_response = "\n".join(
-        [
-            f'"{test_name}": "{markdown.markdown(_escape_multilines_in_html(response))}",'
-            for test_name, response in test_llm_results.items()
-        ]
-    )
-
+    # Serialize the mapping to a JSON string ensuring proper escaping.
+    js_object = json.dumps(test_llm_results)
+    # Build the script template. Using json.dumps ensures valid JS syntax.
     template = (
-        '\n<script type="text/javascript">'
-        + 'window.output["llm_msgs"] = '
-        + "{"
-        + final_response
-        + "}"
-        + "</script>"
+        '\n<script type="text/javascript">\n'
+        "window.output = window.output || {};\n"
+        f"window.output.llm_msgs = {js_object};\n"
+        "</script>\n"
     )
-    with open(path, "a+") as f:
+    with open(path, "a+", encoding="utf-8") as f:
         f.write(template)
 
 
@@ -38,7 +27,8 @@ def create_llm_html_log(
 
 if __name__ == "__main__":
     # TODO: remove this test code
-
+    REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+    input_result_path = REPO_ROOT / ".." / "examples" / "run_test" / "output.xml"
     multiline_another = """**General Idea Behind Test Case**
 This test case is designed to execute a SQL query on a database and validate the results.
 
@@ -58,16 +48,20 @@ The root cause of the failure is that the database connection string is invalid,
 * Verify that the provided connection string is correct and properly formatted.
 * Use a valid and existing database connection string for testing purposes.
 * Consider using environment variables or configuration files to store sensitive information like database credentials, making it easier to manage and rotate them.
+
+```python
+import os
+os.environ["DB_CONNECTION_STRING"] = "valid_connection_string"
+```
 """
 
     multiline_html_response = """<div> something here </div>
                                     <div> deeper something here </div>"""  # .replace("\n", " \\ \n")
     create_llm_html_log(
-        input_result_path=r"D:\Repozytoria\result-companion\output.xml",
+        input_result_path=input_result_path,
         llm_results={
-            "Execute Another Sql Query And Validate Results": "response1",
-            "Test Pydantic Validation": multiline_html_response,
-            "Execute Sql Query And Validate Results": multiline_another,
+            "Test Neasted Test Case": multiline_html_response,
+            "Ollama Local Model Run Should Succede": multiline_another,
         },
         llm_output_path="test_llm_full_log.html",
     )
