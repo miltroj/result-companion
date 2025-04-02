@@ -76,6 +76,42 @@ def auto_install_ollama(
     return True
 
 
+def auto_install_model(
+    model_name: str,
+    installation_cmd: list = ["ollama", "install"],
+    ollama_list_cmd: list = ["ollama", "list"],
+) -> bool:
+    """
+    Automatically install the specified model into Ollama.
+    Returns True if installation is successful, or raises an Exception.
+    """
+    try:
+        check_model_installed(model_name=model_name, ollama_list_cmd=ollama_list_cmd)
+        logger.info(f"Model '{model_name}' is already installed.")
+        return True
+    except Exception:
+        logger.warning(f"Model '{model_name}' not found. Attempting to install...")
+
+    try:
+        cmd = installation_cmd + [model_name]
+        logger.info(f"Installing model '{model_name}' with command: {' '.join(cmd)}")
+        subprocess.run(cmd, check=True)
+    except Exception as e:
+        raise Exception(
+            f"Automatic installation of model '{model_name}' failed. Please install it manually."
+        ) from e
+
+    try:
+        check_model_installed(model_name=model_name, ollama_list_cmd=ollama_list_cmd)
+    except Exception as e:
+        raise Exception(
+            f"Model '{model_name}' installation did not complete successfully."
+        ) from e
+
+    logger.info(f"Model '{model_name}' installed successfully!")
+    return True
+
+
 def ollama_on_init_strategy(model_name: str, *args, **kwargs) -> None:
     check_ollama_installed()
     check_model_installed(model_name=model_name)
