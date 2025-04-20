@@ -37,18 +37,18 @@ def check_model_installed(
         result = subprocess.run(
             ollama_list_cmd, capture_output=True, text=True, check=True
         )
-        if not any(
-            line.startswith(f"{model_name}:") or line.startswith(f"{model_name} ")
-            for line in result.stdout.splitlines()
-        ):
-            raise OllamaModelNotAvailable(
-                f"Model '{model_name}' is not installed in Ollama. Run `ollama pull {model_name}`."
-            )
-        logger.debug(f"Model '{model_name}' is installed.")
-    except Exception as exc:
-        raise Exception(
-            f"Failed to check if model '{model_name}' is installed: {exc}"
+    except subprocess.CalledProcessError as exc:
+        raise OllamaServerNotRunning(
+            f"'ollama list' command failed with error code {exc.returncode}: {exc.stderr}"
         ) from exc
+    if not any(
+        line.startswith(f"{model_name}:") or line.startswith(f"{model_name} ")
+        for line in result.stdout.splitlines()
+    ):
+        raise OllamaModelNotAvailable(
+            f"Model '{model_name}' is not installed in Ollama. Run `ollama pull {model_name}`."
+        )
+    logger.debug(f"Model '{model_name}' is installed.")
 
 
 def ollama_on_init_strategy(

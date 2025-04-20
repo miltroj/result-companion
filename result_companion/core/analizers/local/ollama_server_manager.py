@@ -21,11 +21,13 @@ class OllamaServerManager:
         server_url: str = "http://localhost:11434",
         start_timeout: int = 30,
         wait_for_start: int = 1,
+        start_cmd: list = ["ollama", "serve"],
     ):
         self.server_url = server_url
         self.start_timeout = start_timeout
         self._process = None
         self.wait_for_start = wait_for_start
+        self.start_cmd = start_cmd
         atexit.register(self.cleanup)
 
     def is_running(self, skip_logs: bool = False) -> bool:
@@ -54,7 +56,7 @@ class OllamaServerManager:
         logger.info("Ollama server is not running. Attempting to start it...")
         try:
             self._process = subprocess.Popen(
-                ["ollama", "serve"],
+                self.start_cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )

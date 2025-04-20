@@ -87,7 +87,11 @@ def test_start_not_installed(monkeypatch):
     def fake_popen(cmd, stdout, stderr):
         raise FileNotFoundError("Command not found")
 
+    def fake_get(url, timeout):
+        return DummyResponse(status_code=400, text="Ollama is not running")
+
     monkeypatch.setattr(subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(requests, "get", fake_get)
 
     manager = OllamaServerManager(server_url="http://localhost:11434")
     with pytest.raises(OllamaNotInstalled):
