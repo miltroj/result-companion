@@ -1,5 +1,7 @@
+import atexit
 import subprocess
 import time
+
 import requests
 
 from result_companion.core.utils.logging_config import logger
@@ -17,20 +19,44 @@ class OllamaModelNotAvailable(Exception):
     """Exception raised when the required Ollama model is not available."""
 
 
+# Global variable to store the Ollama server process
+_ollama_server_process = None
+
+
+def cleanup_ollama_server() -> None:
+    global _ollama_server_process
+    if _ollama_server_process is not None:
+        logger.debug(
+            f"Cleaning up Ollama server process with PID: {_ollama_server_process.pid}"
+        )
+        try:
+            _ollama_server_process.terminate()
+            _ollama_server_process.wait(timeout=5)
+            logger.debug("Ollama server terminated gracefully.")
+        except subprocess.TimeoutExpired:
+            _ollama_server_process.kill()
+            logger.debug("Ollama server killed forcefully.")
+        except Exception as exc:
+            logger.warning(f"Error during Ollama server cleanup: {exc}")
+        _ollama_server_process = None
+
+
+# Register the cleanup function to be called on program exit
+atexit.register(cleanup_ollama_server)
+
+
 def is_ollama_server_running(url: str = "http://localhost:11434") -> bool:
     """Checks if the Ollama server is running."""
+    logger.debug(f"Checking if Ollama server is running at {url}...")
     try:
-        # Use a lightweight endpoint like '/' or '/api/tags'
         response = requests.get(url, timeout=5)
-        # Consider any 2xx or 404 (if '/' isn't a valid endpoint but server is up) as running
-        # Ollama server returns "Ollama is running" on base url
         return response.status_code == 200 and "Ollama is running" in response.text
     except requests.exceptions.RequestException:
         return False
 
 
 def check_ollama_installed(ollama_version_cmd: list = ["ollama", "--version"]) -> None:
-    """Checks if Ollama is installed by running `ollama --version`."""
+    logger.debug("Checking if Ollama is installed...")
     try:
         result = subprocess.run(
             ollama_version_cmd, capture_output=True, text=True, check=True
@@ -46,17 +72,17 @@ def check_ollama_installed(ollama_version_cmd: list = ["ollama", "--version"]) -
         )
     except Exception as exc:
         raise OllamaNotInstalled(f"Failed to check Ollama installation: {exc}") from exc
+    logger.debug("Ollama installation check passed.")
 
 
 def check_model_installed(
     model_name: str, ollama_list_cmd: list = ["ollama", "list"]
 ) -> None:
-    """Checks if the specified model is installed in Ollama."""
+    logger.debug(f"Checking if model '{model_name}' is installed...")
     try:
         result = subprocess.run(
             ollama_list_cmd, capture_output=True, text=True, check=True
         )
-        # Check if the model name appears at the beginning of any line or followed by a tag identifier
         if not any(
             line.startswith(f"{model_name}:") or line.startswith(f"{model_name} ")
             for line in result.stdout.splitlines()
@@ -70,69 +96,63 @@ def check_model_installed(
             "Ollama command not found during model check. Ensure Ollama is installed and in PATH."
         )
     except subprocess.CalledProcessError as exc:
-        # Handle cases where 'ollama list' fails (e.g., server not running, though we check earlier)
         raise OllamaServerNotRunning(
             f"'ollama list' command failed (is the server running?): {exc.stderr}"
         ) from exc
     except OllamaModelNotAvailable:
-        raise  # Re-raise the specific exception
+        raise
     except Exception as exc:
         raise Exception(
             f"Failed to check if model '{model_name}' is installed: {exc}"
         ) from exc
+    logger.debug(
+        f"Ollama initialization strategy complete. Model '{model_name}' is available."
+    )
 
 
 def start_ollama_server(server_url: str, start_timeout: int) -> None:
     """
     Starts the Ollama server, waits for it to become responsive,
     and handles potential errors during startup.
-
-    Args:
-        server_url: The URL where the Ollama server should be accessible.
-        start_timeout: The maximum time (in seconds) to wait for the server to start.
-
-    Raises:
-        OllamaServerNotRunning: If the server fails to start within the timeout.
-        OllamaNotInstalled: If the Ollama command is not found.
     """
+    global _ollama_server_process
     logger.info("Ollama server is not running. Attempting to start it...")
     try:
-        # Use Popen for non-blocking start, but manage the process
-        process = subprocess.Popen(
+        _ollama_server_process = subprocess.Popen(
             ["ollama", "serve"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
-        logger.info(f"Launched 'ollama serve' process with PID: {process.pid}")
+        logger.info(
+            f"Launched 'ollama serve' process with PID: {_ollama_server_process.pid}"
+        )
 
-        # Wait for the server to become responsive
         start_time = time.time()
         server_started = False
         while time.time() - start_time < start_timeout:
             if is_ollama_server_running(server_url):
                 logger.info("Ollama server started successfully.")
                 server_started = True
-                # Give it a tiny bit more time to fully initialize
                 time.sleep(1)
                 break
-            time.sleep(1)  # Poll every second
+            time.sleep(1)
 
         if not server_started:
-            # Try to terminate the process if it didn't start successfully
             try:
-                process.terminate()
-                process.wait(timeout=5)  # Wait for termination
+                _ollama_server_process.terminate()
+                _ollama_server_process.wait(timeout=5)
             except subprocess.TimeoutExpired:
-                process.kill()  # Force kill if terminate times out
+                _ollama_server_process.kill()
             except Exception as kill_exc:
                 logger.warning(
                     f"Could not terminate 'ollama serve' process: {kill_exc}"
                 )
 
-            # Read stderr for potential errors
             stderr_output = ""
             try:
-                stderr_output = process.stderr.read().decode("utf-8", errors="ignore")
+                stderr_output = _ollama_server_process.stderr.read().decode(
+                    "utf-8", errors="ignore"
+                )
             except Exception:
-                pass  # Ignore errors reading stderr if process already dead
+                pass
 
             raise OllamaServerNotRunning(
                 f"Failed to start Ollama server within the {start_timeout}s timeout. Error output from 'ollama serve': {stderr_output.strip()}"
@@ -150,32 +170,20 @@ def start_ollama_server(server_url: str, start_timeout: int) -> None:
 def ollama_on_init_strategy(
     model_name: str, server_url: str = "http://localhost:11434", start_timeout: int = 30
 ) -> None:
-    """
-    Checks if Ollama is installed, if the server is running (starts it if not),
-    and if the specified model is available.
-    """
-    # 1. Check if Ollama CLI is installed
-    logger.debug("Checking if Ollama is installed...")
     check_ollama_installed()
-    logger.debug("Ollama installation check passed.")
 
-    # 2. Check if Ollama server is running
-    logger.debug(f"Checking if Ollama server is running at {server_url}...")
     if not is_ollama_server_running(server_url):
         start_ollama_server(server_url, start_timeout)
     else:
         logger.debug("Ollama server is already running.")
-    # 3. Check if the required model is installed
-    logger.debug(f"Checking if model '{model_name}' is installed...")
+
     check_model_installed(model_name)
-    logger.debug(
-        f"Ollama initialization strategy complete. Model '{model_name}' is available."
-    )
 
 
-# --- Example Usage (Optional, for testing) ---
 if __name__ == "__main__":
     import logging
+
+    from langchain_ollama.llms import OllamaLLM
 
     logging.basicConfig(level=logging.INFO)
     test_model = "deepseek-r1"  # Change to a model you might have/not have
@@ -186,3 +194,11 @@ if __name__ == "__main__":
         print(f"Error: {e}")
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
+
+    # Initialize the model with your local server endpoint
+    model = OllamaLLM(
+        model="deepseek-r1:1.5b",
+    )
+
+    result = model.invoke("Come up with consise interesting fact")
+    print(result)
