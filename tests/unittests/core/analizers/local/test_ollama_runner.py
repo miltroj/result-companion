@@ -1,17 +1,18 @@
-import unittest
-from unittest.mock import patch, MagicMock
-import pytest
 import sys
+import unittest
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from result_companion.core.analizers.local.ollama_runner import (  # Assuming these are in your ollama_runner module
-    ollama_on_init_strategy,
-    check_ollama_installed,
-    is_ollama_server_running,
-    start_ollama_server,
-    check_model_installed,
+    OllamaModelNotAvailable,
     OllamaNotInstalled,
     OllamaServerNotRunning,
-    OllamaModelNotAvailable,
+    check_model_installed,
+    check_ollama_installed,
+    is_ollama_server_running,
+    ollama_on_init_strategy,
+    start_ollama_server,
 )
 
 
@@ -135,20 +136,24 @@ class TestOllamaOnInitStrategy(unittest.TestCase):
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Test not applicable on Windows")
 def test_ollama_is_installed() -> None:
-    assert check_ollama_installed(ollama_version=["echo", "'Installed!'"]) is None
+    assert check_ollama_installed(ollama_version_cmd=["echo", "'Installed!'"]) is None
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Test not applicable on Windows")
 def test_ollama_is_not_installed() -> None:
-    with pytest.raises(Exception, match="Ollama is not installed."):
-        check_ollama_installed(ollama_version=["exit", "1"])
+    with pytest.raises(
+        OllamaNotInstalled,
+        match="Ollama command not found. Please ensure Ollama is installed and in your PATH.",
+    ):
+        check_ollama_installed(ollama_version_cmd=["exit", "1"])
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Test not applicable on Windows")
 def test_model_is_installed() -> None:
     assert (
         check_model_installed(
-            model_name="llama31", ollama_list_cmd=["echo", "'llama31'"]
+            model_name="Installed_llama31",
+            ollama_list_cmd=["echo", "Installed_llama31:tag1"],
         )
         is None
     )
@@ -157,8 +162,8 @@ def test_model_is_installed() -> None:
 @pytest.mark.skipif(sys.platform == "win32", reason="Test not applicable on Windows")
 def test_model_is_not_installed() -> None:
     with pytest.raises(
-        Exception,
-        match="Failed to check if model is installed: Model not_exisitng_model is not installed.",
+        OllamaModelNotAvailable,
+        match="Model 'not_exisitng_model' is not installed in Ollama. Please run `ollama pull not_exisitng_model`",
     ):
         check_model_installed(
             model_name="not_exisitng_model", ollama_list_cmd=["echo", "'llama31'"]
