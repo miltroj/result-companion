@@ -55,13 +55,26 @@ def ollama_on_init_strategy(
     model_name: str,
     server_url: str = "http://localhost:11434",
     start_timeout: int = 30,
-    server_manager_class: OllamaServerManager = OllamaServerManager,
+    server_manager: "OllamaServerManager" = None,
+    server_manager_class: type = OllamaServerManager,
 ) -> None:
+    """
+    Initialize Ollama by ensuring it is installed, the server is running,
+    and the specified model is available.
+
+    Parameters:
+        model_name (str): Name of the model to check.
+        server_url (str): URL where the server is expected.
+        start_timeout (int): Timeout for starting the server.
+        server_manager (OllamaServerManager, optional): An externally provided server manager.
+        server_manager_class (type): Class used to create a server manager if none is provided.
+    """
     check_ollama_installed()
-    # Create a server manager instance.
-    server_manager = server_manager_class(
-        server_url=server_url, start_timeout=start_timeout
-    )
+    # Use the provided server_manager instance or create one via the given class.
+    if server_manager is None:
+        server_manager = server_manager_class(
+            server_url=server_url, start_timeout=start_timeout
+        )
     if not server_manager.is_running():
         server_manager.start()
     else:

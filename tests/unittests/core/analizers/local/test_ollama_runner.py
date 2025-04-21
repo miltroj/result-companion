@@ -14,7 +14,6 @@ from result_companion.core.analizers.local.ollama_runner import (
 )
 
 
-# Dummy implementations for dependency functions.
 def dummy_check_ollama_installed(*args, **kwargs):
     # Simulate a successful installation check.
     pass
@@ -33,7 +32,6 @@ def dummy_fail_model_installed(*args, **kwargs):
     raise OllamaModelNotAvailable("Dummy: Model not available.")
 
 
-# Fake ServerManager classes to simulate different server behaviors.
 class FakeServerManagerRunning:
     def __init__(self, *args, **kwargs):
         self.started = False
@@ -81,7 +79,6 @@ def test_ollama_on_init_success_already_running(monkeypatch):
         dummy_check_model_installed,
     )
 
-    # Should complete without raising an exception.
     ollama_on_init_strategy(
         "dummy-model", server_manager_class=FakeServerManagerRunning
     )
@@ -97,17 +94,9 @@ def test_ollama_on_init_success_not_running(monkeypatch):
         "result_companion.core.analizers.local.ollama_runner.check_model_installed",
         dummy_check_model_installed,
     )
-    # Override the server manager constructor to return our fake manager.
-    monkeypatch.setattr(
-        "result_companion.core.analizers.local.ollama_runner.OllamaServerManager",
-        lambda *args, **kwargs: fake_manager,
-    )
 
-    ollama_on_init_strategy(
-        "dummy-model", server_manager_class=FakeServerManagerNotRunning
-    )
-    # TODO: fix this test to use the actual server manager
-    # assert fake_manager.started is True
+    ollama_on_init_strategy("dummy-model", server_manager=fake_manager)
+    assert fake_manager.started is True
 
 
 def test_ollama_on_init_fail_not_installed(monkeypatch):
@@ -150,7 +139,6 @@ def test_ollama_on_init_fail_server_start(monkeypatch):
         )
 
 
-# Dummy output to simulate a successful subprocess.run
 class DummyCompletedProcess:
     def __init__(self, stdout):
         self.stdout = stdout
@@ -163,7 +151,6 @@ def test_check_ollama_installed_success(monkeypatch):
 
     monkeypatch.setattr(subprocess, "run", fake_run)
 
-    # Should not raise any exception
     check_ollama_installed()
 
 
@@ -194,11 +181,6 @@ def test_check_ollama_installed_generic_exception(monkeypatch):
         check_ollama_installed()
 
 
-class DummyCompletedProcess:
-    def __init__(self, stdout):
-        self.stdout = stdout
-
-
 def test_check_model_installed_success(monkeypatch):
     """
     Test that check_model_installed passes when the model is found in the output.
@@ -211,7 +193,6 @@ def test_check_model_installed_success(monkeypatch):
 
     monkeypatch.setattr(subprocess, "run", fake_run)
 
-    # Should complete without raising an exception.
     check_model_installed(model_name)
 
 
