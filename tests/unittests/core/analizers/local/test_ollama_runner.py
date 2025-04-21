@@ -129,7 +129,9 @@ def test_ollama_on_init_fail_model_not_available(monkeypatch):
         dummy_fail_model_installed,
     )
     with pytest.raises(OllamaModelNotAvailable):
-        ollama_on_init_strategy("dummy-model")
+        ollama_on_init_strategy(
+            "dummy-model-not-available", server_manager_class=FakeServerManagerRunning
+        )
 
 
 def test_ollama_on_init_fail_server_start(monkeypatch):
