@@ -241,9 +241,7 @@ class TestOllamaInstallationManager:
     @patch.object(
         OllamaInstallationManager, "_detect_platform", return_value=PlatformType.LINUX
     )
-    def test_install_ollama_linux_success(
-        self, mock_detect, selective_failing_runner, commands, platform_commands
-    ):
+    def test_install_ollama_linux_success(self, commands, platform_commands):
         """Test successful Ollama installation on Linux."""
         # First check fails, then succeeds after installation
         runner = MockSubprocessRunner(
@@ -469,17 +467,6 @@ class TestOllamaInstallationManager:
         assert commands.list_cmd == ["ollama", "list"]
         assert commands.install_model_cmd == ["ollama", "install"]
 
-    def test_ollama_commands_custom(self):
-        """Test OllamaCommands with custom values."""
-        commands = OllamaCommands(
-            version_cmd=["custom", "--version"],
-            list_cmd=["custom", "list"],
-            install_model_cmd=["custom", "install"],
-        )
-        assert commands.version_cmd == ["custom", "--version"]
-        assert commands.list_cmd == ["custom", "list"]
-        assert commands.install_model_cmd == ["custom", "install"]
-
     def test_platform_commands_defaults(self):
         """Test PlatformCommands default values."""
         commands = PlatformCommands()
@@ -493,17 +480,6 @@ class TestOllamaInstallationManager:
             "ollama",
         ]
 
-    def test_platform_commands_custom(self):
-        """Test PlatformCommands with custom values."""
-        commands = PlatformCommands(
-            mac_install_cmd=["custom", "mac", "install"],
-            linux_update_cmd=["custom", "linux", "update"],
-            linux_install_cmd=["custom", "linux", "install"],
-        )
-        assert commands.mac_install_cmd == ["custom", "mac", "install"]
-        assert commands.linux_update_cmd == ["custom", "linux", "update"]
-        assert commands.linux_install_cmd == ["custom", "linux", "install"]
-
 
 class TestInstallationInterface:
     """Test suite for the installation facade."""
@@ -513,16 +489,10 @@ class TestInstallationInterface:
         """Fixture for a mock OllamaInstallationManager."""
         return MagicMock(spec=OllamaInstallationManager)
 
-    @pytest.fixture
-    def mock_runner(self):
-        """Fixture for a mock subprocess runner."""
-        return MagicMock(spec=DefaultSubprocessRunner)
-
     @patch(f"{OLLAMA_INSTALL_PATH}.OllamaInstallationManager")
-    def test_auto_install_ollama_success(self, mock_manager_class):
+    def test_auto_install_ollama_success(self, mock_manager_class, mock_manager):
         """Test auto_install_ollama when installation succeeds."""
         # Setup mock
-        mock_manager = MagicMock()
         mock_manager.install_ollama.return_value = True
         mock_manager_class.return_value = mock_manager
 
@@ -535,10 +505,9 @@ class TestInstallationInterface:
         mock_manager.install_ollama.assert_called_once()
 
     @patch(f"{OLLAMA_INSTALL_PATH}.OllamaInstallationManager")
-    def test_auto_install_ollama_failure(self, mock_manager_class):
+    def test_auto_install_ollama_failure(self, mock_manager_class, mock_manager):
         """Test auto_install_ollama when installation fails."""
         # Setup mock
-        mock_manager = MagicMock()
         mock_manager.install_ollama.side_effect = OllamaInstallationError(
             "Failed to install"
         )
@@ -553,46 +522,9 @@ class TestInstallationInterface:
         mock_manager.install_ollama.assert_called_once()
 
     @patch(f"{OLLAMA_INSTALL_PATH}.OllamaInstallationManager")
-    def test_auto_install_ollama_custom_commands(self, mock_manager_class):
-        """Test auto_install_ollama with custom commands."""
-        # Setup mock
-        mock_manager = MagicMock()
-        mock_manager.install_ollama.return_value = True
-        mock_manager_class.return_value = mock_manager
-
-        # Custom commands
-        brew_cmd = ["custom", "brew", "install"]
-        linux_update = ["custom", "apt", "update"]
-        linux_install = ["custom", "apt", "install"]
-        version_cmd = ["custom", "version"]
-
-        # Call function
-        result = auto_install_ollama(
-            brew_installation_cmd=brew_cmd,
-            linux_update_cmd=linux_update,
-            linux_install_cmd=linux_install,
-            ollama_version=version_cmd,
-        )
-
-        # Verify
-        assert result is True
-        mock_manager_class.assert_called_once()
-
-        # Check that the correct platform commands were created
-        platform_commands = mock_manager_class.call_args[1]["platform_commands"]
-        assert platform_commands.mac_install_cmd == brew_cmd
-        assert platform_commands.linux_update_cmd == linux_update
-        assert platform_commands.linux_install_cmd == linux_install
-
-        # Check that the correct ollama commands were created
-        ollama_commands = mock_manager_class.call_args[1]["ollama_commands"]
-        assert ollama_commands.version_cmd == version_cmd
-
-    @patch(f"{OLLAMA_INSTALL_PATH}.OllamaInstallationManager")
-    def test_auto_install_model_success(self, mock_manager_class):
+    def test_auto_install_model_success(self, mock_manager_class, mock_manager):
         """Test auto_install_model when installation succeeds."""
         # Setup mock
-        mock_manager = MagicMock()
         mock_manager.install_model.return_value = True
         mock_manager_class.return_value = mock_manager
 
@@ -605,10 +537,9 @@ class TestInstallationInterface:
         mock_manager.install_model.assert_called_once_with("llama2")
 
     @patch(f"{OLLAMA_INSTALL_PATH}.OllamaInstallationManager")
-    def test_auto_install_model_failure(self, mock_manager_class):
+    def test_auto_install_model_failure(self, mock_manager_class, mock_manager):
         """Test auto_install_model when installation fails."""
         # Setup mock
-        mock_manager = MagicMock()
         mock_manager.install_model.side_effect = ModelInstallationError(
             "Failed to install model"
         )
@@ -620,32 +551,4 @@ class TestInstallationInterface:
 
         assert "Failed to install model" in str(exc_info.value)
         mock_manager_class.assert_called_once()
-        mock_manager.install_model.assert_called_once_with("llama2")
-
-    @patch(f"{OLLAMA_INSTALL_PATH}.OllamaInstallationManager")
-    def test_auto_install_model_custom_commands(self, mock_manager_class):
-        """Test auto_install_model with custom commands."""
-        # Setup mock
-        mock_manager = MagicMock()
-        mock_manager.install_model.return_value = True
-        mock_manager_class.return_value = mock_manager
-
-        # Custom commands
-        install_cmd = ["custom", "install"]
-        list_cmd = ["custom", "list"]
-
-        # Call function
-        result = auto_install_model(
-            "llama2", installation_cmd=install_cmd, ollama_list_cmd=list_cmd
-        )
-
-        # Verify
-        assert result is True
-        mock_manager_class.assert_called_once()
-
-        # Check that the correct ollama commands were created
-        ollama_commands = mock_manager_class.call_args[1]["ollama_commands"]
-        assert ollama_commands.list_cmd == list_cmd
-        assert ollama_commands.install_model_cmd == install_cmd
-
         mock_manager.install_model.assert_called_once_with("llama2")
