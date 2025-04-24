@@ -174,7 +174,6 @@ class OllamaManager:
         """Run command with optional streaming."""
         if stream_output:
             return self._run_with_streaming(cmd)
-        # TOOD: remove this since streaming is always used
         return subprocess.run(cmd, capture_output=True, text=True, check=True)
 
     def _run_with_streaming(self, cmd: List[str]) -> subprocess.CompletedProcess:

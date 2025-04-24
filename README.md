@@ -40,6 +40,7 @@ One of the key features is that users can customize the behavior of the applicat
 - **Customizable Prompts**: Adjust system prompts and parameters to adapt the tool to different needs and expand its capabilities.
 - **Local LLM Model Support**: Primarily tested with the `ollama` package and local LLM models like `deepseek-r1` or `llama3.2`.
 - **Cloud Provider Support**: Compatible with OpenAI, Azure, and other remote LLM API providers.
+- **Enhanced HTML Output**: Generates an enhanced HTML report with expandable sections for better understanding.
 - **Automated Installation**: Built-in commands to automatically install Ollama and required LLM models.
 
 ## Installation
