@@ -4,6 +4,7 @@ from typing import Optional
 import typer
 from click import get_current_context
 
+# Keep the original functions
 from result_companion.core.analizers.local.ollama_install import (
     auto_install_model,
     auto_install_ollama,
@@ -12,7 +13,10 @@ from result_companion.core.utils.log_levels import LogLevels
 from result_companion.core.utils.logging_config import logger
 from result_companion.entrypoints.run_rc import run_rc
 
+# Create separate command groups for better organization
 app = typer.Typer(context_settings={"obj": {"analyze": run_rc}})
+setup_app = typer.Typer(help="Manage Ollama installation and models")
+app.add_typer(setup_app, name="setup")
 
 
 try:
@@ -41,7 +45,7 @@ def main(
     ),
 ):
     """
-    Result Companion CLI.
+    Result Companion CLI - Analyze Robot Framework results with LLM assistance.
     """
     # If no subcommand is provided, show help.
     ctx = get_current_context()
@@ -84,19 +88,80 @@ def analyze(
     include_passing: bool = typer.Option(
         False, "-i", "--include-passing", help="Include PASS test cases"
     ),
-    _main_func: typer.Context = run_rc,
+    # Add model option to specify which model to use for analysis
+    model: str = typer.Option(
+        "llama2", "-m", "--model", help="LLM model to use for analysis"
+    ),
 ):
-    """Test Result Companion - CLI"""
+    """Analyze Robot Framework test results with LLM assistance."""
     typer.echo(f"Output: {output}")
     typer.echo(f"Log Level: {log_level}")
     typer.echo(f"Config: {config}")
     typer.echo(f"Report: {report}")
     typer.echo(f"Include Passing: {include_passing}")
-    run = _main_func.obj.get("rc")
+    typer.echo(f"Model: {model}")
+
+    # Get the run function from context
+    ctx = get_current_context()
+    run = ctx.obj.get("analyze")
     if run:
         run(output, log_level, config, report, include_passing)
 
 
+# Setup commands using the original functions
+@setup_app.command("ollama")
+def setup_ollama(
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Force reinstallation even if already installed",
+    ),
+):
+    """Install Ollama on the local system."""
+    try:
+        typer.echo("Installing Ollama...")
+        auto_install_ollama()
+        typer.echo("Ollama installed successfully!")
+    except Exception as e:
+        typer.echo(f"Error during Ollama installation: {e}")
+        raise typer.Exit(code=1)
+
+
+@setup_app.command("model")
+def setup_model(
+    model_name: str = typer.Argument(..., help="Name of the model to install"),
+):
+    """Install a specific model into Ollama."""
+    try:
+        typer.echo(f"Installing model '{model_name}'...")
+        auto_install_model(model_name)
+        typer.echo(f"Model '{model_name}' installed successfully!")
+    except Exception as e:
+        typer.echo(f"Error installing model '{model_name}': {e}")
+        raise typer.Exit(code=1)
+
+
+# Add a command to list installed models
+@setup_app.command("list-models")
+def list_models():
+    """List all installed Ollama models."""
+    try:
+        import subprocess
+
+        result = subprocess.run(
+            ["ollama", "list"], capture_output=True, text=True, check=True
+        )
+        typer.echo("Installed models:")
+        typer.echo(result.stdout)
+    except subprocess.SubprocessError:
+        typer.echo("Error: Failed to list models. Is Ollama installed?")
+        raise typer.Exit(code=1)
+    except Exception as e:
+        typer.echo(f"Error: {e}")
+        raise typer.Exit(code=1)
+
+
+# Keep the original 'install' command for backward compatibility
 @app.command("install")
 def installer(
     install: bool = typer.Option(
@@ -111,7 +176,9 @@ def installer(
     ),
 ):
     """
-    Manage the local Ollama installation.
+    Manage the local Ollama installation (legacy command).
+
+    Consider using 'setup ollama' and 'setup model' instead.
     """
     if install:
         try:
