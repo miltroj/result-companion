@@ -1,6 +1,7 @@
 import atexit
 import subprocess
 import time
+from typing import Optional
 
 import requests
 
@@ -14,6 +15,13 @@ from result_companion.core.utils.logging_config import logger
 class OllamaServerManager:
     """
     Manages the lifecycle of an Ollama server.
+
+    Can be used as a context manager to ensure proper server initialization and cleanup:
+
+    with OllamaServerManager() as server:
+        # Code that requires the Ollama server to be running
+        ...
+    # Server will be automatically cleaned up when exiting the with block
     """
 
     def __init__(
@@ -25,10 +33,28 @@ class OllamaServerManager:
     ):
         self.server_url = server_url
         self.start_timeout = start_timeout
-        self._process = None
+        self._process: Optional[subprocess.Popen] = None
         self.wait_for_start = wait_for_start
         self.start_cmd = start_cmd
         atexit.register(self.cleanup)
+        self._server_started_by_manager = False
+
+    def __enter__(self):
+        """
+        Context manager entry point. Ensures the server is running before proceeding.
+        """
+        if not self.is_running(skip_logs=True):
+            self.start()
+            self._server_started_by_manager = True
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Context manager exit point. Cleans up the server if it was started by this manager.
+        """
+        if self._server_started_by_manager:
+            self.cleanup()
+        return False  # Propagate any exceptions
 
     def is_running(self, skip_logs: bool = False) -> bool:
         """Checks if the Ollama server is running."""
@@ -47,7 +73,7 @@ class OllamaServerManager:
         Starts the Ollama server if it is not running.
         Raises:
             OllamaNotInstalled: If the 'ollama' command is not found.
-            Exception: If the server fails to start within the timeout.
+            OllamaServerNotRunning: If the server fails to start within the timeout.
         """
         if self.is_running(skip_logs=True):
             logger.debug("Ollama server is already running.")
@@ -97,3 +123,4 @@ class OllamaServerManager:
             except Exception as exc:
                 logger.warning(f"Error during Ollama server cleanup: {exc}")
             self._process = None
+            self._server_started_by_manager = False
