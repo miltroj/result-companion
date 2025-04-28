@@ -1,19 +1,22 @@
+import subprocess
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional, Type, Union
 
 import typer
 from click import get_current_context
 
-# Keep the original functions
 from result_companion.core.analizers.local.ollama_install import (
     auto_install_model,
     auto_install_ollama,
+)
+from result_companion.core.analizers.local.ollama_server_manager import (
+    OllamaServerManager,
+    resolve_server_manager,
 )
 from result_companion.core.utils.log_levels import LogLevels
 from result_companion.core.utils.logging_config import logger
 from result_companion.entrypoints.run_rc import run_rc
 
-# Create separate command groups for better organization
 app = typer.Typer(context_settings={"obj": {"analyze": run_rc}})
 setup_app = typer.Typer(help="Manage Ollama installation and models")
 app.add_typer(setup_app, name="setup")
@@ -141,65 +144,44 @@ def setup_model(
         raise typer.Exit(code=1)
 
 
-# Add a command to list installed models
+def get_installed_models(
+    server_manager=OllamaServerManager, command_runner=subprocess.run
+):
+    """
+    Get a list of installed Ollama models.
+
+    Args:
+        server_manager: OllamaServerManager class or instance
+        command_runner: Function to run commands
+
+    Returns:
+        str: Output showing installed models
+
+    Raises:
+        subprocess.SubprocessError: If the command fails
+    """
+    with resolve_server_manager(server_manager):
+        result = command_runner(
+            ["ollama", "list"], capture_output=True, text=True, check=True
+        )
+    return result.stdout
+
+
+# TODO: write unittests
 @setup_app.command("list-models")
 def list_models():
     """List all installed Ollama models."""
     try:
-        import subprocess
-
-        result = subprocess.run(
-            ["ollama", "list"], capture_output=True, text=True, check=True
-        )
+        output = get_installed_models()
         typer.echo("Installed models:")
-        typer.echo(result.stdout)
+        typer.echo(output)
+        logger.debug(f"Installed models: \n{output}")
     except subprocess.SubprocessError:
         typer.echo("Error: Failed to list models. Is Ollama installed?")
         raise typer.Exit(code=1)
     except Exception as e:
         typer.echo(f"Error: {e}")
         raise typer.Exit(code=1)
-
-
-# Keep the original 'install' command for backward compatibility
-@app.command("install")
-def installer(
-    install: bool = typer.Option(
-        False,
-        "--install-ollama",
-        help="Automatically install Ollama locally if not installed",
-    ),
-    install_model: Optional[str] = typer.Option(
-        None,
-        "--install-model",
-        help="Automatically install the specified LLM model into Ollama",
-    ),
-):
-    """
-    Manage the local Ollama installation (legacy command).
-
-    Consider using 'setup ollama' and 'setup model' instead.
-    """
-    if install:
-        try:
-            typer.echo("Attempting to install Ollama...")
-            auto_install_ollama()
-            logger.debug(f"Auto-installation command: {auto_install_ollama}")
-            typer.echo("Ollama installed successfully!")
-        except Exception as e:
-            typer.echo(f"Error during Ollama installation: {e}")
-            raise typer.Exit(code=1)
-    if install_model:
-        try:
-            typer.echo(f"Attempting to install model '{install_model}' into Ollama...")
-            logger.debug(f"Model installation command: {install_model}")
-            auto_install_model(install_model)
-            typer.echo(f"Model '{install_model}' installed successfully!")
-        except Exception as e:
-            typer.echo(f"Error installing model '{install_model}': {e}")
-            raise typer.Exit(code=1)
-    if not install and not install_model:
-        typer.echo("No action specified. Use --help to see available options.")
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ from result_companion.core.analizers.local.ollama_exceptions import (
 )
 from result_companion.core.analizers.local.ollama_server_manager import (
     OllamaServerManager,
+    resolve_server_manager,
 )
 from result_companion.core.utils.logging_config import logger
 
@@ -83,19 +84,17 @@ def ollama_on_init_strategy(
     """
     check_ollama_installed()
 
-    if isinstance(server_manager, type):
-        server_manager_instance = server_manager(
-            server_url=server_url, start_timeout=start_timeout
-        )
-    else:
-        server_manager_instance = server_manager or OllamaServerManager(
-            server_url=server_url, start_timeout=start_timeout
-        )
+    server_manager_instance = resolve_server_manager(
+        server_manager, server_url=server_url, start_timeout=start_timeout
+    )
 
-    with server_manager_instance:
-        logger.debug(f"Ollama server is confirmed running at {server_url}")
-        check_model_installed(model_name)
-        return server_manager_instance
+    if not server_manager_instance.is_running():
+        server_manager_instance.start()
+    else:
+        logger.debug("Ollama server is already running.")
+    logger.debug(f"Ollama server is confirmed running at {server_url}")
+    check_model_installed(model_name)
+    return server_manager_instance
 
 
 if __name__ == "__main__":
@@ -107,7 +106,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     test_model = "deepseek-r1"  # Change to a model you might have/not have
     try:
-        ollama_on_init_strategy(test_model)
+        server_mnger = ollama_on_init_strategy(test_model)
         print(f"Successfully verified Ollama setup for model: {test_model}")
     except (OllamaNotInstalled, OllamaServerNotRunning, OllamaModelNotAvailable) as e:
         print(f"Error: {e}")
@@ -120,4 +119,5 @@ if __name__ == "__main__":
     )
 
     result = model.invoke("Come up with consise interesting fact")
+    server_mnger.cleanup()
     print(result)

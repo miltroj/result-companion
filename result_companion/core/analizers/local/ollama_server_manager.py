@@ -1,7 +1,7 @@
 import atexit
 import subprocess
 import time
-from typing import Optional
+from typing import Optional, Type, TypeVar, Union, cast
 
 import requests
 
@@ -124,3 +124,25 @@ class OllamaServerManager:
                 logger.warning(f"Error during Ollama server cleanup: {exc}")
             self._process = None
             self._server_started_by_manager = False
+
+
+T = TypeVar("T", bound="OllamaServerManager")
+
+
+# TODO: write unittests
+def resolve_server_manager(server_manager: Union[Optional[T], Type[T]], **kwargs) -> T:
+    """
+    Resolve a server manager parameter that can be either a class or an instance.
+
+    Args:
+        server_manager: Either an OllamaServerManager instance, a subclass of OllamaServerManager,
+                       or None (in which case a default OllamaServerManager will be created).
+        **kwargs: Additional arguments to pass to the constructor if a new instance is created.
+
+    Returns:
+        An instance of OllamaServerManager or one of its subclasses.
+    """
+    if isinstance(server_manager, type):
+        return server_manager(**kwargs)
+
+    return server_manager or OllamaServerManager(**kwargs)
