@@ -399,8 +399,11 @@ class TestOllamaInstallationManager:
             success=True,
             stdout="",
             raise_on_commands={
-                "ollama install": subprocess.CalledProcessError(
-                    1, ["ollama", "install"], "Failed to install model"
+                "ollama pull": subprocess.CalledProcessError(
+                    returncode=1,
+                    cmd=["ollama", "pull"],
+                    output="Failed to install model",
+                    stderr="Failed to install model",
                 )
             },
         )
@@ -465,7 +468,7 @@ class TestOllamaInstallationManager:
         commands = OllamaCommands()
         assert commands.version_cmd == ["ollama", "--version"]
         assert commands.list_cmd == ["ollama", "list"]
-        assert commands.install_model_cmd == ["ollama", "install"]
+        assert commands.install_model_cmd == ["ollama", "pull"]
 
     def test_platform_commands_defaults(self):
         """Test PlatformCommands default values."""

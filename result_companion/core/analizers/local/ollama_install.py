@@ -43,7 +43,7 @@ class OllamaCommands:
         """Set default values if not provided."""
         self.version_cmd = self.version_cmd or ["ollama", "--version"]
         self.list_cmd = self.list_cmd or ["ollama", "list"]
-        self.install_model_cmd = self.install_model_cmd or ["ollama", "install"]
+        self.install_model_cmd = self.install_model_cmd or ["ollama", "pull"]
 
 
 @dataclass
@@ -244,8 +244,9 @@ class OllamaInstallationManager:
             )
             self.subprocess_runner.run(cmd)
         except Exception as e:
+            cli_error = e.stderr.replace("\n", "")
             raise ModelInstallationError(
-                f"Automatic installation of model '{model_name}' failed. Please install it manually."
+                f"Automatic installation of model '{model_name}' failed with error \n{cli_error}. Please install it manually."
             ) from e
 
         if not self.is_model_installed(model_name):
@@ -298,7 +299,7 @@ def auto_install_ollama(
 
 def auto_install_model(
     model_name: str,
-    installation_cmd: List[str] = ["ollama", "install"],
+    installation_cmd: List[str] = ["ollama", "pull"],
     ollama_list_cmd: List[str] = ["ollama", "list"],
 ) -> bool:
     """
@@ -322,7 +323,4 @@ def auto_install_model(
 
     manager = OllamaInstallationManager(ollama_commands=ollama_commands)
 
-    try:
-        return manager.install_model(model_name)
-    except ModelInstallationError as e:
-        raise Exception(str(e)) from e
+    return manager.install_model(model_name)
