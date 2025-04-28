@@ -43,6 +43,15 @@ class FakeServerManagerRunning:
     def start(self):
         self.started = True
 
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # Simulate cleanup
+        pass
+
+    def __enter__(self):
+        if not self.is_running():
+            self.start()
+        return self
+
 
 class FakeServerManagerNotRunning:
     def __init__(self, *args, **kwargs):
@@ -56,6 +65,15 @@ class FakeServerManagerNotRunning:
         # Simulate a successful server start.
         self.started = True
 
+    def __enter__(self):
+        if not self.is_running():
+            self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # Simulate cleanup
+        pass
+
 
 class FakeServerManagerStartFail:
     def __init__(self, *args, **kwargs):
@@ -68,6 +86,13 @@ class FakeServerManagerStartFail:
         # Simulate failure during the start procedure.
         raise Exception("Server start failed.")
 
+    def __enter__(self):
+        self.start()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # Simulate cleanup
+        pass
+
 
 def test_ollama_on_init_success_already_running(monkeypatch):
     monkeypatch.setattr(
@@ -78,10 +103,9 @@ def test_ollama_on_init_success_already_running(monkeypatch):
         "result_companion.core.analizers.local.ollama_runner.check_model_installed",
         dummy_check_model_installed,
     )
-
-    ollama_on_init_strategy(
-        "dummy-model", server_manager_class=FakeServerManagerRunning
-    )
+    manager = FakeServerManagerRunning()
+    ollama_on_init_strategy("dummy-model", server_manager=manager)
+    assert manager.started is False
 
 
 def test_ollama_on_init_success_not_running(monkeypatch):
@@ -119,7 +143,7 @@ def test_ollama_on_init_fail_model_not_available(monkeypatch):
     )
     with pytest.raises(OllamaModelNotAvailable):
         ollama_on_init_strategy(
-            "dummy-model-not-available", server_manager_class=FakeServerManagerRunning
+            "dummy-model-not-available", server_manager=FakeServerManagerRunning()
         )
 
 
@@ -135,7 +159,7 @@ def test_ollama_on_init_fail_server_start(monkeypatch):
 
     with pytest.raises(Exception, match="Server start failed"):
         ollama_on_init_strategy(
-            "dummy-model", server_manager_class=FakeServerManagerStartFail
+            "dummy-model", server_manager=FakeServerManagerStartFail()
         )
 
 
