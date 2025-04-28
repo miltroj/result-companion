@@ -1,6 +1,6 @@
 import subprocess
 from pathlib import Path
-from typing import Callable, Optional, Type, Union
+from typing import List, Optional
 
 import typer
 from click import get_current_context
@@ -8,6 +8,9 @@ from click import get_current_context
 from result_companion.core.analizers.local.ollama_install import (
     auto_install_model,
     auto_install_ollama,
+)
+from result_companion.core.analizers.local.ollama_runner import (
+    check_ollama_installed,
 )
 from result_companion.core.analizers.local.ollama_server_manager import (
     OllamaServerManager,
@@ -130,6 +133,47 @@ def setup_ollama(
         raise typer.Exit(code=1)
 
 
+# TODO: write unittests
+def install_ollama_model(
+    model_name: str,
+    server_manager=OllamaServerManager,
+    installation_cmd: List[str] = ["ollama", "pull"],
+    ollama_list_cmd: List[str] = ["ollama", "list"],
+) -> bool:
+    """
+    Install a specific Ollama model, ensuring the server is running.
+
+    Args:
+        model_name: Name of the model to install
+        server_manager: OllamaServerManager class or instance
+        installation_cmd: Command to install models
+        ollama_list_cmd: Command to list installed models
+
+    Returns:
+        bool: True if installation is successful
+
+    Raises:
+        Exception: If installation fails or server cannot start
+    """
+    check_ollama_installed()
+
+    with resolve_server_manager(server_manager):
+        logger.info(f"Installing model '{model_name}'...")
+
+        success = auto_install_model(
+            model_name=model_name,
+            installation_cmd=installation_cmd,
+            ollama_list_cmd=ollama_list_cmd,
+        )
+
+        if success:
+            logger.info(f"Model '{model_name}' installed successfully")
+            return success
+        logger.error(f"Failed to install model '{model_name}'")
+        raise Exception(f"Failed to install model '{model_name}'")
+
+
+# TODO: write unittests
 @setup_app.command("model")
 def setup_model(
     model_name: str = typer.Argument(..., help="Name of the model to install"),
@@ -137,10 +181,13 @@ def setup_model(
     """Install a specific model into Ollama."""
     try:
         typer.echo(f"Installing model '{model_name}'...")
-        auto_install_model(model_name)
+
+        install_ollama_model(model_name)
+
         typer.echo(f"Model '{model_name}' installed successfully!")
     except Exception as e:
         typer.echo(f"Error installing model '{model_name}': {e}")
+        logger.error(f"Model installation failed: {e}", exc_info=True)
         raise typer.Exit(code=1)
 
 
