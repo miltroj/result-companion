@@ -13,6 +13,7 @@ from result_companion.core.analizers.local.ollama_server_manager import (
 from result_companion.core.utils.logging_config import logger
 
 
+# TODO: move to different location > ollama_install
 def check_ollama_installed(ollama_version_cmd: list = ["ollama", "--version"]) -> None:
     logger.debug("Checking if Ollama is installed...")
     try:
