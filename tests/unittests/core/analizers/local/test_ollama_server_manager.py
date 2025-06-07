@@ -198,14 +198,24 @@ class TestContextManager:
             assert ctx is manager
 
     @patch.object(OllamaServerManager, "cleanup")
-    def test_exit_calls_cleanup(self, mock_cleanup, server_url):
+    @patch.object(OllamaServerManager, "start")
+    def test_exit_calls_cleanup(
+        self, mock_cleanup, mock_start, server_url, monkeypatch, dummy_process
+    ):
         """Test that __exit__ calls cleanup()."""
         manager = OllamaServerManager(server_url=server_url)
+
+        def mock_popen(cmd, stdout, stderr):
+            print(f"mocking Popen with cmd: {cmd}")
+            return dummy_process
+
+        monkeypatch.setattr(subprocess, "Popen", mock_popen)
 
         with manager:
             pass
 
         mock_cleanup.assert_called_once()
+        mock_start.assert_called_once()
 
     def test_complete_lifecycle(self, monkeypatch, server_url, dummy_process):
         """Test the complete context manager lifecycle."""
