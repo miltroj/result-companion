@@ -11,6 +11,7 @@ from result_companion.core.analizers.local.ollama_exceptions import (
 )
 from result_companion.core.analizers.local.ollama_server_manager import (
     OllamaServerManager,
+    resolve_server_manager,
 )
 
 
@@ -244,3 +245,37 @@ class TestContextManager:
         # After context exit
         assert dummy_process.terminated or dummy_process.killed
         assert manager._process is None
+
+
+class TestResolveServerManager:
+    """Tests for resolve_server_manager function."""
+
+    def test_resolve_with_class(self):
+        """Test resolving with a class."""
+        result = resolve_server_manager(OllamaServerManager)
+        assert isinstance(result, OllamaServerManager)
+        assert result.server_url == "http://localhost:11434"
+
+    def test_resolve_with_none(self):
+        """Test resolving with None."""
+        result = resolve_server_manager(None)
+        assert isinstance(result, OllamaServerManager)
+        assert result.server_url == "http://localhost:11434"
+
+    def test_resolve_with_instance(self):
+        """Test resolving with an existing instance."""
+        instance = OllamaServerManager(server_url="http://custom:8080")
+        result = resolve_server_manager(instance)
+        assert result is instance  # Should return the same instance
+        assert result.server_url == "http://custom:8080"
+
+    def test_resolve_with_kwargs(self):
+        """Test resolving with custom kwargs."""
+        result = resolve_server_manager(None, server_url="http://custom:9000")
+        assert isinstance(result, OllamaServerManager)
+        assert result.server_url == "http://custom:9000"
+
+        # Test kwargs with a class
+        result = resolve_server_manager(OllamaServerManager, start_timeout=60)
+        assert isinstance(result, OllamaServerManager)
+        assert result.start_timeout == 60

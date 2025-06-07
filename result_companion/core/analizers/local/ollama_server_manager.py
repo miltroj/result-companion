@@ -1,7 +1,7 @@
 import atexit
 import subprocess
 import time
-from typing import Optional, Type, TypeVar, Union, cast
+from typing import Optional, Type, TypeVar, Union
 
 import requests
 
@@ -129,7 +129,6 @@ class OllamaServerManager:
 T = TypeVar("T", bound="OllamaServerManager")
 
 
-# TODO: write unittests
 def resolve_server_manager(server_manager: Union[Optional[T], Type[T]], **kwargs) -> T:
     """
     Resolve a server manager parameter that can be either a class or an instance.
