@@ -9,9 +9,7 @@ from result_companion.core.analizers.local.ollama_install import (
     auto_install_model,
     auto_install_ollama,
 )
-from result_companion.core.analizers.local.ollama_runner import (
-    check_ollama_installed,
-)
+from result_companion.core.analizers.local.ollama_runner import check_ollama_installed
 from result_companion.core.analizers.local.ollama_server_manager import (
     OllamaServerManager,
     resolve_server_manager,
