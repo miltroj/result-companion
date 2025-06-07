@@ -1,5 +1,6 @@
 import subprocess
 import time
+from unittest.mock import patch
 
 import pytest
 import requests
@@ -13,8 +14,10 @@ from result_companion.core.analizers.local.ollama_server_manager import (
 )
 
 
-# A dummy process to simulate subprocess.Popen behavior in tests.
+# Test helpers
 class DummyProcess:
+    """Simulates subprocess.Popen behavior for testing."""
+
     def __init__(self, pid=1234):
         self.pid = pid
         self.terminated = False
@@ -33,101 +36,201 @@ class DummyProcess:
         self.killed = True
 
 
-# Helper dummy response for requests
 class DummyResponse:
+    """Simulates requests.Response for testing."""
+
     def __init__(self, status_code=200, text="Ollama is running"):
         self.status_code = status_code
         self.text = text
 
 
-def test_is_running_true(monkeypatch):
-    # Monkey-patch requests.get to simulate a running server.
-    def fake_get(url, timeout):
-        return DummyResponse(status_code=200, text="Ollama is running")
-
-    monkeypatch.setattr(requests, "get", fake_get)
-
-    manager = OllamaServerManager(server_url="http://localhost:11434")
-    assert manager.is_running() is True
+# Fixtures
+@pytest.fixture
+def server_url():
+    """Standard server URL used in tests."""
+    return "http://localhost:11434"
 
 
-def test_is_running_false(monkeypatch):
-    # Monkey-patch requests.get to simulate a non-running server.
-    def fake_get(url, timeout):
-        raise requests.exceptions.RequestException("Server not reachable")
-
-    monkeypatch.setattr(requests, "get", fake_get)
-
-    manager = OllamaServerManager(server_url="http://localhost:11434")
-    assert manager.is_running() is False
-
-
-def test_start_already_running(monkeypatch):
-    # Simulate that the server is running so start() should do nothing.
-    def fake_get(url, timeout):
-        return DummyResponse(status_code=200, text="Ollama is running")
-
-    monkeypatch.setattr(requests, "get", fake_get)
-
-    # Also, simulate a Popen so that if it were called, would create a DummyProcess.
-    def fake_popen(cmd, stdout, stderr):
-        return DummyProcess(pid=9999)
-
-    monkeypatch.setattr(subprocess, "Popen", fake_popen)
-
-    manager = OllamaServerManager(server_url="http://localhost:11434")
-    # Call start; since is_running is True, it should not start a new process.
-    manager.start()
-    # _process should still be None
-    assert manager._process is None
-
-
-def test_start_not_installed(monkeypatch):
-    # Simulate FileNotFoundError when Popen is called.
-    def fake_popen(cmd, stdout, stderr):
-        raise FileNotFoundError("Command not found")
-
-    def fake_get(url, timeout):
-        return DummyResponse(status_code=400, text="Ollama is not running")
-
-    monkeypatch.setattr(subprocess, "Popen", fake_popen)
-    monkeypatch.setattr(requests, "get", fake_get)
-
-    manager = OllamaServerManager(server_url="http://localhost:11434")
-    with pytest.raises(OllamaNotInstalled):
-        manager.start()
-
-
-def test_start_timeout(monkeypatch):
-    # Simulate a scenario where the server doesn't come up (always returns not running)
-    def fake_get(url, timeout):
-        raise requests.exceptions.RequestException("Server not reachable")
-
-    monkeypatch.setattr(requests, "get", fake_get)
-
-    # Simulate a normal Popen returning a dummy process.
-    dummy_proc = DummyProcess(pid=1111)
-
-    def fake_popen(cmd, stdout, stderr):
-        return dummy_proc
-
-    monkeypatch.setattr(subprocess, "Popen", fake_popen)
-
-    manager = OllamaServerManager(
-        server_url="http://localhost:11434", start_timeout=0.1, wait_for_start=0.01
+@pytest.fixture
+def running_server(monkeypatch):
+    """Mocks a running Ollama server."""
+    monkeypatch.setattr(
+        requests, "get", lambda url, timeout: DummyResponse(status_code=200)
     )
-    with pytest.raises(OllamaServerNotRunning):
+
+
+@pytest.fixture
+def stopped_server(monkeypatch):
+    """Mocks a stopped Ollama server."""
+    monkeypatch.setattr(
+        requests,
+        "get",
+        lambda url, timeout: pytest.raises(
+            requests.exceptions.RequestException("Not running")
+        ),
+    )
+
+
+@pytest.fixture
+def dummy_process():
+    """Returns a dummy process for testing."""
+    return DummyProcess(pid=12345)
+
+
+@pytest.fixture
+def mock_popen(monkeypatch, dummy_process):
+    """Mocks subprocess.Popen to return a dummy process."""
+    monkeypatch.setattr(subprocess, "Popen", lambda cmd, stdout, stderr: dummy_process)
+    return dummy_process
+
+
+class TestServerStatus:
+    """Tests for server status checking functionality."""
+
+    def test_is_running_true(self, monkeypatch, server_url):
+        """Test that is_running returns True when server responds successfully."""
+        monkeypatch.setattr(
+            requests, "get", lambda url, timeout: DummyResponse(status_code=200)
+        )
+
+        manager = OllamaServerManager(server_url=server_url)
+        assert manager.is_running() is True
+
+    def test_is_running_false(self, monkeypatch, server_url):
+        """Test that is_running returns False when server request fails."""
+        monkeypatch.setattr(
+            requests,
+            "get",
+            lambda url, timeout: exec(
+                "raise requests.exceptions.RequestException('Server not reachable')"
+            ),
+        )
+
+        manager = OllamaServerManager(server_url=server_url)
+        assert manager.is_running() is False
+
+
+class TestServerStartup:
+    """Tests for server startup functionality."""
+
+    def test_start_already_running(self, monkeypatch, server_url, mock_popen):
+        """Test that start() does nothing when server is already running."""
+        monkeypatch.setattr(
+            requests, "get", lambda url, timeout: DummyResponse(status_code=200)
+        )
+
+        manager = OllamaServerManager(server_url=server_url)
         manager.start()
-    # After timeout, cleanup should have been called so _process is None.
-    assert manager._process is None
+
+        # Should not start a new process if already running
+        assert manager._process is None
+
+    def test_start_not_installed(self, monkeypatch, server_url):
+        """Test that start() raises OllamaNotInstalled when executable is not found."""
+        # Server is not running
+        monkeypatch.setattr(
+            requests,
+            "get",
+            lambda url, timeout: exec(
+                "raise requests.exceptions.RequestException('Not running')"
+            ),
+        )
+
+        # Command not found
+        monkeypatch.setattr(
+            subprocess,
+            "Popen",
+            lambda cmd, stdout, stderr: exec(
+                "raise FileNotFoundError('Command not found')"
+            ),
+        )
+
+        manager = OllamaServerManager(server_url=server_url)
+        with pytest.raises(OllamaNotInstalled):
+            manager.start()
+
+    def test_start_timeout(self, monkeypatch, server_url, mock_popen):
+        """Test that start() raises OllamaServerNotRunning when server doesn't start in time."""
+        # Server never starts
+        monkeypatch.setattr(
+            requests,
+            "get",
+            lambda url, timeout: exec(
+                "raise requests.exceptions.RequestException('Not running')"
+            ),
+        )
+
+        manager = OllamaServerManager(
+            server_url=server_url, start_timeout=0.1, wait_for_start=0.01
+        )
+
+        with pytest.raises(OllamaServerNotRunning):
+            manager.start()
+
+        # Should clean up after timeout
+        assert manager._process is None
 
 
-def test_cleanup(monkeypatch):
-    # Check that cleanup terminates a running process.
-    dummy_proc = DummyProcess(pid=2222)
-    manager = OllamaServerManager(server_url="http://localhost:11434")
-    manager._process = dummy_proc
-    manager.cleanup()
-    # Depending on simulated wait, either terminated or killed should be True.
-    assert dummy_proc.terminated or dummy_proc.killed
-    assert manager._process is None
+class TestCleanup:
+    """Tests for cleanup functionality."""
+
+    def test_cleanup_terminates_process(self, server_url, dummy_process):
+        """Test that cleanup terminates a running process."""
+        manager = OllamaServerManager(server_url=server_url)
+        manager._process = dummy_process
+
+        manager.cleanup()
+
+        assert dummy_process.terminated or dummy_process.killed
+        assert manager._process is None
+
+
+class TestContextManager:
+    """Tests for context manager functionality."""
+
+    @patch.object(OllamaServerManager, "start")
+    def test_enter_calls_start(self, mock_start, server_url):
+        """Test that __enter__ calls start() and returns self."""
+        manager = OllamaServerManager(server_url=server_url)
+
+        with manager as ctx:
+            mock_start.assert_called_once()
+            assert ctx is manager
+
+    @patch.object(OllamaServerManager, "cleanup")
+    def test_exit_calls_cleanup(self, mock_cleanup, server_url):
+        """Test that __exit__ calls cleanup()."""
+        manager = OllamaServerManager(server_url=server_url)
+
+        with manager:
+            pass
+
+        mock_cleanup.assert_called_once()
+
+    def test_complete_lifecycle(self, monkeypatch, server_url, dummy_process):
+        """Test the complete context manager lifecycle."""
+        # First not running, then running after start
+        call_count = [0]
+
+        def mock_get(url, timeout):
+            call_count[0] += 1
+            # Simulate server starting after 3 is_running calls
+            if call_count[0] == 3:
+                return DummyResponse(status_code=200)
+            raise requests.exceptions.RequestException("Not running")
+
+        def mock_popen(cmd, stdout, stderr):
+            print(f"mocking Popen with cmd: {cmd}")
+            return dummy_process
+
+        monkeypatch.setattr(requests, "get", mock_get)
+        monkeypatch.setattr(subprocess, "Popen", mock_popen)
+
+        with OllamaServerManager(server_url=server_url, wait_for_start=0.01) as manager:
+            print(f"call_count: {call_count}")
+            assert manager._process is dummy_process
+            assert not dummy_process.terminated
+
+        # After context exit
+        assert dummy_process.terminated or dummy_process.killed
+        assert manager._process is None
