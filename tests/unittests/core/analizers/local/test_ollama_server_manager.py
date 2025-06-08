@@ -209,7 +209,6 @@ class TestContextManager:
         manager = OllamaServerManager(server_url=server_url)
 
         def mock_popen(cmd, stdout, stderr):
-            print(f"mocking Popen with cmd: {cmd}")
             return dummy_process
 
         monkeypatch.setattr(subprocess, "Popen", mock_popen)
@@ -233,14 +232,12 @@ class TestContextManager:
             raise requests.exceptions.RequestException("Not running")
 
         def mock_popen(cmd, stdout, stderr, preexec_fn):
-            print(f"mocking Popen with cmd: {cmd}")
             return dummy_process
 
         monkeypatch.setattr(requests, "get", mock_get)
         monkeypatch.setattr(subprocess, "Popen", mock_popen)
 
         with OllamaServerManager(server_url=server_url, wait_for_start=0.01) as manager:
-            print(f"call_count: {call_count}")
             assert manager._process is dummy_process
             assert not dummy_process.terminated
 
