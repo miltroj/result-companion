@@ -81,7 +81,9 @@ def dummy_process():
 @pytest.fixture
 def mock_popen(monkeypatch, dummy_process):
     """Mocks subprocess.Popen to return a dummy process."""
-    monkeypatch.setattr(subprocess, "Popen", lambda cmd, stdout, stderr: dummy_process)
+    monkeypatch.setattr(
+        subprocess, "Popen", lambda cmd, stdout, stderr, preexec_fn: dummy_process
+    )
     return dummy_process
 
 
@@ -141,7 +143,7 @@ class TestServerStartup:
         monkeypatch.setattr(
             subprocess,
             "Popen",
-            lambda cmd, stdout, stderr: exec(
+            lambda cmd, stdout, preexec_fn, stderr: exec(
                 "raise FileNotFoundError('Command not found')"
             ),
         )
@@ -230,7 +232,7 @@ class TestContextManager:
                 return DummyResponse(status_code=200)
             raise requests.exceptions.RequestException("Not running")
 
-        def mock_popen(cmd, stdout, stderr):
+        def mock_popen(cmd, stdout, stderr, preexec_fn):
             print(f"mocking Popen with cmd: {cmd}")
             return dummy_process
 

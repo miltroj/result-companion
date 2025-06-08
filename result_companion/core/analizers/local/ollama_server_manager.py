@@ -1,4 +1,5 @@
 import atexit
+import os
 import subprocess
 import time
 from typing import Optional, Type, TypeVar, Union
@@ -81,10 +82,12 @@ class OllamaServerManager:
 
         logger.info("Ollama server is not running. Attempting to start it...")
         try:
+            # Use process group to handle child processes better
             self._process = subprocess.Popen(
                 self.start_cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                preexec_fn=os.setsid if os.name != "nt" else None,  # Unix only
             )
         except FileNotFoundError:
             raise OllamaNotInstalled(
