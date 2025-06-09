@@ -42,7 +42,7 @@ class DummyProcess:
             return 0  # killed or terminated
         return None  # Process is still running
 
-    def communicate(self, input=None):
+    def communicate(self, timeout=None):
         """Simulate process communication."""
         if self.killed:
             return (b"", b"Process killed")
@@ -284,8 +284,84 @@ class TestContextManager:
             with OllamaServerManager(server_url=server_url, wait_for_start=0.0001):
                 pass
 
-        assert "Ollama process died" in str(exc_info.value)
+        assert "Ollama server process died: Process killed" in str(exc_info.value)
         assert dummy_process_killed.terminated or dummy_process_killed.killed
+
+
+class TestCheckProcessAlive:
+
+    def test_check_process_alive_with_no_process(self, server_url):
+        """Test _check_process_alive when no process is managed."""
+        manager = OllamaServerManager(server_url=server_url)
+        manager._process = None
+
+        # Should not raise any exception when no process is managed
+        manager._check_process_alive()
+
+    def test_check_process_alive_with_running_process(self, server_url):
+        """Test _check_process_alive with a running process."""
+        manager = OllamaServerManager(server_url=server_url)
+        dummy_process = DummyProcess()
+        manager._process = dummy_process
+
+        # Should not raise any exception when process is running
+        manager._check_process_alive()
+
+    def test_check_process_alive_with_dead_process_no_stderr(self, server_url):
+        """Test _check_process_alive when process is dead with no stderr."""
+        manager = OllamaServerManager(server_url=server_url)
+
+        # Create a dead process that returns empty stderr
+        dummy_process = DummyProcess(killed=True)
+        manager._process = dummy_process
+
+        with pytest.raises(OllamaServerNotRunning) as exc_info:
+            manager._check_process_alive()
+
+        assert "Ollama server process died: Process killed" in str(exc_info.value)
+
+    def test_check_process_alive_with_dead_process_with_stderr(self, server_url):
+        """Test _check_process_alive when process is dead with stderr message."""
+        manager = OllamaServerManager(server_url=server_url)
+
+        # Create a dead process with stderr
+        class DummyProcessWithStderr(DummyProcess):
+            def __init__(self):
+                super().__init__(killed=True)
+
+            def communicate(self, timeout=None):
+                return (b"", b"Error: Port 11434 is already in use")
+
+        dummy_process = DummyProcessWithStderr()
+        manager._process = dummy_process
+
+        with pytest.raises(OllamaServerNotRunning) as exc_info:
+            manager._check_process_alive()
+
+        assert "Ollama server process died: Error: Port 11434 is already in use" in str(
+            exc_info.value
+        )
+
+    def test_check_process_alive_with_communicate_timeout(self, server_url):
+        """Test _check_process_alive when communicate() times out."""
+        manager = OllamaServerManager(server_url=server_url)
+
+        class DummyProcessTimeout(DummyProcess):
+            def __init__(self):
+                super().__init__(killed=True)
+
+            def communicate(self, timeout=None):
+                raise subprocess.TimeoutExpired(cmd="ollama serve", timeout=1)
+
+        dummy_process = DummyProcessTimeout()
+        manager._process = dummy_process
+
+        with pytest.raises(OllamaServerNotRunning) as exc_info:
+            manager._check_process_alive()
+
+        assert "Ollama server process died: Process terminated unexpectedly" in str(
+            exc_info.value
+        )
 
 
 class TestResolveServerManager:

@@ -69,6 +69,33 @@ class OllamaServerManager:
         except requests.exceptions.RequestException:
             return False
 
+    def _check_process_alive(self) -> None:
+        """
+        Check if the managed process is still alive and raise an exception if it died.
+
+        Raises:
+            OllamaServerNotRunning: If the process has terminated unexpectedly.
+        """
+        if self._process is None:
+            return
+
+        if self._process.poll() is not None:
+            try:
+                _, stderr = self._process.communicate(timeout=1)
+                error_msg = (
+                    stderr.decode().strip()
+                    if stderr
+                    else "Process terminated unexpectedly"
+                )
+            except subprocess.TimeoutExpired:
+                error_msg = "Process terminated unexpectedly"
+            except Exception as e:
+                error_msg = (
+                    f"Process terminated unexpectedly (error reading output: {e})"
+                )
+
+            raise OllamaServerNotRunning(f"Ollama server process died: {error_msg}")
+
     def start(self) -> None:
         """
         Starts the Ollama server if it is not running.
@@ -94,22 +121,21 @@ class OllamaServerManager:
                 "Ollama command not found. Ensure it is installed and in your PATH."
             )
 
-        # Check if process is still alive after a brief moment
-        time.sleep(self.wait_for_start)
-        if self._process.poll() is not None:
-            # Process died immediately, check stderr for error
-            _, stderr = self._process.communicate()
-            error_msg = stderr.decode() if stderr else "Unknown error"
-            raise OllamaServerNotRunning(
-                f"Ollama process died immediately: {error_msg}"
-            )
-
         logger.info(f"Launched 'ollama serve' process with PID: {self._process.pid}")
+
+        # Check if process died immediately after launch
+        time.sleep(0.1)  # Brief pause to let process initialize
+        self._check_process_alive()
+
         start_time = time.time()
         while time.time() - start_time < self.start_timeout:
             if self.is_running(skip_logs=True):
                 logger.info("Ollama server started successfully.")
                 return
+
+            # Check if process died during startup wait
+            self._check_process_alive()
+
             time.sleep(self.wait_for_start)
 
         # If the server did not start, clean up and raise an error.
