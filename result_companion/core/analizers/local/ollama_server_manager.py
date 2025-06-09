@@ -94,6 +94,16 @@ class OllamaServerManager:
                 "Ollama command not found. Ensure it is installed and in your PATH."
             )
 
+        # Check if process is still alive after a brief moment
+        time.sleep(self.wait_for_start)
+        if self._process.poll() is not None:
+            # Process died immediately, check stderr for error
+            _, stderr = self._process.communicate()
+            error_msg = stderr.decode() if stderr else "Unknown error"
+            raise OllamaServerNotRunning(
+                f"Ollama process died immediately: {error_msg}"
+            )
+
         logger.info(f"Launched 'ollama serve' process with PID: {self._process.pid}")
         start_time = time.time()
         while time.time() - start_time < self.start_timeout:

@@ -19,10 +19,10 @@ from result_companion.core.analizers.local.ollama_server_manager import (
 class DummyProcess:
     """Simulates subprocess.Popen behavior for testing."""
 
-    def __init__(self, pid=1234):
+    def __init__(self, pid=1234, killed=False):
         self.pid = pid
         self.terminated = False
-        self.killed = False
+        self.killed = killed
 
     def terminate(self):
         self.terminated = True
@@ -35,6 +35,18 @@ class DummyProcess:
 
     def kill(self):
         self.killed = True
+
+    def poll(self):
+        """Simulate process polling."""
+        if self.terminated or self.killed:
+            return 0  # killed or terminated
+        return None  # Process is still running
+
+    def communicate(self, input=None):
+        """Simulate process communication."""
+        if self.killed:
+            return (b"", b"Process killed")
+        return (b"Output", b"")
 
 
 class DummyResponse:
@@ -76,6 +88,12 @@ def stopped_server(monkeypatch):
 def dummy_process():
     """Returns a dummy process for testing."""
     return DummyProcess(pid=12345)
+
+
+@pytest.fixture
+def dummy_process_killed():
+    """Returns a dummy process for testing."""
+    return DummyProcess(pid=12345, killed=True)
 
 
 @pytest.fixture
@@ -237,13 +255,37 @@ class TestContextManager:
         monkeypatch.setattr(requests, "get", mock_get)
         monkeypatch.setattr(subprocess, "Popen", mock_popen)
 
-        with OllamaServerManager(server_url=server_url, wait_for_start=0.01) as manager:
+        with OllamaServerManager(
+            server_url=server_url, wait_for_start=0.001
+        ) as manager:
             assert manager._process is dummy_process
             assert not dummy_process.terminated
 
         # After context exit
         assert dummy_process.terminated or dummy_process.killed
         assert manager._process is None
+
+    def test_process_dies_immediately_after_start(
+        self, monkeypatch, server_url, dummy_process_killed
+    ):
+        """Test handling when the Ollama process dies immediately after starting."""
+
+        def mock_get(url, timeout):
+            # Server never becomes available
+            raise requests.exceptions.RequestException("Not running")
+
+        def mock_popen(cmd, stdout, stderr, **kwargs):
+            return dummy_process_killed
+
+        monkeypatch.setattr(requests, "get", mock_get)
+        monkeypatch.setattr(subprocess, "Popen", mock_popen)
+
+        with pytest.raises(OllamaServerNotRunning) as exc_info:
+            with OllamaServerManager(server_url=server_url, wait_for_start=0.0001):
+                pass
+
+        assert "Ollama process died" in str(exc_info.value)
+        assert dummy_process_killed.terminated or dummy_process_killed.killed
 
 
 class TestResolveServerManager:
