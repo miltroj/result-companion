@@ -10,17 +10,58 @@ from result_companion.core.utils.logging_config import logger
 class SubprocessRunner(Protocol):
     """Protocol defining how to run subprocess commands."""
 
-    def run(self, cmd: List[str], check: bool = True) -> subprocess.CompletedProcess:
-        """Run a subprocess command."""
-        ...
+    def run(self, cmd: list) -> subprocess.CompletedProcess:
+        """Run command and return completed process."""
+        raise NotImplementedError
+
+    def run_with_streaming(self, cmd: list) -> subprocess.CompletedProcess:
+        """Run command with real-time output streaming."""
+        raise NotImplementedError
 
 
 class DefaultSubprocessRunner:
     """Default implementation of SubprocessRunner using subprocess module."""
 
-    def run(self, cmd: List[str], check: bool = True) -> subprocess.CompletedProcess:
-        """Run a subprocess command and return the result."""
-        return subprocess.run(cmd, check=check, capture_output=True, text=True)
+    def run(self, cmd: list) -> subprocess.CompletedProcess:
+        """Run command and return completed process."""
+        return subprocess.run(cmd, capture_output=True, text=True, check=True)
+
+    def run_with_streaming(self, cmd: list) -> subprocess.CompletedProcess:
+        """Run command with real-time output streaming."""
+        logger.info(f"Running command with streaming: {' '.join(cmd)}")
+
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,  # Merge stderr into stdout
+            text=True,
+            bufsize=1,  # Line buffered
+            universal_newlines=True,
+        )
+
+        output_lines = []
+
+        # Read output line by line in real-time
+        for line in iter(process.stdout.readline, ""):
+            line = line.rstrip()
+            if line:  # Only log non-empty lines
+                logger.info(f"Ollama: {line}")
+                output_lines.append(line)
+
+        # Wait for process to complete
+        return_code = process.wait()
+
+        # Create a CompletedProcess-like result
+        result = subprocess.CompletedProcess(
+            args=cmd, returncode=return_code, stdout="\n".join(output_lines), stderr=""
+        )
+
+        if return_code != 0:
+            raise subprocess.CalledProcessError(
+                return_code, cmd, "\n".join(output_lines)
+            )
+
+        return result
 
 
 class PlatformType(Enum):
@@ -242,9 +283,9 @@ class OllamaInstallationManager:
             logger.info(
                 f"Installing model '{model_name}' with command: {' '.join(cmd)}"
             )
-            self.subprocess_runner.run(cmd)
+            self.subprocess_runner.run_with_streaming(cmd)
         except Exception as e:
-            cli_error = e.stderr.replace("\n", "")
+            cli_error = e.stderr if hasattr(e, "stderr") else str(e)
             raise ModelInstallationError(
                 f"Automatic installation of model '{model_name}' failed with error \n{cli_error}. Please install it manually."
             ) from e

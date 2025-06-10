@@ -36,6 +36,7 @@ class MockSubprocessRunner:
         self.stderr = stderr
         self.raise_on_commands = raise_on_commands or {}
         self.called_commands = []
+        self.call_count = 0
 
     def run(self, cmd: list, check: bool = True) -> subprocess.CompletedProcess:
         """Mock running a subprocess command."""
@@ -59,6 +60,48 @@ class MockSubprocessRunner:
             raise subprocess.CalledProcessError(1, cmd, self.stdout, self.stderr)
 
         return result
+
+    def run_with_streaming(self, cmd: list) -> subprocess.CompletedProcess:
+        """Mock running a subprocess command with streaming output."""
+        self.called_commands.append(cmd)
+        self.call_count += 1
+
+        # Convert command list to string for matching
+        cmd_str = " ".join(cmd)
+
+        # Check if this command should raise an exception
+        for pattern, exception in self.raise_on_commands.items():
+            if pattern in cmd_str:
+                raise exception
+
+        # Handle stdout as list for sequential responses
+        current_stdout = self._get_current_output()
+
+        # Create a CompletedProcess result
+        result = subprocess.CompletedProcess(
+            args=cmd,
+            returncode=0 if self.success else 1,
+            stdout=current_stdout,
+            stderr="",  # stderr is empty because it's merged with stdout
+        )
+
+        if not self.success:
+            # When streaming fails, we should raise CalledProcessError with the output
+            # Note: stderr is empty because it's merged with stdout in streaming mode
+            error = subprocess.CalledProcessError(1, cmd, current_stdout)
+            error.stdout = current_stdout
+            error.stderr = ""
+            raise error
+
+        return result
+
+    def _get_current_output(self):
+        """Get the current output based on call count."""
+        if isinstance(self.stdout, list):
+            # If stdout is a list, return the appropriate item based on call count
+            index = min(self.call_count - 1, len(self.stdout) - 1)
+            return self.stdout[index]
+        return self.stdout
 
 
 class TestOllamaInstallationManager:
@@ -445,19 +488,34 @@ class TestOllamaInstallationManager:
     # Default SubprocessRunner Tests
     #
 
-    @patch("subprocess.run")
-    def test_default_subprocess_runner(self, mock_run):
-        """Test the DefaultSubprocessRunner implementation."""
-        mock_result = MagicMock(spec=subprocess.CompletedProcess)
-        mock_run.return_value = mock_result
+    @patch("subprocess.Popen")
+    def test_default_subprocess_runner_streaming(self, mock_popen):
+        """Test the DefaultSubprocessRunner run_with_streaming implementation."""
+        # Set up the mock process
+        mock_process = MagicMock()
+        mock_process.stdout = MagicMock()
+        mock_process.stdout.readline.side_effect = ["line1\n", "line2\n", ""]
+        mock_process.wait.return_value = 0
+        mock_popen.return_value = mock_process
 
         runner = DefaultSubprocessRunner()
-        result = runner.run(["echo", "hello"], check=True)
+        result = runner.run_with_streaming(["echo", "hello"])
 
-        assert result == mock_result
-        mock_run.assert_called_once_with(
-            ["echo", "hello"], check=True, capture_output=True, text=True
+        # Check that Popen was called with correct arguments
+        mock_popen.assert_called_once_with(
+            ["echo", "hello"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            universal_newlines=True,
         )
+
+        # Verify the result
+        assert result.args == ["echo", "hello"]
+        assert result.returncode == 0
+        assert result.stdout == "line1\nline2"
+        assert result.stderr == ""
 
     #
     # Command Configuration Tests
