@@ -92,10 +92,6 @@ def analyze(
     include_passing: bool = typer.Option(
         False, "-i", "--include-passing", help="Include PASS test cases"
     ),
-    # Add model option to specify which model to use for analysis
-    model: str = typer.Option(
-        "llama2", "-m", "--model", help="LLM model to use for analysis"
-    ),
 ):
     """Analyze Robot Framework test results with LLM assistance."""
     typer.echo(f"Output: {output}")
@@ -103,7 +99,6 @@ def analyze(
     typer.echo(f"Config: {config}")
     typer.echo(f"Report: {report}")
     typer.echo(f"Include Passing: {include_passing}")
-    typer.echo(f"Model: {model}")
 
     # Get the run function from context
     ctx = get_current_context()

@@ -109,7 +109,6 @@ class OllamaServerManager:
 
         logger.info("Ollama server is not running. Attempting to start it...")
         try:
-            # Use process group to handle child processes better
             self._process = subprocess.Popen(
                 self.start_cmd,
                 stdout=subprocess.PIPE,
