@@ -131,7 +131,6 @@ def setup_ollama(
         raise typer.Exit(code=1)
 
 
-# TODO: write unittests
 def install_ollama_model(
     model_name: str,
     server_manager=OllamaServerManager,
@@ -171,7 +170,6 @@ def install_ollama_model(
         raise Exception(f"Failed to install model '{model_name}'")
 
 
-# TODO: write unittests
 @setup_app.command("model")
 def setup_model(
     model_name: str = typer.Argument(..., help="Name of the model to install"),
@@ -212,7 +210,6 @@ def get_installed_models(
     return result.stdout
 
 
-# TODO: write unittests
 @setup_app.command("list-models")
 def list_models():
     """List all installed Ollama models."""
