@@ -613,3 +613,25 @@ class TestInstallationInterface:
         assert "Failed to install model" in str(exc_info.value)
         mock_manager_class.assert_called_once()
         mock_manager.install_model.assert_called_once_with("llama2")
+
+
+class TestDefaultSubprocessRunner:
+    """Test suite for DefaultSubprocessRunner."""
+
+    def test_run_success(self):
+        """Test running a command successfully."""
+        runner = DefaultSubprocessRunner()
+        result = runner.run(["echo", "hello"])
+
+        assert result.returncode == 0
+        assert result.stdout.strip() == "hello"
+        assert result.stderr == ""
+
+    def test_run_failure(self):
+        """Test running a command that fails."""
+        runner = DefaultSubprocessRunner()
+
+        with pytest.raises(subprocess.CalledProcessError) as exc_info:
+            runner.run(["false"])
+
+        assert exc_info.value.returncode != 0
