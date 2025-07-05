@@ -605,24 +605,3 @@ class TestAutoInstallFunctions:
 
         with pytest.raises(ModelInstallationError):
             auto_install_model("llama2:latest")
-
-
-# class TestIntegrationScenarios:
-#     """Test integration scenarios combining multiple components."""
-
-#     @patch('platform.system')
-#     @patch('builtins.open', new_callable=mock_open, read_data='ID=ubuntu\nVERSION="20.04"')
-#     @patch('shutil.which')
-#     @patch('subprocess.run')
-#     def test_full_installation_flow_ubuntu(self, mock_run, mock_which, mock_file, mock_system):
-#         """Test complete installation flow on Ubuntu."""
-#         mock_system.return_value = "Linux"
-#         mock_which.side_effect = lambda cmd: "/usr/bin/curl" if cmd == "curl" else None
-
-#         # Mock subprocess.run for different commands
-#         def run_side_effect(*args, **kwargs):
-#             cmd = args[0]
-#             if cmd == ["ollama", "--version"]:
-#                 # First call: not installed, second call: installed
-#                 if not hasattr(run_side_effect, 'ollama_installed'):
-#                     run_side_effect.ollama_installed = True
