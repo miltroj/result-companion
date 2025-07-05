@@ -61,7 +61,6 @@ class BaseInstaller(ABC):
             subprocess.run(cmd, check=True, capture_output=True, text=True)
 
 
-# Platform-specific installers (much simpler)
 class MacOSInstaller(BaseInstaller):
     def get_config(self) -> InstallConfig:
         return InstallConfig(
@@ -121,7 +120,6 @@ class WindowsInstaller(BaseInstaller):
 class OllamaManager:
     """Simplified Ollama installation and model manager."""
 
-    # Platform detection and installer mapping
     _INSTALLERS = {
         PlatformType.MACOS: MacOSInstaller,
         PlatformType.LINUX_DEBIAN: DebianInstaller,
@@ -270,7 +268,6 @@ class OllamaManager:
         return True
 
 
-# Simple convenience functions
 def auto_install_ollama() -> bool:
     """Auto-install Ollama."""
     return OllamaManager().install_ollama()
