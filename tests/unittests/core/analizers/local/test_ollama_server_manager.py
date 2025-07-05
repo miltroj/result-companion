@@ -213,18 +213,20 @@ class TestContextManager:
     def test_enter_calls_start(self, mock_start, server_url):
         """Test that __enter__ calls start() and returns self."""
         manager = OllamaServerManager(server_url=server_url)
+        manager.is_running = lambda skip_logs: False
 
         with manager as ctx:
             mock_start.assert_called_once()
             assert ctx is manager
 
-    @patch.object(OllamaServerManager, "cleanup")
     @patch.object(OllamaServerManager, "start")
+    @patch.object(OllamaServerManager, "cleanup")
     def test_exit_calls_cleanup(
         self, mock_cleanup, mock_start, server_url, monkeypatch, dummy_process
     ):
         """Test that __exit__ calls cleanup()."""
         manager = OllamaServerManager(server_url=server_url)
+        manager.is_running = lambda skip_logs: False
 
         def mock_popen(cmd, stdout, stderr):
             return dummy_process
@@ -234,8 +236,8 @@ class TestContextManager:
         with manager:
             pass
 
-        mock_cleanup.assert_called_once()
         mock_start.assert_called_once()
+        mock_cleanup.assert_called_once()
 
     def test_complete_lifecycle(self, monkeypatch, server_url, dummy_process):
         """Test the complete context manager lifecycle."""
