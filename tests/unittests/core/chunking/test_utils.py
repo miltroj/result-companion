@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 from result_companion.core.chunking.utils import (
+    azure_openai_tokenizer,
     calculate_chunk_size,
     calculate_overall_chunk_size,
     google_tokenizer,
@@ -81,3 +82,19 @@ def test_google_tokenizer(mock_get_encoding):
     with patch("tiktoken.get_encoding", side_effect=Exception("Test exception")):
         result = google_tokenizer("test string")  # 11 characters
         assert result == 11 // 4  # Should be 2 tokens using the fallback method
+
+
+@patch("tiktoken.encoding_for_model")
+def test_azure_openai_tokenizer(mock_encoding_for_model):
+    """Test the azure_openai_tokenizer function using mocking."""
+    # Set up the mock
+    mock_encode = mock_encoding_for_model.return_value.encode
+    mock_encode.return_value = [100, 200, 300]  # Simulating 3 tokens
+
+    # Test with a sample text
+    result = azure_openai_tokenizer("hello world")
+
+    # Verify the results
+    assert result == 3
+    mock_encoding_for_model.assert_called_once_with("gpt-3.5-turbo")
+    mock_encode.assert_called_once_with("hello world")
