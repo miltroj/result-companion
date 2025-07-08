@@ -118,6 +118,23 @@ def test_fail_init_llm_model_for_unsupported_model():
     )
 
 
+def test_fail_init_llm_model_for_case_sensitive_model():
+    config = LLMFactoryModel(
+        **{
+            "model_type": "ollamallm",  # lowercase instead of OllamaLLM
+            "parameters": {
+                "model": "llama3",
+            },
+        }
+    )
+    with pytest.raises(ValueError) as e:
+        init_llm_with_strategy_factory(config)
+    assert (
+        str(e.value)
+        == "Unsupported model type: ollamallm not in dict_keys(['OllamaLLM', 'AzureChatOpenAI', 'BedrockLLM', 'ChatGoogleGenerativeAI'])"
+    )
+
+
 @patch(
     "result_companion.entrypoints.run_rc.create_llm_html_log",
     autospec=True,
