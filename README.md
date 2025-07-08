@@ -23,6 +23,7 @@ One of the key features is that users can customize the behavior of the applicat
     - [Quick Test](#quick-test)
   - [Usage](#usage)
     - [Running Result Companion](#running-result-companion)
+    - [📋 Example Configurations](#-example-configurations)
   - [Local LLM Model Support](#local-llm-model-support)
   - [Security and Privacy Considerations](#security-and-privacy-considerations)
   - [Limitations](#limitations)
@@ -38,6 +39,7 @@ One of the key features is that users can customize the behavior of the applicat
 - **Customizable Prompts**: Adjust system prompts and parameters to adapt the tool to different needs and expand its capabilities.
 - **Enhanced HTML Output**: Generates an enhanced HTML report with expandable sections for better understanding.
 - **Local LLM Model Support**: Primarily tested with the `ollama` package and local LLM models like `deepseek-r1` or `llama3.2`.
+- **Cloud Provider Support**: Compatible with OpenAI, Azure, and other remote LLM API providers.
 - **Automated Installation**: Built-in commands to automatically install Ollama and required LLM models.
 
 ## Installation
@@ -138,7 +140,16 @@ Example command:
 poetry run result-companion -o output.xml -r log_with_results.html
 ```
 
-For more detailed usage and additional configuration options, refer to the `examples/` folder in the repository, which includes different example setups and use cases. You can find the relevant README file there for further instructions.
+### 📋 Example Configurations
+
+**Looking for ready-to-use examples?** The [`examples/`](examples/) folder contains complete working examples with:
+
+- **Different configuration files** for various LLM providers
+- **Cloud-based setups** for OpenAI, Azure, and other remote API integrations
+- **Local execution configurations** with Ollama models
+- **Custom prompt templates** to tailor the analysis to your needs
+
+Each example includes detailed instructions to help you quickly adapt Result Companion to your specific requirements. Check out [Examples Documentation](examples/EXAMPLES.md) for a comprehensive guide.
 
 ## Local LLM Model Support
 
