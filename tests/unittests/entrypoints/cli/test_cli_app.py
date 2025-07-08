@@ -96,10 +96,11 @@ class TestInstallOllamaModel:
 
     def test_success(self):
         with patch(f"{IMPORT_PATH}.check_ollama_installed") as mock_check, patch(
-            f"{IMPORT_PATH}.auto_install_model", return_value=True
+            f"{IMPORT_PATH}.auto_install_model", return_value=True, autospec=True
         ) as mock_auto_install, patch(
             f"{IMPORT_PATH}.resolve_server_manager",
             return_value=self.mock_server_manager,
+            autospec=True,
         ) as mock_resolve:
 
             # Call the function
@@ -111,8 +112,6 @@ class TestInstallOllamaModel:
             self.mock_server_manager.__enter__.assert_called_once()
             mock_auto_install.assert_called_once_with(
                 model_name="llama2",
-                installation_cmd=["ollama", "pull"],
-                ollama_list_cmd=["ollama", "list"],
             )
             assert result is True
 

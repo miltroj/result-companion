@@ -154,8 +154,6 @@ def install_ollama_model(
 
         success = auto_install_model(
             model_name=model_name,
-            installation_cmd=installation_cmd,
-            ollama_list_cmd=ollama_list_cmd,
         )
 
         if success:
