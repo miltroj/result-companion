@@ -1,6 +1,6 @@
 # Using Different LLM Models with ***result-companion***
 
-This guide provides instructions on configuring and utilizing various Large Language Models (LLMs) such as ***OllamaLLM***, ***AzureChatOpenAI***, and ***BedrockLLM*** within your application. By specifying the appropriate parameters in the ***user_config.yaml*** file, you can invoke these models during runtime using the ***result-companion*** command.
+This guide provides instructions on configuring and utilizing various Large Language Models (LLMs) such as ***OllamaLLM***, ***AzureChatOpenAI***, ***BedrockLLM***, and ***ChatGoogleGenerativeAI*** within your application. By specifying the appropriate parameters in the ***user_config.yaml*** file, you can invoke these models during runtime using the ***result-companion*** command.
 
 ## Configuration File: ***user_config.yaml***
 
@@ -67,6 +67,26 @@ tokenizer:
 
 **Note:** Replace the placeholders (***your-model-id***, ***your-aws-region***, ***your-aws-access-key-id***, and ***your-aws-secret-access-key***) with your actual AWS credentials and Bedrock model details. Ensure that the credentials used have the required policies to access the Bedrock service. For more information, refer to the [BedrockLLM documentation](https://python.langchain.com/api_reference/aws/llms/langchain_aws.llms.bedrock.BedrockLLM.html).
 
+### 4. ChatGoogleGenerativeAI Model
+
+```yaml
+# user_config.yaml
+version: 1.0
+
+llm_factory:
+  model_type: "ChatGoogleGenerativeAI"
+  parameters:
+    model: "gemini-2.5-pro"
+    temperature: 0
+    google_api_key: "${GOOGLE_API_KEY}"  # Set your Google API key as an environment variable
+
+tokenizer:
+  tokenizer: azure_openai_tokenizer  # Use azure_openai_tokenizer for compatibility
+  max_content_tokens: 140000
+```
+
+**Note:** You need to set up the `GOOGLE_API_KEY` environment variable with your Google API key. To obtain a Google API key, visit the [Google AI Studio](https://makersuite.google.com/app/apikey). For more information, refer to the [ChatGoogleGenerativeAI documentation](https://python.langchain.com/docs/integrations/chat/google_generative_ai).
+
 ## Running the Application
 
 After configuring the ***user_config.yaml*** file with the desired model parameters, run the application using the following command:
@@ -85,5 +105,6 @@ This command will execute the application, utilizing the specified LLM model as 
 
 - **BedrockLLM Documentation:** For detailed information on configuring and using ***BedrockLLM***, refer to the [LangChain BedrockLLM documentation](https://python.langchain.com/api_reference/aws/llms/langchain_aws.llms.bedrock.BedrockLLM.html).
 
-By following the configurations and instructions provided above, you can effectively integrate and utilize different LLM models within your application.
+- **ChatGoogleGenerativeAI Documentation:** For detailed information on configuring and using ***ChatGoogleGenerativeAI***, refer to the [LangChain ChatGoogleGenerativeAI documentation](https://python.langchain.com/docs/integrations/chat/google_generative_ai).
 
+By following the configurations and instructions provided above, you can effectively integrate and utilize different LLM models within your application.

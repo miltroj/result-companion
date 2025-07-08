@@ -67,7 +67,7 @@ def test_fail_init_llm_model_for_unsupported_model():
         init_llm_with_strategy_factory(config)
     assert (
         str(e.value)
-        == "Unsupported model type: UnsupportedModel not in dict_keys(['OllamaLLM', 'AzureChatOpenAI', 'BedrockLLM'])"
+        == "Unsupported model type: UnsupportedModel not in dict_keys(['OllamaLLM', 'AzureChatOpenAI', 'BedrockLLM', 'ChatGoogleGenerativeAI'])"
     )
 
 

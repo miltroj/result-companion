@@ -17,6 +17,7 @@ class TokenizerTypes(str, Enum):
     AZURE_OPENAI = "azure_openai_tokenizer"
     OLLAMA = "ollama_tokenizer"
     BEDROCK = "bedrock_tokenizer"
+    GOOGLE = "google_tokenizer"  # For Google Generative AI
 
 
 class CustomEndpointModel(BaseModel):
