@@ -1,4 +1,5 @@
 import subprocess
+from typing import Optional, Type, Union
 
 from result_companion.core.analizers.local.ollama_exceptions import (
     OllamaModelNotAvailable,
@@ -7,10 +8,12 @@ from result_companion.core.analizers.local.ollama_exceptions import (
 )
 from result_companion.core.analizers.local.ollama_server_manager import (
     OllamaServerManager,
+    resolve_server_manager,
 )
 from result_companion.core.utils.logging_config import logger
 
 
+# TODO: move to different location > ollama_install
 def check_ollama_installed(ollama_version_cmd: list = ["ollama", "--version"]) -> None:
     logger.debug("Checking if Ollama is installed...")
     try:
@@ -55,9 +58,10 @@ def ollama_on_init_strategy(
     model_name: str,
     server_url: str = "http://localhost:11434",
     start_timeout: int = 30,
-    server_manager: "OllamaServerManager" = None,
-    server_manager_class: type = OllamaServerManager,
-) -> None:
+    server_manager: Union[
+        Optional["OllamaServerManager"], Type["OllamaServerManager"]
+    ] = OllamaServerManager,
+) -> "OllamaServerManager":
     """
     Initialize Ollama by ensuring it is installed, the server is running,
     and the specified model is available.
@@ -66,20 +70,32 @@ def ollama_on_init_strategy(
         model_name (str): Name of the model to check.
         server_url (str): URL where the server is expected.
         start_timeout (int): Timeout for starting the server.
-        server_manager (OllamaServerManager, optional): An externally provided server manager.
-        server_manager_class (type): Class used to create a server manager if none is provided.
+        server_manager (Union[OllamaServerManager, Type[OllamaServerManager]]):
+            Either an instance of OllamaServerManager to use directly,
+            or the OllamaServerManager class (or subclass) to instantiate.
+            Defaults to the OllamaServerManager class.
+
+    Returns:
+        OllamaServerManager: The server manager instance that was used.
+
+    Raises:
+        OllamaNotInstalled: If Ollama is not installed.
+        OllamaServerNotRunning: If the server fails to start.
+        OllamaModelNotInstalled: If the specified model is not installed.
     """
     check_ollama_installed()
-    # Use the provided server_manager instance or create one via the given class.
-    if server_manager is None:
-        server_manager = server_manager_class(
-            server_url=server_url, start_timeout=start_timeout
-        )
-    if not server_manager.is_running():
-        server_manager.start()
+
+    server_manager_instance = resolve_server_manager(
+        server_manager, server_url=server_url, start_timeout=start_timeout
+    )
+
+    if not server_manager_instance.is_running():
+        server_manager_instance.start()
     else:
         logger.debug("Ollama server is already running.")
+    logger.debug(f"Ollama server is confirmed running at {server_url}")
     check_model_installed(model_name)
+    return server_manager_instance
 
 
 if __name__ == "__main__":
@@ -91,7 +107,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     test_model = "deepseek-r1"  # Change to a model you might have/not have
     try:
-        ollama_on_init_strategy(test_model)
+        server_mnger = ollama_on_init_strategy(test_model)
         print(f"Successfully verified Ollama setup for model: {test_model}")
     except (OllamaNotInstalled, OllamaServerNotRunning, OllamaModelNotAvailable) as e:
         print(f"Error: {e}")
@@ -104,4 +120,5 @@ if __name__ == "__main__":
     )
 
     result = model.invoke("Come up with consise interesting fact")
+    server_mnger.cleanup()
     print(result)

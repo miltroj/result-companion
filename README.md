@@ -10,6 +10,26 @@ One of the key features is that users can customize the behavior of the applicat
 
 ![Demo](assets/demo.gif)
 
+## Table of Contents
+- [Result Companion](#result-companion)
+  - [Overview](#overview)
+  - [Table of Contents](#table-of-contents)
+  - [Features](#features)
+  - [Installation](#installation)
+    - [Prerequisites](#prerequisites)
+    - [Local Model Installation](#local-model-installation)
+      - [Option 1: Automatic Installation (Recommended)](#option-1-automatic-installation-recommended)
+      - [Option 2: Manual Installation](#option-2-manual-installation)
+    - [Quick Test](#quick-test)
+  - [Usage](#usage)
+    - [Running Result Companion](#running-result-companion)
+  - [Local LLM Model Support](#local-llm-model-support)
+  - [Security and Privacy Considerations](#security-and-privacy-considerations)
+  - [Limitations](#limitations)
+  - [Contributing](#contributing)
+  - [Running Tests](#running-tests)
+  - [License](#license)
+
 ## Features
 
 - **Integration with Robot Framework**: Analyzes test cases and logs from Robot Framework's `output.xml`.
@@ -17,7 +37,8 @@ One of the key features is that users can customize the behavior of the applicat
 - **Flexible Model Layer**: Experiment with local or cloud-based LLM models using LangChain.
 - **Customizable Prompts**: Adjust system prompts and parameters to adapt the tool to different needs and expand its capabilities.
 - **Enhanced HTML Output**: Generates an enhanced HTML report with expandable sections for better understanding.
-- **Local LLM Model Support**: Primarily tested with the `ollama` package and local LLM models like `deepseer-r1` or `llama3.2`.
+- **Local LLM Model Support**: Primarily tested with the `ollama` package and local LLM models like `deepseek-r1` or `llama3.2`.
+- **Automated Installation**: Built-in commands to automatically install Ollama and required LLM models.
 
 ## Installation
 
@@ -25,7 +46,7 @@ To install Result Companion, follow these steps:
 
 ### Prerequisites
 1. Install [Poetry](https://python-poetry.org/docs/#installation) for managing dependencies and virtual environments.
-   
+
    If you don't have Poetry installed, you can install it via:
     ```bash
     curl -sSL https://install.python-poetry.org | python3 -
@@ -43,51 +64,59 @@ To install Result Companion, follow these steps:
     ```bash
     poetry run pre-commit run --all-files --verbose
     ```
-   
+
 
 ### Local Model Installation
-To use the **Deepseer-r1** model locally, follow these steps:
+To use the **Deepseek-r1** model locally, you have two options:
 
-#### Step 1: Install Ollama
-Ollama is required to manage and run local models. You can install Ollama based on your operating system:
+#### Option 1: Automatic Installation (Recommended)
+Result Companion provides built-in commands to automatically install Ollama and models:
 
-- **For macOS**:
-  Download the installer directly:
-  ```bash
-  brew install ollama
-  ```
+1. **Install Ollama** on your system:
+   ```bash
+   result-companion setup ollama
+   ```
+   This command automatically detects your operating system and installs Ollama using the appropriate method.
 
-- **For Windows and Linux**:
-  Visit [Ollama's official website](https://ollama.ai) and follow the installation instructions.
+2. **Install the Deepseek-r1 model**:
+   ```bash
+   result-companion setup model deepseek-r1:1.5b
+   ```
 
-Verify that Ollama is installed correctly:
-```bash
-ollama --version
-```
+3. **List installed models** to verify installation:
+   ```bash
+   result-companion setup list-models
+   ```
+   You should see `deepseek-r1:1.5b` in the list of installed models.
 
-#### Step 2: Install the Deepseer-r1 Model
-Once Ollama is installed, you can download and install the Deepseer-r1 model by running the following command in your terminal:
+#### Option 2: Manual Installation
+If you prefer to install components manually:
 
-```bash
-ollama run deepseek-r1:1.5b
-```
+1. **Install Ollama** based on your operating system:
 
-This will download the model and prepare it for use locally.
+   - **For macOS**:
+     ```bash
+     brew install ollama
+     ```
 
-#### Step 3: Verify Installation
-To confirm that the Deepseer-r1 model is installed, run:
-```bash
-ollama list
-```
+   - **For Windows and Linux**:
+     Visit [Ollama's official website](https://ollama.ai) and follow the installation instructions.
 
-The output should include the `deepseer-r1` model, indicating it is ready for use.
+   Verify installation:
+   ```bash
+   ollama --version
+   ```
 
-### Notes
-- Ensure that your system meets the hardware requirements for running Ollama and the Deepseer-r1 model (e.g., sufficient GPU memory).
-- If you encounter issues, refer to the [Ollama Documentation](https://ollama.ai/docs) for troubleshooting.
+2. **Install the Deepseek-r1 Model**:
+   ```bash
+   ollama run deepseek-r1:1.5b
+   ```
 
-With these steps completed, your environment is set up for both the project and local model usage.
-
+3. **Verify Installation**:
+   ```bash
+   ollama list
+   ```
+   The output should include the `deepseek-r1:1.5b` model.
 
 ### Quick Test
 
@@ -102,7 +131,7 @@ inv run-result-companion-test
 
 ### Running Result Companion
 
-After installation, you can run Result Companion to analyze your Robot Framework test artifacts. 
+After installation, you can run Result Companion to analyze your Robot Framework test artifacts.
 
 Example command:
 ```bash
@@ -113,9 +142,9 @@ For more detailed usage and additional configuration options, refer to the `exam
 
 ## Local LLM Model Support
 
-The project is primarily tested with local LLM models using the `ollama` package. The best model for local usage is `deepseer-r1`, available at:
+The project is primarily tested with local LLM models using the `ollama` package. The best model for local usage is `deepseek-r1`, available at:
 
-- **Deepseer-r1**: [Ollama's Deepseer-r1](https://ollama.com/library/deepseek-r1)
+- **Deepseek-r1**: [Ollama's Deepseek-r1](https://ollama.com/library/deepseek-r1)
 
 The model comes in various sizes, and the 7B parameter version (or larger) is preferred for optimal performance. Keep in mind that the model's performance also depends on the hardware on which it runs.
 
@@ -130,7 +159,7 @@ Before using Result Companion or any LLM-based tool, you should:
 - If using cloud-based models, ensure that any proprietary or sensitive data is encrypted or anonymized before being shared.
 - Review the documentation and known risks associated with the specific LLM model and provider to ensure compliance with your organization’s privacy policies.
 
-**Disclaimer**:  
+**Disclaimer**:
 The creator of this package takes no responsibility for any exposure of private data, intellectual property, or sensitive information resulting from the use of this application. By using Result Companion, you acknowledge and accept all associated risks, including but not limited to the potential leakage of data to public internet or third-party services. Users run this application at their own risk and are fully responsible for ensuring the security and privacy of their data.
 
 ## Limitations
@@ -169,7 +198,9 @@ To ensure the correctness of the **Result Companion**, you can run tests using `
   ```
 
 Make sure you have installed poetry with dev dependencies:
-
+```bash
+python -m poetry install --with=dev
+```
 
 ## License
 
