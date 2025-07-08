@@ -27,5 +27,5 @@ def test_execute_e2e_tests(c):
 def run_result_companion_test(c):
     """Run Result Companion with predefined input and output paths."""
     c.run(
-        "poetry run result-companion -o examples/run_test/output.xml -r log_with_results.html"
+        "poetry run result-companion analyze -o examples/run_test/output.xml -r log_with_results.html"
     )
