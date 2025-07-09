@@ -81,7 +81,7 @@ llm_factory:
     google_api_key: "${GOOGLE_API_KEY}"  # Set your Google API key as an environment variable
 
 tokenizer:
-  tokenizer: azure_openai_tokenizer  # Use azure_openai_tokenizer for compatibility
+  tokenizer: google_tokenizer
   max_content_tokens: 140000
 ```
 
