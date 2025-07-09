@@ -34,17 +34,22 @@ version: 1.0
 llm_factory:
   model_type: "AzureChatOpenAI"
   parameters:
-    deployment_name: "your-deployment-name"
+    deployment_name: "${AZURE_DEPLOYMENT_NAME}"
     api_version: "2023-05-15"
-    api_base: "https://your-resource-name.openai.azure.com/"
-    api_key: "your-azure-openai-api-key"
+    api_base: "${AZURE_API_BASE}"
+    api_key: "${AZURE_API_KEY}"
 
 tokenizer:
   tokenizer: azure_openai_tokenizer
   max_content_tokens: 4000
 ```
 
-**Note:** Replace the placeholders (***your-deployment-name***, ***your-resource-name***, and ***your-azure-openai-api-key***) with your actual Azure OpenAI deployment details. For more information, refer to the [AzureChatOpenAI documentation](https://python.langchain.com/docs/integrations/chat/azure_chat_openai/).
+**Note:** Set up the following environment variables with your Azure OpenAI credentials:
+- `AZURE_DEPLOYMENT_NAME`: Your Azure OpenAI deployment name
+- `AZURE_API_BASE`: Your Azure endpoint (e.g., "https://your-resource-name.openai.azure.com/")
+- `AZURE_API_KEY`: Your Azure OpenAI API key
+
+For more information, refer to the [AzureChatOpenAI documentation](https://python.langchain.com/docs/integrations/chat/azure_chat_openai/).
 
 ### 3. BedrockLLM Model
 
@@ -55,17 +60,23 @@ version: 1.0
 llm_factory:
   model_type: "BedrockLLM"
   parameters:
-    model_id: "your-model-id"
-    region_name: "your-aws-region"
-    aws_access_key_id: "your-aws-access-key-id"
-    aws_secret_access_key: "your-aws-secret-access-key"
+    model_id: "${AWS_BEDROCK_MODEL_ID}"
+    region_name: "${AWS_REGION}"
+    aws_access_key_id: "${AWS_ACCESS_KEY_ID}"
+    aws_secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
 
 tokenizer:
   tokenizer: bedrock_tokenizer
   max_content_tokens: 4000
 ```
 
-**Note:** Replace the placeholders (***your-model-id***, ***your-aws-region***, ***your-aws-access-key-id***, and ***your-aws-secret-access-key***) with your actual AWS credentials and Bedrock model details. Ensure that the credentials used have the required policies to access the Bedrock service. For more information, refer to the [BedrockLLM documentation](https://python.langchain.com/api_reference/aws/llms/langchain_aws.llms.bedrock.BedrockLLM.html).
+**Note:** Set up the following environment variables with your AWS credentials:
+- `AWS_BEDROCK_MODEL_ID`: Your AWS Bedrock model ID
+- `AWS_REGION`: Your AWS region (e.g., "us-west-2")
+- `AWS_ACCESS_KEY_ID`: Your AWS access key ID
+- `AWS_SECRET_ACCESS_KEY`: Your AWS secret access key
+
+Ensure that the credentials used have the required policies to access the Bedrock service. For more information, refer to the [BedrockLLM documentation](https://python.langchain.com/api_reference/aws/llms/langchain_aws.llms.bedrock.BedrockLLM.html).
 
 ### 4. ChatGoogleGenerativeAI Model
 
@@ -85,11 +96,45 @@ tokenizer:
   max_content_tokens: 140000
 ```
 
-**Note:** You need to set up the `GOOGLE_API_KEY` environment variable with your Google API key. To obtain a Google API key, visit the [Google AI Studio](https://makersuite.google.com/app/apikey). For more information, refer to the [ChatGoogleGenerativeAI documentation](https://python.langchain.com/docs/integrations/chat/google_generative_ai).
+**Note:** Set up the `GOOGLE_API_KEY` environment variable with your Google API key. To obtain a Google API key, visit the [Google AI Studio](https://makersuite.google.com/app/apikey). For more information, refer to the [ChatGoogleGenerativeAI documentation](https://python.langchain.com/docs/integrations/chat/google_generative_ai).
+
+## Environment Variables in Configuration Files
+
+The configuration files support environment variable substitution using the `${VARIABLE_NAME}` syntax. This allows you to keep sensitive information like API keys out of your configuration files, making your setup more secure.
+
+For example, instead of hardcoding your API keys:
+
+```yaml
+api_key: "your-actual-api-key-here"
+```
+
+You can reference an environment variable:
+
+```yaml
+api_key: "${API_KEY_ENV_VAR}"
+```
+
+Before running the application, make sure to set all required environment variables:
+
+```sh
+# For Google API
+export GOOGLE_API_KEY="your-google-api-key"
+
+# For Azure OpenAI
+export AZURE_DEPLOYMENT_NAME="your-deployment-name"
+export AZURE_API_BASE="https://your-resource-name.openai.azure.com/"
+export AZURE_API_KEY="your-azure-api-key"
+
+# For AWS Bedrock
+export AWS_BEDROCK_MODEL_ID="your-model-id"
+export AWS_REGION="your-aws-region"
+export AWS_ACCESS_KEY_ID="your-aws-access-key-id"
+export AWS_SECRET_ACCESS_KEY="your-aws-secret-access-key"
+```
 
 ## Running the Application
 
-After configuring the ***user_config.yaml*** file with the desired model parameters, run the application using the following command:
+After configuring the ***user_config.yaml*** file with the desired model parameters and setting any required environment variables, run the application using the following command:
 
 ```sh
 result-companion -o output.xml -r log_with_llm_results.html -c user_config.yaml
