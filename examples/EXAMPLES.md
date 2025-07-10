@@ -20,10 +20,10 @@ llm_factory:
 
 tokenizer:
   tokenizer: ollama_tokenizer
-  max_content_tokens: 140000
+  max_content_tokens: 32000  # Context window for most Ollama models (adjust based on specific model)
 ```
 
-**Note:** Ensure that the specified model (e.g., ***deepseek-r1:7b***) is available and properly configured in your environment.
+**Note:** Ensure that the specified model (e.g., ***deepseek-r1:7b***) is available and properly configured in your environment. The `max_content_tokens` value should be adjusted based on your specific model's context window size (typically 8K-32K for most Ollama models).
 
 ### 2. AzureChatOpenAI Model
 
@@ -41,7 +41,7 @@ llm_factory:
 
 tokenizer:
   tokenizer: azure_openai_tokenizer
-  max_content_tokens: 4000
+  max_content_tokens: 16000  # Context window for GPT-4 Turbo (8k for GPT-4, 4k for GPT-3.5)
 ```
 
 **Note:** Set up the following environment variables with your Azure OpenAI credentials:
@@ -49,7 +49,7 @@ tokenizer:
 - `AZURE_API_BASE`: Your Azure endpoint (e.g., "https://your-resource-name.openai.azure.com/")
 - `AZURE_API_KEY`: Your Azure OpenAI API key
 
-For more information, refer to the [AzureChatOpenAI documentation](https://python.langchain.com/docs/integrations/chat/azure_chat_openai/).
+Adjust the `max_content_tokens` based on your deployed model: 4K for GPT-3.5-Turbo, 8K for GPT-4, 16K+ for GPT-4 Turbo. For more information, refer to the [AzureChatOpenAI documentation](https://python.langchain.com/docs/integrations/chat/azure_chat_openai/).
 
 ### 3. BedrockLLM Model
 
@@ -67,7 +67,7 @@ llm_factory:
 
 tokenizer:
   tokenizer: bedrock_tokenizer
-  max_content_tokens: 4000
+  max_content_tokens: 8000  # Context window varies by model (Claude: 100K+, Titan: 8K, Llama2: 4K)
 ```
 
 **Note:** Set up the following environment variables with your AWS credentials:
@@ -76,7 +76,7 @@ tokenizer:
 - `AWS_ACCESS_KEY_ID`: Your AWS access key ID
 - `AWS_SECRET_ACCESS_KEY`: Your AWS secret access key
 
-Ensure that the credentials used have the required policies to access the Bedrock service. For more information, refer to the [BedrockLLM documentation](https://python.langchain.com/api_reference/aws/llms/langchain_aws.llms.bedrock.BedrockLLM.html).
+The `max_content_tokens` should match your specific Bedrock model (Claude models support up to 100K+ tokens, Titan up to 8K, and Llama2 up to 4K). Ensure that the credentials used have the required policies to access the Bedrock service. For more information, refer to the [BedrockLLM documentation](https://python.langchain.com/api_reference/aws/llms/langchain_aws.llms.bedrock.BedrockLLM.html).
 
 ### 4. ChatGoogleGenerativeAI Model
 
@@ -93,10 +93,33 @@ llm_factory:
 
 tokenizer:
   tokenizer: google_tokenizer
-  max_content_tokens: 140000
+  max_content_tokens: 32000  # Context window for Gemini Pro (1M for Gemini 1.5 Pro, 32K for standard)
 ```
 
-**Note:** Set up the `GOOGLE_API_KEY` environment variable with your Google API key. To obtain a Google API key, visit the [Google AI Studio](https://makersuite.google.com/app/apikey). For more information, refer to the [ChatGoogleGenerativeAI documentation](https://python.langchain.com/docs/integrations/chat/google_generative_ai).
+**Note:** Set up the `GOOGLE_API_KEY` environment variable with your Google API key. To obtain a Google API key, visit the [Google AI Studio](https://makersuite.google.com/app/apikey). The `max_content_tokens` setting should be adjusted based on your Gemini model (standard Gemini Pro supports 32K tokens, while Gemini 1.5 Pro can support up to 1 million tokens). For more information, refer to the [ChatGoogleGenerativeAI documentation](https://python.langchain.com/docs/integrations/chat/google_generative_ai).
+
+## Understanding Content Tokenization and Chunking
+
+The `max_content_tokens` parameter in the configuration file is crucial for handling large test results. This parameter determines:
+
+1. **Maximum Context Size**: The maximum number of tokens that can be processed in a single API call to the LLM.
+2. **Chunking Behavior**: When test results exceed this limit, the content is automatically split into smaller chunks and processed separately.
+3. **Result Aggregation**: The analysis results from individual chunks are then aggregated to provide a comprehensive view.
+
+### Setting Appropriate Token Limits
+
+Each model has different context window limitations:
+
+| Model Type | Recommended Setting | Notes |
+|------------|---------------------|-------|
+| OllamaLLM | 8,000-32,000 | Depends on specific model (Llama2: ~4K, Llama3/DeepSeek: ~8K-32K) |
+| AzureChatOpenAI | 4,000-16,000 | GPT-3.5: 4K, GPT-4: 8K, GPT-4 Turbo: 16K or 128K |
+| BedrockLLM | 4,000-100,000 | Varies widely (Titan: 8K, Llama2: 4K, Claude: 100K+) |
+| ChatGoogleGenerativeAI | 32,000-1,000,000 | Gemini Pro: 32K, Gemini 1.5 Pro: Up to 1M |
+
+Setting this parameter too low will cause unnecessary chunking which might reduce analysis quality, while setting it too high might result in token limit errors from the API.
+
+For optimal results, set this parameter close to (but slightly below) your model's actual context window size. For example, if using GPT-4 with an 8K context window, a setting of 7,000 would be appropriate to allow for prompt overhead.
 
 ## Environment Variables in Configuration Files
 
