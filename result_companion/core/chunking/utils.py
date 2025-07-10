@@ -33,10 +33,27 @@ def bedrock_tokenizer(text: str) -> int:
     return len(text) // 5
 
 
+def google_tokenizer(text: str) -> int:
+    """Tokenizer for Google Generative AI models.
+
+    Google's tokenization is approximately 4 characters per token on average,
+    but we use the tiktoken cl100k_base encoding which is close to Google's tokenization.
+    """
+    try:
+        # Use cl100k_base encoding which is similar to Google's tokenization
+        encoding = tiktoken.get_encoding("cl100k_base")
+        return len(encoding.encode(text))
+    except Exception as e:
+        logger.warning(f"Failed to use cl100k_base encoding for Google tokenizer: {e}")
+        # Fallback to approximate tokenization (4 chars per token)
+        return len(text) // 4
+
+
 tokenizer_mappings = {
     "azure_openai_tokenizer": azure_openai_tokenizer,
     "ollama_tokenizer": ollama_tokenizer,
     "bedrock_tokenizer": bedrock_tokenizer,
+    "google_tokenizer": google_tokenizer,
 }
 
 

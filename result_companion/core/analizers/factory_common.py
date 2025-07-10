@@ -5,6 +5,7 @@ from langchain_aws import BedrockLLM
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableSerializable
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_ollama.llms import OllamaLLM
 from langchain_openai import AzureChatOpenAI
 
@@ -16,7 +17,9 @@ from result_companion.core.chunking.utils import calculate_chunk_size
 from result_companion.core.parsers.config import DefaultConfigModel
 from result_companion.core.utils.logging_config import logger
 
-MODELS = Tuple[OllamaLLM | AzureChatOpenAI | BedrockLLM, Callable]
+MODELS = Tuple[
+    OllamaLLM | AzureChatOpenAI | BedrockLLM | ChatGoogleGenerativeAI, Callable
+]
 
 
 async def accumulate_llm_results_without_streaming(

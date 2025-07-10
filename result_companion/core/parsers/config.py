@@ -1,4 +1,5 @@
 import os
+import re
 from enum import Enum
 from pathlib import Path
 
@@ -17,6 +18,7 @@ class TokenizerTypes(str, Enum):
     AZURE_OPENAI = "azure_openai_tokenizer"
     OLLAMA = "ollama_tokenizer"
     BEDROCK = "bedrock_tokenizer"
+    GOOGLE = "google_tokenizer"
 
 
 class CustomEndpointModel(BaseModel):
@@ -82,16 +84,46 @@ class ConfigLoader:
         with open(file_path, "r") as file:
             return yaml.safe_load(file)
 
+    @staticmethod
+    def _expand_env_vars(value):
+        """Expand environment variables in a string using ${VAR} syntax."""
+        if isinstance(value, str) and "${" in value and "}" in value:
+            pattern = re.compile(r"\${([^}^{]+)}")
+            matches = pattern.findall(value)
+            for match in matches:
+                env_var = os.environ.get(match)
+                if env_var:
+                    value = value.replace(f"${{{match}}}", env_var)
+                else:
+                    logger.warning(f"Environment variable '{match}' not found")
+            return value
+        return value
+
+    def _process_env_vars(self, data):
+        """Recursively process environment variables in the configuration data."""
+        if isinstance(data, dict):
+            return {k: self._process_env_vars(v) for k, v in data.items()}
+        elif isinstance(data, list):
+            return [self._process_env_vars(item) for item in data]
+        else:
+            return self._expand_env_vars(data)
+
     def load_config(self, user_config_file: Path = None) -> DefaultConfigModel:
         """Load and validate the YAML configuration file, with defaults."""
         default_config = self._read_yaml_file(self.default_config_file)
+        # Process environment variables in default config
+        default_config = self._process_env_vars(default_config)
+
         if user_config_file:
             user_config = self._read_yaml_file(user_config_file)
+            # Process environment variables in user config
+            user_config = self._process_env_vars(user_config)
         else:
             logger.info(
                 "User configuration not found or not provided. Using default configuration!"
             )
             logger.debug({self.default_config_file})
+            user_config = {}
 
         # TODO: improve unpacking
         config_data = (

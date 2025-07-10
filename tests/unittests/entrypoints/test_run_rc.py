@@ -54,21 +54,19 @@ def test_init_llm_model_with_setup_strategy():
     assert strategy.__name__ == "ollama_on_init_strategy"
 
 
-def test_fail_init_llm_model_for_unsupported_model():
+def test_init_llm_model_for_google_gemini():
     config = LLMFactoryModel(
         **{
-            "model_type": "UnsupportedModel",
+            "model_type": "ChatGoogleGenerativeAI",
             "parameters": {
-                "model": "crazyModel",
+                "model": "gemini-pro",
+                "google_api_key": "fake-api-key",
             },
         }
     )
-    with pytest.raises(ValueError) as e:
-        init_llm_with_strategy_factory(config)
-    assert (
-        str(e.value)
-        == "Unsupported model type: UnsupportedModel not in dict_keys(['OllamaLLM', 'AzureChatOpenAI', 'BedrockLLM'])"
-    )
+    model, strategy = init_llm_with_strategy_factory(config)
+    assert model.__class__.__name__ == "ChatGoogleGenerativeAI"
+    assert strategy is None
 
 
 def test_fail_llm_init_on_unsupported_llm_parameters():
@@ -85,6 +83,55 @@ def test_fail_llm_init_on_unsupported_llm_parameters():
     assert (
         str(e.value)
         == "Invalid parameters for BedrockLLM: {'unsupported_param': 'param'}, while available parameters are: {'args': typing.Any, 'kwargs': typing.Any, 'return': None}"
+    )
+
+
+def test_fail_llm_init_on_unsupported_google_parameters():
+    config = LLMFactoryModel(
+        **{
+            "model_type": "ChatGoogleGenerativeAI",
+            "parameters": {
+                "unsupported_param": "param",
+                "google_api_key": "fake-api-key",
+            },
+        }
+    )
+    with pytest.raises(ValueError) as e:
+        init_llm_with_strategy_factory(config)
+    assert "Invalid parameters for ChatGoogleGenerativeAI" in str(e.value)
+
+
+def test_fail_init_llm_model_for_unsupported_model():
+    config = LLMFactoryModel(
+        **{
+            "model_type": "UnsupportedModel",
+            "parameters": {
+                "model": "crazyModel",
+            },
+        }
+    )
+    with pytest.raises(ValueError) as e:
+        init_llm_with_strategy_factory(config)
+    assert (
+        str(e.value)
+        == "Unsupported model type: UnsupportedModel not in dict_keys(['OllamaLLM', 'AzureChatOpenAI', 'BedrockLLM', 'ChatGoogleGenerativeAI'])"
+    )
+
+
+def test_fail_init_llm_model_for_case_sensitive_model():
+    config = LLMFactoryModel(
+        **{
+            "model_type": "ollamallm",  # lowercase instead of OllamaLLM
+            "parameters": {
+                "model": "llama3",
+            },
+        }
+    )
+    with pytest.raises(ValueError) as e:
+        init_llm_with_strategy_factory(config)
+    assert (
+        str(e.value)
+        == "Unsupported model type: ollamallm not in dict_keys(['OllamaLLM', 'AzureChatOpenAI', 'BedrockLLM', 'ChatGoogleGenerativeAI'])"
     )
 
 

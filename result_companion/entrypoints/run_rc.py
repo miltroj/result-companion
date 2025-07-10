@@ -5,6 +5,7 @@ from typing import Optional
 
 from langchain_aws import BedrockLLM
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_ollama.llms import OllamaLLM
 from langchain_openai import AzureChatOpenAI
 from pydantic import ValidationError
@@ -37,6 +38,7 @@ def init_llm_with_strategy_factory(
         "OllamaLLM": (OllamaLLM, ollama_on_init_strategy),
         "AzureChatOpenAI": (AzureChatOpenAI, None),
         "BedrockLLM": (BedrockLLM, None),
+        "ChatGoogleGenerativeAI": (ChatGoogleGenerativeAI, None),
     }
 
     if model_type not in model_classes:
@@ -61,7 +63,7 @@ async def _main(
     include_passing: bool,
 ) -> bool:
     set_global_log_level(logger=logger, log_level=str(log_level))
-    logger.info(f"Starting Result Companion!")
+    logger.info("Starting Result Companion!")
     start = time.time()
     # TODO: move to testable method
     parsed_config = load_config(config)
