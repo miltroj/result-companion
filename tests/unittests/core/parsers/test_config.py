@@ -233,14 +233,14 @@ def test_tokenizer_type_model_fail_on_negative_max_content_tokens() -> None:
     assert "1 validation error for TokenizerModel" in str(err.value)
 
 
-def test_expand_env_vars(mocker):
+def test_expand_config_no_env_vars():
     """Test expanding environment variables in strings."""
+    assert ConfigLoader()._expand_env_vars("simple_string") == "simple_string"
+
+
+def test_expand_config_with_env_vars():
     config_loader = ConfigLoader()
 
-    # Test with no environment variables
-    assert config_loader._expand_env_vars("simple_string") == "simple_string"
-
-    # Test with environment variable
     with mock.patch.dict(os.environ, {"TEST_VAR": "test_value"}):
         assert config_loader._expand_env_vars("${TEST_VAR}") == "test_value"
         assert (
@@ -248,17 +248,21 @@ def test_expand_env_vars(mocker):
             == "prefix_test_value_suffix"
         )
 
-    # Test with multiple environment variables
+
+def test_expand_config_with_multiple_env_vars():
+    config_loader = ConfigLoader()
     with mock.patch.dict(os.environ, {"VAR1": "value1", "VAR2": "value2"}):
         assert config_loader._expand_env_vars("${VAR1}_${VAR2}") == "value1_value2"
 
-    # Test with non-existent environment variable
+
+def test_expand_config_with_not_existing_env_var():
+    config_loader = ConfigLoader()
     with mock.patch.dict(os.environ, {}, clear=True):  # Clear all env vars
         # Should return the same string and log a warning
         assert config_loader._expand_env_vars("${NON_EXISTENT}") == "${NON_EXISTENT}"
 
 
-def test_process_env_vars(mocker):
+def test_process_env_vars():
     """Test processing environment variables in different data structures."""
     config_loader = ConfigLoader()
 
