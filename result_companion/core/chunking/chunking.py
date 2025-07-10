@@ -6,6 +6,7 @@ from langchain.prompts import PromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableSerializable
+from tqdm import tqdm
 
 from result_companion.core.analizers.models import MODELS
 from result_companion.core.chunking.utils import Chunking
@@ -65,9 +66,35 @@ async def summarize_test_case(test_case, chunks, llm, question_prompt, chain):
 
     summarization_chain = build_sumarization_chain(summarization_prompt, llm)
 
-    summaries = await asyncio.gather(
-        *[process_chunk(chunk, summarization_chain) for chunk in chunks]
-    )
+    # Process chunks with progress tracking
+    # Setup progress bar for chunk processing
+    chunk_tasks = []
+    for chunk in chunks:
+        chunk_tasks.append(process_chunk(chunk, summarization_chain))
+
+    if len(chunks) > 1:
+        # Only show progress for multiple chunks
+        with tqdm(
+            total=len(chunks),
+            desc=f"Processing chunks for {test_case['name']}",
+            leave=False,
+        ) as pbar:
+            # Create a list to hold results
+            summaries = []
+            pending = [asyncio.create_task(task) for task in chunk_tasks]
+
+            while pending:
+                done, pending = await asyncio.wait(
+                    pending, return_when=asyncio.FIRST_COMPLETED
+                )
+
+                for task in done:
+                    summaries.append(task.result())
+                    pbar.update(1)
+    else:
+        # For single chunk just process normally
+        summaries = await asyncio.gather(*chunk_tasks)
+
     aggregated_summary = "\n".join(summaries)
 
     final_prompt = PromptTemplate(

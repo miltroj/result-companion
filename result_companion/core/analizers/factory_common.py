@@ -9,13 +9,14 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_ollama.llms import OllamaLLM
 from langchain_openai import AzureChatOpenAI
 
-from result_companion.core.analizers.common import run_with_semaphore
+# Import common utilities as needed
 from result_companion.core.chunking.chunking import (
     accumulate_llm_results_for_summarizaton_chain,
 )
 from result_companion.core.chunking.utils import calculate_chunk_size
 from result_companion.core.parsers.config import DefaultConfigModel
 from result_companion.core.utils.logging_config import logger
+from result_companion.core.utils.progress import run_tasks_with_progress
 
 MODELS = Tuple[
     OllamaLLM | AzureChatOpenAI | BedrockLLM | ChatGoogleGenerativeAI, Callable
@@ -59,12 +60,16 @@ async def execute_llm_and_get_results(
 
     llm_results = dict()
     corutines = []
+    relevant_cases = []
     logger.info(f"Executing chain, {len(test_cases)=}, {concurrency=}")
+
+    # Prepare coroutines but don't run them yet
     for test_case in test_cases:
         if test_case.get("status") == "PASS" and not include_passing:
             logger.debug(f"Skipping, passing tests {test_case['name']!r}!")
             continue
 
+        relevant_cases.append(test_case)
         raw_test_case_text = str(test_case)
         chunk = calculate_chunk_size(
             raw_test_case_text, question_from_config_file, tokenizer
@@ -92,9 +97,12 @@ async def execute_llm_and_get_results(
 
     semaphore = asyncio.Semaphore(concurrency)  # Limit concurrency
 
-    tasks = [run_with_semaphore(semaphore, coroutine) for coroutine in corutines]
+    # Execute tasks with progress tracking
+    desc = f"Analyzing {len(relevant_cases)} test cases"
+    results = await run_tasks_with_progress(corutines, semaphore, desc)
 
-    for result, name, chunks in await asyncio.gather(*tasks):
+    # Process results
+    for result, name, chunks in results:
         llm_results[name] = result
 
     return llm_results
