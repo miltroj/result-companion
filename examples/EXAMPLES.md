@@ -1,5 +1,19 @@
 # Using Different LLM Models with ***result-companion***
 
+## Table of Contents
+- [Using Different LLM Models with ***result-companion***](#using-different-llm-models-with-result-companion)
+  - [Table of Contents](#table-of-contents)
+  - [Configuration File: ***user\_config.yaml***](#configuration-file-user_configyaml)
+    - [1. OllamaLLM with DeepSeek Model](#1-ollamallm-with-deepseek-model)
+    - [2. AzureChatOpenAI Model](#2-azurechatopenai-model)
+    - [3. BedrockLLM Model](#3-bedrockllm-model)
+    - [4. ChatGoogleGenerativeAI Model](#4-chatgooglegenerativeai-model)
+  - [Understanding Content Tokenization and Chunking](#understanding-content-tokenization-and-chunking)
+    - [Setting Appropriate Token Limits](#setting-appropriate-token-limits)
+  - [Environment Variables in Configuration Files](#environment-variables-in-configuration-files)
+  - [Running the Application](#running-the-application)
+  - [Additional Resources](#additional-resources)
+
 This guide provides instructions on configuring and utilizing various Large Language Models (LLMs) such as ***OllamaLLM***, ***AzureChatOpenAI***, ***BedrockLLM***, and ***ChatGoogleGenerativeAI*** within your application. By specifying the appropriate parameters in the ***user_config.yaml*** file, you can invoke these models during runtime using the ***result-companion*** command.
 
 ## Configuration File: ***user_config.yaml***
