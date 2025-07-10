@@ -1,7 +1,3 @@
-"""
-Progress tracking utilities for result-companion.
-"""
-
 import asyncio
 from typing import Any, Callable, List, TypeVar
 

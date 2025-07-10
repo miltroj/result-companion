@@ -9,7 +9,6 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_ollama.llms import OllamaLLM
 from langchain_openai import AzureChatOpenAI
 
-# Import common utilities as needed
 from result_companion.core.chunking.chunking import (
     accumulate_llm_results_for_summarizaton_chain,
 )
@@ -63,7 +62,6 @@ async def execute_llm_and_get_results(
     relevant_cases = []
     logger.info(f"Executing chain, {len(test_cases)=}, {concurrency=}")
 
-    # Prepare coroutines but don't run them yet
     for test_case in test_cases:
         if test_case.get("status") == "PASS" and not include_passing:
             logger.debug(f"Skipping, passing tests {test_case['name']!r}!")
@@ -97,11 +95,9 @@ async def execute_llm_and_get_results(
 
     semaphore = asyncio.Semaphore(concurrency)  # Limit concurrency
 
-    # Execute tasks with progress tracking
     desc = f"Analyzing {len(relevant_cases)} test cases"
     results = await run_tasks_with_progress(corutines, semaphore, desc)
 
-    # Process results
     for result, name, chunks in results:
         llm_results[name] = result
 
