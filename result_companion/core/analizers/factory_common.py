@@ -8,14 +8,19 @@ from langchain_core.runnables import RunnableSerializable
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_ollama.llms import OllamaLLM
 from langchain_openai import AzureChatOpenAI
+from tqdm import tqdm
 
 from result_companion.core.chunking.chunking import (
     accumulate_llm_results_for_summarizaton_chain,
 )
 from result_companion.core.chunking.utils import calculate_chunk_size
 from result_companion.core.parsers.config import DefaultConfigModel
-from result_companion.core.utils.logging_config import logger
-from result_companion.core.utils.progress import run_tasks_with_progress
+
+# Use progress-based logging instead of standard logging
+from result_companion.core.utils.progress import (
+    run_tasks_with_progress,
+    setup_progress_logging,
+)
 
 MODELS = Tuple[
     OllamaLLM | AzureChatOpenAI | BedrockLLM | ChatGoogleGenerativeAI, Callable
@@ -25,7 +30,8 @@ MODELS = Tuple[
 async def accumulate_llm_results_without_streaming(
     test_case: list, question_from_config_file: str, chain: RunnableSerializable
 ) -> Tuple[str, str, list]:
-    logger.info(
+    # Use tqdm's write function to output logs above the progress bar
+    tqdm.write(
         f"### Test Case: {test_case['name']}, content length: {len(str(test_case))}"
     )
     return (
@@ -54,17 +60,20 @@ async def execute_llm_and_get_results(
     concurrency: int = 1,
     include_passing: bool = True,
 ) -> dict:
+    # Configure progress-friendly logging
+    progress_logger = setup_progress_logging()
+
     question_from_config_file = config.llm_config.question_prompt
     tokenizer = config.tokenizer
 
     llm_results = dict()
     corutines = []
     relevant_cases = []
-    logger.info(f"Executing chain, {len(test_cases)=}, {concurrency=}")
+    progress_logger.info(f"Executing chain, {len(test_cases)=}, {concurrency=}")
 
     for test_case in test_cases:
         if test_case.get("status") == "PASS" and not include_passing:
-            logger.debug(f"Skipping, passing tests {test_case['name']!r}!")
+            progress_logger.debug(f"Skipping, passing tests {test_case['name']!r}!")
             continue
 
         relevant_cases.append(test_case)

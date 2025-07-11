@@ -10,7 +10,9 @@ from tqdm import tqdm
 
 from result_companion.core.analizers.models import MODELS
 from result_companion.core.chunking.utils import Chunking
-from result_companion.core.utils.logging_config import logger
+
+# Import progress-related utilities
+from result_companion.core.utils.progress import setup_progress_logging
 
 
 def build_sumarization_chain(
@@ -47,12 +49,16 @@ async def accumulate_llm_results_for_summarizaton_chain(
 
 
 async def process_chunk(chunk: str, summarization_chain: LLMChain) -> str:
-    logger.debug(f"Processing chunk of length {len(chunk)}")
+    # Use tqdm's write function to output logs above the progress bar
+    tqdm.write(f"Processing chunk of length {len(chunk)}")
     return await summarization_chain.ainvoke({"text": chunk})
 
 
 async def summarize_test_case(test_case, chunks, llm, question_prompt, chain):
-    logger.info(
+    # Configure progress-friendly logging
+    progress_logger = setup_progress_logging()
+
+    progress_logger.info(
         f"### For test case {test_case['name']}, {len(chunks)=}",
     )
     # TODO: move to default_config.yaml
@@ -78,6 +84,9 @@ async def summarize_test_case(test_case, chunks, llm, question_prompt, chain):
             total=len(chunks),
             desc=f"Processing chunks for {test_case['name']}",
             leave=False,
+            position=0,  # Keep at bottom of screen
+            dynamic_ncols=True,  # Adjust width based on terminal
+            miniters=1,  # Update on each iteration
         ) as pbar:
             # Create a list to hold results
             summaries = []
