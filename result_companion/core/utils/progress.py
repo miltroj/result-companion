@@ -24,8 +24,9 @@ class TqdmLoggingHandler(logging.Handler):
             self.handleError(record)
 
 
-# Global progress bar that can be accessed across the application
+# Global variables for singleton patterns
 _current_progress_bar: Optional[tqdm] = None
+_progress_logger: Optional[logging.Logger] = None
 
 
 def get_current_progress_bar() -> Optional[tqdm]:
@@ -33,15 +34,46 @@ def get_current_progress_bar() -> Optional[tqdm]:
     return _current_progress_bar
 
 
+def get_progress_logger() -> logging.Logger:
+    """
+    Get the singleton progress logger instance.
+    Creates it if it doesn't exist yet.
+
+    Returns:
+        A logger configured to work with progress bars
+    """
+    global _progress_logger
+
+    # If logger already exists, return it
+    if _progress_logger is not None:
+        return _progress_logger
+
+    # Otherwise, create and configure it
+    _progress_logger = setup_progress_logging()
+    return _progress_logger
+
+
 def setup_progress_logging(logger_name="RC"):
     """
     Configure logging to work with tqdm progress bars.
     This ensures log messages appear above the progress bar.
 
+    This should typically be called only once at the start of the application.
+    For regular logging, use get_progress_logger() instead.
+
     Args:
         logger_name: Name of the logger to configure
+
+    Returns:
+        The configured logger
     """
     logger = logging.getLogger(logger_name)
+
+    # Check if we've already added our handler
+    for handler in logger.handlers:
+        if isinstance(handler, TqdmLoggingHandler):
+            # Already configured
+            return logger
 
     # Remove existing stdout handlers to prevent duplicate output
     for handler in list(logger.handlers):

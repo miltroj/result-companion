@@ -11,8 +11,11 @@ from tqdm import tqdm
 from result_companion.core.analizers.models import MODELS
 from result_companion.core.chunking.utils import Chunking
 
-# Import progress-related utilities
-from result_companion.core.utils.progress import setup_progress_logging
+# Import and initialize progress logger
+from result_companion.core.utils.progress import get_progress_logger
+
+# Initialize the singleton progress logger at module level
+_progress_logger = get_progress_logger()
 
 
 def build_sumarization_chain(
@@ -49,16 +52,14 @@ async def accumulate_llm_results_for_summarizaton_chain(
 
 
 async def process_chunk(chunk: str, summarization_chain: LLMChain) -> str:
-    # Use tqdm's write function to output logs above the progress bar
-    tqdm.write(f"Processing chunk of length {len(chunk)}")
+    # Use the module-level logger
+    _progress_logger.debug(f"Processing chunk of length {len(chunk)}")
     return await summarization_chain.ainvoke({"text": chunk})
 
 
 async def summarize_test_case(test_case, chunks, llm, question_prompt, chain):
-    # Configure progress-friendly logging
-    progress_logger = setup_progress_logging()
-
-    progress_logger.info(
+    # Use the module-level logger
+    _progress_logger.info(
         f"### For test case {test_case['name']}, {len(chunks)=}",
     )
     # TODO: move to default_config.yaml
