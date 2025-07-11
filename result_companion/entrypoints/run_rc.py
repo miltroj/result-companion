@@ -24,6 +24,7 @@ from result_companion.core.utils.logging_config import (
     logger,
     set_global_log_level,
 )
+from result_companion.core.utils.progress import ProgressLogger, set_progress_log_level
 
 log_uncaught_exceptions(logger)
 
@@ -62,8 +63,14 @@ async def _main(
     report: Optional[str],
     include_passing: bool,
 ) -> bool:
+    # Set the log level for both the standard logger and progress loggers
     set_global_log_level(logger=logger, log_level=str(log_level))
-    logger.info("Starting Result Companion!")
+    set_progress_log_level(str(log_level))
+
+    # Create a progress logger for the main entrypoint
+    progress_logger = ProgressLogger("RC")
+
+    progress_logger.info("Starting Result Companion!")
     start = time.time()
     # TODO: move to testable method
     parsed_config = load_config(config)
@@ -79,13 +86,13 @@ async def _main(
     )
 
     if model_init_strategy:
-        logger.debug(
-            f"Using init strategy: {model_init_strategy} with parameters: {parsed_config.llm_factory.parameters}"
+        progress_logger.debug(
+            f"Using init strategy: {model_init_strategy} with parameters: {parsed_config.llm_factory.strategy.parameters}"
         )
         model_init_strategy(**parsed_config.llm_factory.strategy.parameters)
 
-    logger.debug(f"Prompt template: {template}")
-    logger.debug(f"Question loaded {question_from_config_file=}")
+    progress_logger.debug(f"Prompt template: {template}")
+    progress_logger.debug(f"Question loaded {question_from_config_file=}")
     prompt_template = ChatPromptTemplate.from_template(template)
 
     llm_results = await execute_llm_and_get_results(
@@ -103,7 +110,7 @@ async def _main(
             llm_results=llm_results,
         )
     stop = time.time()
-    logger.debug(f"Execution time: {stop - start}")
+    progress_logger.debug(f"Execution time: {stop - start}")
     return True
 
 

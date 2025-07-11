@@ -1,5 +1,5 @@
 import asyncio
-from typing import Tuple
+from typing import Optional, Tuple
 
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
@@ -11,11 +11,11 @@ from tqdm import tqdm
 from result_companion.core.analizers.models import MODELS
 from result_companion.core.chunking.utils import Chunking
 
-# Import and initialize progress logger
-from result_companion.core.utils.progress import get_progress_logger
+# Import progress utilities
+from result_companion.core.utils.progress import ProgressLogger
 
-# Initialize the singleton progress logger at module level
-_progress_logger = get_progress_logger()
+# Create a logger for this module
+logger = ProgressLogger("Chunking")
 
 
 def build_sumarization_chain(
@@ -42,24 +42,40 @@ async def accumulate_llm_results_for_summarizaton_chain(
     chain: RunnableSerializable,
     chunking_strategy: Chunking,
     llm: MODELS,
+    logger: Optional[ProgressLogger] = None,
 ) -> Tuple[str, str, list]:
+    # Use the provided logger or create a new one
+    log = logger or ProgressLogger("Chunking")
+
     chunks = split_text_into_chunks_using_text_splitter(
         str(test_case), chunking_strategy.chunk_size, chunking_strategy.chunk_size // 10
     )
     return await summarize_test_case(
-        test_case, chunks, llm, question_from_config_file, chain
+        test_case, chunks, llm, question_from_config_file, chain, logger=log
     )
 
 
-async def process_chunk(chunk: str, summarization_chain: LLMChain) -> str:
-    # Use the module-level logger
-    _progress_logger.debug(f"Processing chunk of length {len(chunk)}")
+async def process_chunk(
+    chunk: str, summarization_chain: LLMChain, logger: Optional[ProgressLogger] = None
+) -> str:
+    # Use the provided logger or create a new one
+    log = logger or ProgressLogger("Chunking")
+    log.debug(f"Processing chunk of length {len(chunk)}")
     return await summarization_chain.ainvoke({"text": chunk})
 
 
-async def summarize_test_case(test_case, chunks, llm, question_prompt, chain):
-    # Use the module-level logger
-    _progress_logger.info(
+async def summarize_test_case(
+    test_case,
+    chunks,
+    llm,
+    question_prompt,
+    chain,
+    logger: Optional[ProgressLogger] = None,
+):
+    # Use the provided logger or create a new one
+    log = logger or ProgressLogger("Chunking")
+
+    log.info(
         f"### For test case {test_case['name']}, {len(chunks)=}",
     )
     # TODO: move to default_config.yaml
@@ -77,7 +93,7 @@ async def summarize_test_case(test_case, chunks, llm, question_prompt, chain):
     # Setup progress bar for chunk processing
     chunk_tasks = []
     for chunk in chunks:
-        chunk_tasks.append(process_chunk(chunk, summarization_chain))
+        chunk_tasks.append(process_chunk(chunk, summarization_chain, logger=log))
 
     if len(chunks) > 1:
         # Only show progress for multiple chunks
