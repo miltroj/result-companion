@@ -1,111 +1,16 @@
 import asyncio
 import logging
 import sys
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from typing import Any, Callable, List, Optional, TypeVar
 
 from tqdm import tqdm
 
+# Import our unified logging registry
+from result_companion.core.utils.logging_config import (
+    get_progress_logger,
+)
+
 T = TypeVar("T")
-
-
-class LoggerRegistry:
-    """
-    A registry for managing loggers consistently across the application.
-    This removes the need for global variables and provides a single point
-    for managing log levels.
-    """
-
-    def __init__(self, default_log_level=logging.INFO):
-        """Initialize the registry with a default log level."""
-        self.loggers: Dict[str, logging.Logger] = {}
-        self.default_log_level = default_log_level
-        self.custom_handlers: Dict[str, logging.Handler] = {}
-
-    def register_handler(self, handler_name: str, handler: logging.Handler) -> None:
-        """Register a custom handler that can be applied to loggers."""
-        self.custom_handlers[handler_name] = handler
-
-    def get_logger(self, name: str, use_handlers: List[str] = None) -> logging.Logger:
-        """
-        Get a logger from the registry, creating it if it doesn't exist.
-
-        Args:
-            name: Name of the logger
-            use_handlers: List of handler names to apply to the logger
-
-        Returns:
-            The configured logger
-        """
-        if name in self.loggers:
-            return self.loggers[name]
-
-        # Create a new logger
-        logger = logging.getLogger(name)
-        logger.setLevel(self.default_log_level)
-
-        # Apply specified handlers
-        if use_handlers:
-            for handler_name in use_handlers:
-                if handler_name in self.custom_handlers:
-                    if not any(
-                        isinstance(h, type(self.custom_handlers[handler_name]))
-                        for h in logger.handlers
-                    ):
-                        logger.addHandler(self.custom_handlers[handler_name])
-
-        self.loggers[name] = logger
-        return logger
-
-    def set_log_level(self, level) -> None:
-        """
-        Set the log level for all loggers in the registry.
-
-        Args:
-            level: Log level to set (can be string or int level)
-        """
-        # Convert string to log level if needed
-        if isinstance(level, str):
-            level = getattr(logging, level.upper(), logging.INFO)
-
-        self.default_log_level = level
-
-        # Update all registered loggers
-        for logger in self.loggers.values():
-            logger.setLevel(level)
-            for handler in logger.handlers:
-                handler.setLevel(level)
-
-
-# Create a custom handler to ensure log messages appear above the progress bar
-class TqdmLoggingHandler(logging.Handler):
-    """
-    Custom logging handler that ensures logs are displayed above the tqdm progress bar.
-    It writes directly to sys.stdout (bypassing the progress bar).
-    """
-
-    def __init__(self, level=logging.NOTSET):
-        """Initialize with the given log level."""
-        super().__init__(level)
-        self.setFormatter(
-            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-        )
-
-    def emit(self, record):
-        try:
-            msg = self.format(record)
-            tqdm.write(msg)
-            self.flush()
-        except Exception:
-            self.handleError(record)
-
-
-# Create a single instance of the registry for the application
-# (This isn't a global variable in the traditional sense, as it's encapsulated)
-logger_registry = LoggerRegistry()
-
-# Register the TqdmLoggingHandler
-tqdm_handler = TqdmLoggingHandler()
-logger_registry.register_handler("tqdm", tqdm_handler)
 
 
 # Global variable for tracking the current progress bar (acceptable since it's transient)
@@ -120,19 +25,17 @@ def get_current_progress_bar() -> Optional[tqdm]:
 class ProgressLogger:
     """
     A logger configured to work with tqdm progress bars.
-    Uses the LoggerRegistry to ensure consistent logging behavior.
+    Uses the shared LoggerRegistry to ensure consistent logging behavior.
     """
 
-    def __init__(self, logger_name: str = "RC", registry: LoggerRegistry = None):
+    def __init__(self, logger_name: str = "RC"):
         """
         Create a logger that works with tqdm progress bars.
 
         Args:
             logger_name: Name of the logger to use
-            registry: Optional LoggerRegistry to use (defaults to the singleton)
         """
-        self.registry = registry or logger_registry
-        self.logger = self.registry.get_logger(logger_name, use_handlers=["tqdm"])
+        self.logger = get_progress_logger(logger_name)
 
     def debug(self, msg, *args, **kwargs):
         """Log a debug message."""
@@ -162,12 +65,6 @@ class ProgressLogger:
         self.logger.setLevel(level)
         for handler in self.logger.handlers:
             handler.setLevel(level)
-
-
-# For backward compatibility and convenience
-def set_log_level(level) -> None:
-    """Set the log level for all registered loggers."""
-    logger_registry.set_log_level(level)
 
 
 class AsyncTaskProgress:
