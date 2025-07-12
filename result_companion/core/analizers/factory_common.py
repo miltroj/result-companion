@@ -9,13 +9,20 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_ollama.llms import OllamaLLM
 from langchain_openai import AzureChatOpenAI
 
-from result_companion.core.analizers.common import run_with_semaphore
 from result_companion.core.chunking.chunking import (
     accumulate_llm_results_for_summarizaton_chain,
 )
 from result_companion.core.chunking.utils import calculate_chunk_size
 from result_companion.core.parsers.config import DefaultConfigModel
-from result_companion.core.utils.logging_config import logger
+
+# Import progress utilities
+from result_companion.core.utils.progress import (
+    ProgressLogger,
+    run_tasks_with_progress,
+)
+
+# Create a logger for this module using the registry
+logger = ProgressLogger("Analyzer")
 
 MODELS = Tuple[
     OllamaLLM | AzureChatOpenAI | BedrockLLM | ChatGoogleGenerativeAI, Callable
@@ -25,6 +32,7 @@ MODELS = Tuple[
 async def accumulate_llm_results_without_streaming(
     test_case: list, question_from_config_file: str, chain: RunnableSerializable
 ) -> Tuple[str, str, list]:
+    # Use the module-level logger
     logger.info(
         f"### Test Case: {test_case['name']}, content length: {len(str(test_case))}"
     )
@@ -59,12 +67,15 @@ async def execute_llm_and_get_results(
 
     llm_results = dict()
     corutines = []
+    relevant_cases = []
     logger.info(f"Executing chain, {len(test_cases)=}, {concurrency=}")
+
     for test_case in test_cases:
         if test_case.get("status") == "PASS" and not include_passing:
             logger.debug(f"Skipping, passing tests {test_case['name']!r}!")
             continue
 
+        relevant_cases.append(test_case)
         raw_test_case_text = str(test_case)
         chunk = calculate_chunk_size(
             raw_test_case_text, question_from_config_file, tokenizer
@@ -87,14 +98,18 @@ async def execute_llm_and_get_results(
                     chain=chain,
                     chunking_strategy=chunk,
                     llm=model,
+                    logger=logger,  # Pass the logger to the chunking function
                 )
             )
 
     semaphore = asyncio.Semaphore(concurrency)  # Limit concurrency
 
-    tasks = [run_with_semaphore(semaphore, coroutine) for coroutine in corutines]
+    desc = f"Analyzing {len(relevant_cases)} test cases"
+    results = await run_tasks_with_progress(
+        corutines, semaphore=semaphore, desc=desc, logger=logger
+    )
 
-    for result, name, chunks in await asyncio.gather(*tasks):
+    for result, name, chunks in results:
         llm_results[name] = result
 
     return llm_results

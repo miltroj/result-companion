@@ -21,6 +21,7 @@ langchain-aws = "^0.2.10"
 tiktoken = "^0.8.0"
 langchain-text-splitters = "^0.3.4"
 langchain-google-genai = "^2.1.6"
+tqdm = "^4.67.1"
 
 [tool.poetry.scripts]
 result-companion = "result_companion.entrypoints.cli.cli_app:app"
