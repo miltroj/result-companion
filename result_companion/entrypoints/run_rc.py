@@ -22,9 +22,8 @@ from result_companion.core.utils.log_levels import LogLevels
 from result_companion.core.utils.logging_config import (
     log_uncaught_exceptions,
     logger,
-    set_global_log_level,
 )
-from result_companion.core.utils.progress import ProgressLogger, set_progress_log_level
+from result_companion.core.utils.progress import ProgressLogger, set_log_level
 
 log_uncaught_exceptions(logger)
 
@@ -63,9 +62,8 @@ async def _main(
     report: Optional[str],
     include_passing: bool,
 ) -> bool:
-    # Set the log level for both the standard logger and progress loggers
-    set_global_log_level(logger=logger, log_level=str(log_level))
-    set_progress_log_level(str(log_level))
+    # Set the log level once for all loggers through our unified registry
+    set_log_level(str(log_level))
 
     # Create a progress logger for the main entrypoint
     progress_logger = ProgressLogger("RC")

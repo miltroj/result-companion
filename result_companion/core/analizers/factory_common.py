@@ -21,7 +21,7 @@ from result_companion.core.utils.progress import (
     run_tasks_with_progress,
 )
 
-# Create a logger for this module
+# Create a logger for this module using the registry
 logger = ProgressLogger("Analyzer")
 
 MODELS = Tuple[

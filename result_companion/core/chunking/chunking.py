@@ -14,7 +14,7 @@ from result_companion.core.chunking.utils import Chunking
 # Import progress utilities
 from result_companion.core.utils.progress import ProgressLogger
 
-# Create a logger for this module
+# Create a logger for this module using the registry
 logger = ProgressLogger("Chunking")
 
 
