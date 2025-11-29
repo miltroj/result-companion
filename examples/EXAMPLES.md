@@ -8,6 +8,7 @@
     - [2. AzureChatOpenAI Model](#2-azurechatopenai-model)
     - [3. BedrockLLM Model](#3-bedrockllm-model)
     - [4. ChatGoogleGenerativeAI Model](#4-chatgooglegenerativeai-model)
+    - [5. ChatOpenAI with Custom Endpoint](#5-chatopenai-with-custom-endpoint-databricks-openai-compatible-apis)
   - [Understanding Content Tokenization and Chunking](#understanding-content-tokenization-and-chunking)
     - [Setting Appropriate Token Limits](#setting-appropriate-token-limits)
   - [Environment Variables in Configuration Files](#environment-variables-in-configuration-files)
@@ -112,6 +113,29 @@ tokenizer:
 
 **Note:** Set up the `GOOGLE_API_KEY` environment variable with your Google API key. To obtain a Google API key, visit the [Google AI Studio](https://makersuite.google.com/app/apikey). The `max_content_tokens` setting should be adjusted based on your Gemini model (standard Gemini Pro supports 32K tokens, while Gemini 1.5 Pro can support up to 1 million tokens). For more information, refer to the [ChatGoogleGenerativeAI documentation](https://python.langchain.com/docs/integrations/chat/google_generative_ai).
 
+### 5. ChatOpenAI with Custom Endpoint (Databricks, OpenAI-compatible APIs)
+
+```yaml
+# user_config.yaml
+version: 1.0
+
+llm_factory:
+  model_type: "ChatOpenAI"
+  parameters:
+    model: "${OPENAI_MODEL}"  # e.g., "databricks-gpt-5-mini" or "databricks-claude-sonnet-4-5"
+    api_key: "${OPENAI_API_KEY}"
+    base_url: "${OPENAI_BASE_URL}"  # e.g., "https://your-workspace.cloud.databricks.com/serving-endpoints"
+
+tokenizer:
+  tokenizer: openai_tokenizer
+  max_content_tokens: 16000  # Adjust based on your model
+```
+
+**Note:** This configuration works with any OpenAI-compatible API endpoint, including Databricks Model Serving. Set up the following environment variables:
+- `OPENAI_MODEL`: Model name (e.g., "databricks-gpt-5-mini")
+- `OPENAI_API_KEY`: Your API token (for Databricks, use your personal access token)
+- `OPENAI_BASE_URL`: Base URL for the API (e.g., "https://your-workspace.cloud.databricks.com/serving-endpoints")
+
 ## Understanding Content Tokenization and Chunking
 
 The `max_content_tokens` parameter in the configuration file is crucial for handling large test results. This parameter determines:
@@ -130,6 +154,7 @@ Each model has different context window limitations:
 | AzureChatOpenAI | 4,000-16,000 | GPT-3.5: 4K, GPT-4: 8K, GPT-4 Turbo: 16K or 128K |
 | BedrockLLM | 4,000-100,000 | Varies widely (Titan: 8K, Llama2: 4K, Claude: 100K+) |
 | ChatGoogleGenerativeAI | 32,000-1,000,000 | Gemini Pro: 32K, Gemini 1.5 Pro: Up to 1M |
+| ChatOpenAI | 4,000-128,000 | Depends on endpoint model (GPT-4: 8K, GPT-4 Turbo: 128K) |
 
 Setting this parameter too low will cause unnecessary chunking which might reduce analysis quality, while setting it too high might result in token limit errors from the API.
 
@@ -188,5 +213,7 @@ This command will execute the application, utilizing the specified LLM model as 
 - **BedrockLLM Documentation:** For detailed information on configuring and using ***BedrockLLM***, refer to the [LangChain BedrockLLM documentation](https://python.langchain.com/api_reference/aws/llms/langchain_aws.llms.bedrock.BedrockLLM.html).
 
 - **ChatGoogleGenerativeAI Documentation:** For detailed information on configuring and using ***ChatGoogleGenerativeAI***, refer to the [LangChain ChatGoogleGenerativeAI documentation](https://python.langchain.com/docs/integrations/chat/google_generative_ai).
+
+- **ChatOpenAI Documentation:** For detailed information on configuring and using ***ChatOpenAI*** with custom endpoints, refer to the [LangChain ChatOpenAI documentation](https://python.langchain.com/docs/integrations/chat/openai/).
 
 By following the configurations and instructions provided above, you can effectively integrate and utilize different LLM models within your application.

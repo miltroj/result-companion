@@ -19,6 +19,7 @@ class TokenizerTypes(str, Enum):
     OLLAMA = "ollama_tokenizer"
     BEDROCK = "bedrock_tokenizer"
     GOOGLE = "google_tokenizer"
+    OPENAI = "openai_tokenizer"
 
 
 class CustomEndpointModel(BaseModel):
