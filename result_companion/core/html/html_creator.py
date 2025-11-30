@@ -41,68 +41,66 @@ def _inject_llm_ui(html_path: Path) -> None:
     """Add JavaScript to display LLM results per test."""
     script = """
 <style>
-.llm-section {
-    margin: 10px 0;
-    border: 1px solid var(--secondary-color);
-    border-radius: 4px;
-}
-.llm-header {
-    padding: 8px;
-    background: var(--primary-color);
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-}
-.llm-content {
-    padding: 10px;
-    background: var(--highlight-color);
-    max-height: 300px;
-    overflow-y: auto;
-}
-.test.fail .llm-section { border-color: var(--fail-color); }
+.llm-section { margin: 10px 0; border: 1px solid var(--secondary-color); border-radius: 4px; }
+.llm-header { padding: 8px; background: var(--primary-color); cursor: pointer; }
+.llm-content { padding: 10px; max-height: 300px; overflow-y: auto; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
-$(document).ready(function() {
-    // Find and hide LLM metadata
+$(function() {
     var llmData = null;
-    $('#s1 .metadata tr').each(function() {
-        if ($(this).find('th').text() === '__llm_results:') {
-            llmData = JSON.parse($(this).find('td').text());
-            $(this).hide();
+    var processed = new Set();
+
+    // Get LLM data from metadata
+    setTimeout(function() {
+        try {
+            var meta = window.testdata.suite().metadata;
+            for (var i in meta) {
+                if (meta[i][0] === '__llm_results') {
+                    // Decode HTML entities first
+                    var div = document.createElement('div');
+                    div.innerHTML = meta[i][1];
+                    var decoded = div.textContent || div.innerText || '';
+                    llmData = JSON.parse(decoded);
+                    console.log('LLM Data loaded:', Object.keys(llmData));
+                    $('tr:has(th:contains("__llm_results"))').hide();
+                    break;
+                }
+            }
+        } catch(e) {
+            console.error('Failed to load LLM data:', e);
         }
-    });
-    if (!llmData) return;
+    }, 1000);
 
-    // Add to each test
-    $('.test').each(function() {
-        var test = $(this);
-        var name = test.find('.name').first().text();
+    // Process test element
+    function process(test) {
+        var id = test.attr('id');
+        if (!id || processed.has(id) || !llmData) return;
+
+        var name = test.find('.element-header .name').first().text().trim();
+        console.log('Processing test:', name, 'Has LLM?', name in llmData);
+
         if (llmData[name]) {
-            var html = '<div class="llm-section">' +
-                '<div class="llm-header">' +
-                '<span>🤖 AI Analysis</span>' +
-                '<span class="toggle">▼</span>' +
-                '</div>' +
-                '<div class="llm-content">' +
-                marked.parse(llmData[name]) +
-                '</div></div>';
-            test.find('.children').append(html);
+            processed.add(id);
+            console.log('Adding LLM section for:', name);
+            var html = '<div class="llm-section"><div class="llm-header">🤖 AI Analysis</div>' +
+                '<div class="llm-content">' + marked.parse(llmData[name]) + '</div></div>';
+            test.find('.children').first().append(html);
 
-            // Toggle handler
             test.find('.llm-header').click(function() {
-                var content = $(this).next();
-                content.toggle();
-                $(this).find('.toggle').text(content.is(':visible') ? '▼' : '▶');
+                $(this).next().toggle();
             });
 
-            // Auto-collapse passing tests
-            if (!test.find('.label').hasClass('fail')) {
+            if (!test.find('.label.fail').length) {
                 test.find('.llm-content').hide();
-                test.find('.toggle').text('▶');
             }
         }
-    });
+    }
+
+    // Process all tests periodically
+    setInterval(function() {
+        $('.test').each(function() { process($(this)); });
+    }, 1000);
 });
 </script>
 """
