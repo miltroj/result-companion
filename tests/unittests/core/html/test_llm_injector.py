@@ -12,8 +12,9 @@ def test_llm_data_injector_stores_in_suite_metadata():
         "Test 1": "Analysis for test 1",
         "Test 2": "Analysis for test 2",
     }
+    model_info = {"model": "deepseek-r1:1.5b"}
 
-    injector = LLMDataInjector(llm_results)
+    injector = LLMDataInjector(llm_results, model_info)
 
     # Create mock result with suite
     result = MagicMock()
@@ -25,4 +26,5 @@ def test_llm_data_injector_stores_in_suite_metadata():
     # Verify data was stored as JSON in metadata
     assert "__llm_results" in result.suite.metadata
     stored_data = json.loads(result.suite.metadata["__llm_results"])
-    assert stored_data == llm_results
+    assert stored_data["results"] == llm_results
+    assert stored_data["model"] == model_info

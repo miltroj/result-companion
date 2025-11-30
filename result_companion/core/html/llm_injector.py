@@ -9,12 +9,15 @@ from robot.result.visitor import ResultVisitor
 class LLMDataInjector(ResultVisitor):
     """Injects LLM results directly into test data."""
 
-    def __init__(self, llm_results: Dict[str, str]):
+    def __init__(self, llm_results: Dict[str, str], model_info: Dict[str, str] = None):
         self.llm_results = llm_results
+        self.model_info = model_info
 
     def end_result(self, result):
         """Store LLM data as global metadata."""
         # Store all LLM results in suite metadata for JS access
         if result.suite and self.llm_results:
-            # Store as JSON in a special metadata field
-            result.suite.metadata["__llm_results"] = json.dumps(self.llm_results)
+            data = {"results": self.llm_results}
+            if self.model_info:
+                data["model"] = self.model_info
+            result.suite.metadata["__llm_results"] = json.dumps(data)

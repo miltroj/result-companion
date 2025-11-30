@@ -14,6 +14,7 @@ def create_llm_html_log(
     input_result_path: Path | str,
     llm_output_path: Path | str,
     llm_results: Dict[str, str],
+    model_info: Dict[str, str] = None,
 ) -> None:
     """Create HTML log with LLM data embedded in JS model.
 
@@ -21,13 +22,14 @@ def create_llm_html_log(
         input_result_path: Path to Robot Framework output.xml.
         llm_output_path: Path for generated HTML report.
         llm_results: Mapping of test names to LLM analysis.
+        model_info: Optional model information.
     """
     # Load results
     results = ExecutionResult(str(input_result_path))
 
     # Apply visitors
     results.visit(UniqueNameResultVisitor())
-    results.visit(LLMDataInjector(llm_results))
+    results.visit(LLMDataInjector(llm_results, model_info))
 
     # Generate HTML with standard writer
     writer = ResultWriter(results)
@@ -49,6 +51,7 @@ def _inject_llm_ui(html_path: Path) -> None:
 <script>
 $(function() {
     var llmData = null;
+    var modelInfo = null;
     var processed = new Set();
 
     // Get LLM data from metadata
@@ -61,8 +64,18 @@ $(function() {
                     var div = document.createElement('div');
                     div.innerHTML = meta[i][1];
                     var decoded = div.textContent || div.innerText || '';
-                    llmData = JSON.parse(decoded);
+                    var data = JSON.parse(decoded);
+
+                    // Support both formats
+                    if (data.results) {
+                        llmData = data.results;
+                        modelInfo = data.model;
+                    } else {
+                        llmData = data;  // Backwards compatibility
+                    }
+
                     console.log('LLM Data loaded:', Object.keys(llmData));
+                    if (modelInfo) console.log('Model:', modelInfo.model);
                     $('tr:has(th:contains("__llm_results"))').hide();
                     break;
                 }
@@ -83,7 +96,8 @@ $(function() {
         if (llmData[name]) {
             processed.add(id);
             console.log('Adding LLM section for:', name);
-            var html = '<div class="llm-section"><div class="llm-header">🤖 AI Analysis</div>' +
+            var modelText = modelInfo ? ' (' + modelInfo.model + ')' : '';
+            var html = '<div class="llm-section"><div class="llm-header">🤖 AI Analysis' + modelText + '</div>' +
                 '<div class="llm-content">' + marked.parse(llmData[name]) + '</div></div>';
             test.find('.children').first().append(html);
 
