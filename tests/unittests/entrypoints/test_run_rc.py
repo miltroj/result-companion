@@ -74,7 +74,7 @@ def test_init_llm_model_for_chatopenai_with_custom_base_url():
         **{
             "model_type": "ChatOpenAI",
             "parameters": {
-                "model": "databricks-gpt-5-mini",
+                "model": "gpt-5-mini",
                 "api_key": "fake-token",
                 "base_url": "https://example.databricks.com/serving-endpoints",
             },

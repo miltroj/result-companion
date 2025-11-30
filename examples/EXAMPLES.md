@@ -8,7 +8,7 @@
     - [2. AzureChatOpenAI Model](#2-azurechatopenai-model)
     - [3. BedrockLLM Model](#3-bedrockllm-model)
     - [4. ChatGoogleGenerativeAI Model](#4-chatgooglegenerativeai-model)
-    - [5. ChatOpenAI with Custom Endpoint](#5-chatopenai-with-custom-endpoint-databricks-openai-compatible-apis)
+    - [5. ChatOpenAI with Custom Endpoint (Databricks, OpenAI-compatible APIs)](#5-chatopenai-with-custom-endpoint-databricks-openai-compatible-apis)
   - [Understanding Content Tokenization and Chunking](#understanding-content-tokenization-and-chunking)
     - [Setting Appropriate Token Limits](#setting-appropriate-token-limits)
   - [Environment Variables in Configuration Files](#environment-variables-in-configuration-files)
@@ -122,9 +122,9 @@ version: 1.0
 llm_factory:
   model_type: "ChatOpenAI"
   parameters:
-    model: "${OPENAI_MODEL}"  # e.g., "databricks-gpt-5-mini" or "databricks-claude-sonnet-4-5"
+    model: "${OPENAI_MODEL}"
     api_key: "${OPENAI_API_KEY}"
-    base_url: "${OPENAI_BASE_URL}"  # e.g., "https://your-workspace.cloud.databricks.com/serving-endpoints"
+    base_url: "${OPENAI_BASE_URL}"
 
 tokenizer:
   tokenizer: openai_tokenizer
@@ -132,9 +132,9 @@ tokenizer:
 ```
 
 **Note:** This configuration works with any OpenAI-compatible API endpoint, including Databricks Model Serving. Set up the following environment variables:
-- `OPENAI_MODEL`: Model name (e.g., "databricks-gpt-5-mini")
-- `OPENAI_API_KEY`: Your API token (for Databricks, use your personal access token)
-- `OPENAI_BASE_URL`: Base URL for the API (e.g., "https://your-workspace.cloud.databricks.com/serving-endpoints")
+- `OPENAI_MODEL`: Model name
+- `OPENAI_API_KEY`: Your API token
+- `OPENAI_BASE_URL`: Base URL for the API (e.g., "https://your-platform/serving-endpoints")
 
 ## Understanding Content Tokenization and Chunking
 
