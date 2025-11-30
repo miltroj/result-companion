@@ -1,28 +1,37 @@
-import json
+"""HTML report generation with embedded LLM results."""
+
 from pathlib import Path
+from typing import Dict
 
-from result_companion.core.html.result_writer import create_base_llm_result_log
+from robot.api import ExecutionResult
+from robot.reporting.resultwriter import ResultWriter
 
-
-def append_llm_js_mappings(test_llm_results: dict, path: str) -> None:
-    # Serialize the mapping to a JSON string ensuring proper escaping.
-    js_object = json.dumps(test_llm_results)
-    # Build the script template. Using json.dumps ensures valid JS syntax.
-    template = (
-        '\n<script type="text/javascript">\n'
-        "window.output = window.output || {};\n"
-        f"window.output.llm_msgs = {js_object};\n"
-        "</script>\n"
-    )
-    with open(path, "a+", encoding="utf-8") as f:
-        f.write(template)
+from result_companion.core.html.llm_injector import LLMDataInjector
+from result_companion.core.results.visitors import UniqueNameResultVisitor
 
 
 def create_llm_html_log(
-    input_result_path: "Path|str", llm_output_path: "Path|str", llm_results: dict
+    input_result_path: Path | str,
+    llm_output_path: Path | str,
+    llm_results: Dict[str, str],
 ) -> None:
-    create_base_llm_result_log(input_result_path, llm_output_path)
-    append_llm_js_mappings(path=llm_output_path, test_llm_results=llm_results)
+    """Create HTML log with LLM data embedded in JS model.
+
+    Args:
+        input_result_path: Path to Robot Framework output.xml.
+        llm_output_path: Path for generated HTML report.
+        llm_results: Mapping of test names to LLM analysis.
+    """
+    # Load results
+    results = ExecutionResult(str(input_result_path))
+
+    # Apply visitors
+    results.visit(UniqueNameResultVisitor())
+    results.visit(LLMDataInjector(llm_results))
+
+    # Generate HTML with standard writer
+    writer = ResultWriter(results)
+    writer.write_results(report=None, log=str(llm_output_path))
 
 
 if __name__ == "__main__":

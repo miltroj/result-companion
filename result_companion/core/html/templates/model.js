@@ -1,5 +1,27 @@
 window.model = (function () {
 
+    // Helper to get LLM message for a test
+    function getLLMMessage(testName) {
+        try {
+            // Look for LLM results in suite metadata
+            var suite = window.testdata.suite();
+            if (suite && suite.metadata) {
+                for (var i = 0; i < suite.metadata.length; i++) {
+                    if (suite.metadata[i][0] === '__llm_results') {
+                        var llmData = JSON.parse(suite.metadata[i][1]);
+                        return llmData[testName] || "No LLM analysis available for this test case";
+                    }
+                }
+            }
+        } catch (e) {
+            // Fallback to window.output if available (backwards compatibility)
+            if (window.output && window.output.llm_msgs && window.output.llm_msgs[testName]) {
+                return window.output.llm_msgs[testName];
+            }
+        }
+        return "No LLM analysis available for this test case";
+    }
+
     function Suite(data) {
         var suite = createModelObject(data);
         suite.source = data.source;
@@ -118,8 +140,8 @@ window.model = (function () {
     function Test(data) {
         var test = createModelObject(data);
         test.type = 'test';
-        // test.llm_message = data.llm_message ? data.llm_message : "No LLM run available for this test case";
-        test.llm_message = window.output["llm_msgs"] && window.output["llm_msgs"][test.name] ? window.output["llm_msgs"][test.name] : "No LLM run available for this test case";
+        // Get LLM data from suite metadata
+        test.llm_message = getLLMMessage(test.name);
         test.template = 'testTemplate';
         test.fullName = data.parent.fullName + '.' + test.name;
         test.formatParentName = function () { return util.formatParentName(test); };
