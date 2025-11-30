@@ -105,9 +105,8 @@ $(function() {
                 $(this).next().toggle();
             });
 
-            if (!test.find('.label.fail').length) {
-                test.find('.llm-content').hide();
-            }
+            // Start with all AI sections folded
+            test.find('.llm-content').hide();
         }
     }
 
