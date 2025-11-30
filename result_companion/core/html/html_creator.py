@@ -33,6 +33,82 @@ def create_llm_html_log(
     writer = ResultWriter(results)
     writer.write_results(report=None, log=str(llm_output_path))
 
+    # Inject UI enhancements
+    _inject_llm_ui(Path(llm_output_path))
+
+
+def _inject_llm_ui(html_path: Path) -> None:
+    """Add JavaScript to display LLM results per test."""
+    script = """
+<style>
+.llm-section {
+    margin: 10px 0;
+    border: 1px solid var(--secondary-color);
+    border-radius: 4px;
+}
+.llm-header {
+    padding: 8px;
+    background: var(--primary-color);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+}
+.llm-content {
+    padding: 10px;
+    background: var(--highlight-color);
+    max-height: 300px;
+    overflow-y: auto;
+}
+.test.fail .llm-section { border-color: var(--fail-color); }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Find and hide LLM metadata
+    var llmData = null;
+    $('#s1 .metadata tr').each(function() {
+        if ($(this).find('th').text() === '__llm_results:') {
+            llmData = JSON.parse($(this).find('td').text());
+            $(this).hide();
+        }
+    });
+    if (!llmData) return;
+
+    // Add to each test
+    $('.test').each(function() {
+        var test = $(this);
+        var name = test.find('.name').first().text();
+        if (llmData[name]) {
+            var html = '<div class="llm-section">' +
+                '<div class="llm-header">' +
+                '<span>🤖 AI Analysis</span>' +
+                '<span class="toggle">▼</span>' +
+                '</div>' +
+                '<div class="llm-content">' +
+                marked.parse(llmData[name]) +
+                '</div></div>';
+            test.find('.children').append(html);
+
+            // Toggle handler
+            test.find('.llm-header').click(function() {
+                var content = $(this).next();
+                content.toggle();
+                $(this).find('.toggle').text(content.is(':visible') ? '▼' : '▶');
+            });
+
+            // Auto-collapse passing tests
+            if (!test.find('.label').hasClass('fail')) {
+                test.find('.llm-content').hide();
+                test.find('.toggle').text('▶');
+            }
+        }
+    });
+});
+</script>
+"""
+    html = html_path.read_text()
+    html_path.write_text(html.replace("</body>", f"{script}\n</body>"))
+
 
 if __name__ == "__main__":
     # TODO: remove this test code
