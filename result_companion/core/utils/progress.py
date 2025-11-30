@@ -6,9 +6,7 @@ from typing import Any, Callable, List, Optional, TypeVar
 from tqdm import tqdm
 
 # Import our unified logging registry
-from result_companion.core.utils.logging_config import (
-    get_progress_logger,
-)
+from result_companion.core.utils.logging_config import get_progress_logger
 
 T = TypeVar("T")
 

@@ -16,10 +16,7 @@ from result_companion.core.chunking.utils import calculate_chunk_size
 from result_companion.core.parsers.config import DefaultConfigModel
 
 # Import progress utilities
-from result_companion.core.utils.progress import (
-    ProgressLogger,
-    run_tasks_with_progress,
-)
+from result_companion.core.utils.progress import ProgressLogger, run_tasks_with_progress
 
 # Create a logger for this module using the registry
 logger = ProgressLogger("Analyzer")
