@@ -7,7 +7,7 @@ from langchain_aws import BedrockLLM
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_ollama.llms import OllamaLLM
-from langchain_openai import AzureChatOpenAI
+from langchain_openai import AzureChatOpenAI, ChatOpenAI
 from pydantic import ValidationError
 
 from result_companion.core.analizers.factory_common import execute_llm_and_get_results
@@ -39,6 +39,7 @@ def init_llm_with_strategy_factory(
         "AzureChatOpenAI": (AzureChatOpenAI, None),
         "BedrockLLM": (BedrockLLM, None),
         "ChatGoogleGenerativeAI": (ChatGoogleGenerativeAI, None),
+        "ChatOpenAI": (ChatOpenAI, None),
     }
 
     if model_type not in model_classes:

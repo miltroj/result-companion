@@ -69,6 +69,22 @@ def test_init_llm_model_for_google_gemini():
     assert strategy is None
 
 
+def test_init_llm_model_for_chatopenai_with_custom_base_url():
+    config = LLMFactoryModel(
+        **{
+            "model_type": "ChatOpenAI",
+            "parameters": {
+                "model": "gpt-5-mini",
+                "api_key": "fake-token",
+                "base_url": "https://example.databricks.com/serving-endpoints",
+            },
+        }
+    )
+    model, strategy = init_llm_with_strategy_factory(config)
+    assert model.__class__.__name__ == "ChatOpenAI"
+    assert strategy is None
+
+
 def test_fail_llm_init_on_unsupported_llm_parameters():
     config = LLMFactoryModel(
         **{
@@ -112,10 +128,7 @@ def test_fail_init_llm_model_for_unsupported_model():
     )
     with pytest.raises(ValueError) as e:
         init_llm_with_strategy_factory(config)
-    assert (
-        str(e.value)
-        == "Unsupported model type: UnsupportedModel not in dict_keys(['OllamaLLM', 'AzureChatOpenAI', 'BedrockLLM', 'ChatGoogleGenerativeAI'])"
-    )
+    assert "Unsupported model type: UnsupportedModel" in str(e.value)
 
 
 def test_fail_init_llm_model_for_case_sensitive_model():
@@ -129,10 +142,7 @@ def test_fail_init_llm_model_for_case_sensitive_model():
     )
     with pytest.raises(ValueError) as e:
         init_llm_with_strategy_factory(config)
-    assert (
-        str(e.value)
-        == "Unsupported model type: ollamallm not in dict_keys(['OllamaLLM', 'AzureChatOpenAI', 'BedrockLLM', 'ChatGoogleGenerativeAI'])"
-    )
+    assert "Unsupported model type: ollamallm" in str(e.value)
 
 
 @patch(

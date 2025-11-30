@@ -5,8 +5,9 @@ from result_companion.core.chunking.utils import (
     calculate_chunk_size,
     calculate_overall_chunk_size,
     google_tokenizer,
+    tokenizer_mappings,
 )
-from result_companion.core.parsers.config import TokenizerModel
+from result_companion.core.parsers.config import TokenizerModel, TokenizerTypes
 
 
 def test_calculating_overall_chunk_size() -> None:
@@ -98,3 +99,11 @@ def test_azure_openai_tokenizer(mock_encoding_for_model):
     assert result == 3
     mock_encoding_for_model.assert_called_once_with("gpt-3.5-turbo")
     mock_encode.assert_called_once_with("hello world")
+
+
+def test_all_tokenizer_types_have_mapping():
+    """Ensure all TokenizerTypes have a corresponding tokenizer function."""
+    for tokenizer_type in TokenizerTypes:
+        assert (
+            tokenizer_type.value in tokenizer_mappings
+        ), f"Missing tokenizer mapping for {tokenizer_type}"

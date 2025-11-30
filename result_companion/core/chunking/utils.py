@@ -54,6 +54,7 @@ tokenizer_mappings = {
     "ollama_tokenizer": ollama_tokenizer,
     "bedrock_tokenizer": bedrock_tokenizer,
     "google_tokenizer": google_tokenizer,
+    "openai_tokenizer": azure_openai_tokenizer,  # Same tokenization as Azure
 }
 
 
