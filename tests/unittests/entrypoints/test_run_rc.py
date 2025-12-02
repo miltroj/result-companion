@@ -211,7 +211,7 @@ def test_main_e2e_execution(
     )
 
     mocked_get_robot_results.assert_called_once_with(
-        file_path=Path("output.xml"), log_level=LogLevels.TRACE
+        file_path=Path("output.xml"), log_level=LogLevels.DEBUG
     )
     mock_config_loading.assert_called_once_with(None)
 

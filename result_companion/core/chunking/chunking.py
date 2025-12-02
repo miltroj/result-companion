@@ -9,7 +9,9 @@ from langchain_core.runnables import RunnableSerializable
 
 from result_companion.core.analizers.models import MODELS
 from result_companion.core.chunking.utils import Chunking
-from result_companion.core.utils.logging_config import logger
+from result_companion.core.utils.logging_config import get_progress_logger
+
+logger = get_progress_logger("Chunking")
 
 
 def build_sumarization_chain(
@@ -40,9 +42,7 @@ async def accumulate_llm_results_for_summarizaton_chain(
     chunks = split_text_into_chunks_using_text_splitter(
         str(test_case), chunking_strategy.chunk_size, chunking_strategy.chunk_size // 10
     )
-    return await summarize_test_case(
-        test_case, chunks, llm, question_from_config_file, chain
-    )
+    return await summarize_test_case(test_case, chunks, llm, question_from_config_file)
 
 
 async def process_chunk(chunk: str, summarization_chain: LLMChain) -> str:
@@ -50,11 +50,10 @@ async def process_chunk(chunk: str, summarization_chain: LLMChain) -> str:
     return await summarization_chain.ainvoke({"text": chunk})
 
 
-async def summarize_test_case(test_case, chunks, llm, question_prompt, chain):
-    logger.info(
-        f"### For test case {test_case['name']}, {len(chunks)=}",
-    )
-    # TODO: move to default_config.yaml
+async def summarize_test_case(test_case, chunks, llm, question_prompt):
+    logger.info(f"### For test case {test_case['name']}, {len(chunks)=}")
+
+    # TODO: move promt definition to default_config.yaml
     summarization_prompt = PromptTemplate(
         input_variables=["text"],
         template=(
@@ -64,10 +63,9 @@ async def summarize_test_case(test_case, chunks, llm, question_prompt, chain):
     )
 
     summarization_chain = build_sumarization_chain(summarization_prompt, llm)
+    chunk_tasks = [process_chunk(chunk, summarization_chain) for chunk in chunks]
+    summaries = await asyncio.gather(*chunk_tasks)
 
-    summaries = await asyncio.gather(
-        *[process_chunk(chunk, summarization_chain) for chunk in chunks]
-    )
     aggregated_summary = "\n".join(summaries)
 
     final_prompt = PromptTemplate(
@@ -79,6 +77,6 @@ async def summarize_test_case(test_case, chunks, llm, question_prompt, chain):
     )
 
     final_analysis_chain = build_sumarization_chain(final_prompt, llm)
-
     final_result = await final_analysis_chain.ainvoke({"summary": aggregated_summary})
+
     return final_result, test_case["name"], chunks

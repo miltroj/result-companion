@@ -63,14 +63,15 @@ async def _main(
     report: Optional[str],
     include_passing: bool,
 ) -> bool:
-    set_global_log_level(logger=logger, log_level=str(log_level))
+    set_global_log_level(str(log_level))
+
     logger.info("Starting Result Companion!")
     start = time.time()
     # TODO: move to testable method
     parsed_config = load_config(config)
     # TODO: set output log level
     test_cases = get_robot_results_from_file_as_dict(
-        file_path=output, log_level=LogLevels.TRACE
+        file_path=output, log_level=LogLevels.DEBUG
     )
 
     question_from_config_file = parsed_config.llm_config.question_prompt
@@ -81,7 +82,7 @@ async def _main(
 
     if model_init_strategy:
         logger.debug(
-            f"Using init strategy: {model_init_strategy} with parameters: {parsed_config.llm_factory.parameters}"
+            f"Using init strategy: {model_init_strategy} with parameters: {parsed_config.llm_factory.strategy.parameters}"
         )
         model_init_strategy(**parsed_config.llm_factory.strategy.parameters)
 
@@ -103,6 +104,7 @@ async def _main(
             llm_output_path=report,
             llm_results=llm_results,
         )
+
     stop = time.time()
     logger.debug(f"Execution time: {stop - start}")
     return True

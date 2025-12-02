@@ -1,111 +1,118 @@
-import json
 import logging
-import logging.config
 import os
 import sys
 import tempfile
 from logging.handlers import RotatingFileHandler
+from typing import Dict
+
+from tqdm import tqdm
 
 
-def setup_logging(
-    name,
-    log_level=logging.INFO,
-    log_filename="result_companion.log",
-    log_dir=None,
-    max_log_size=5 * 1024 * 1024,
-    backup_count=3,
-    enable_json=False,
-):
-    """
-    Configures advanced logging for CLI applications.
-    Outputs to both stdout and a log file, with optional JSON formatting.
+class TqdmLoggingHandler(logging.Handler):
+    """Logging handler that displays logs above tqdm progress bars."""
 
-    Parameters:
-    - name: logger name
-    - log_level: The logging level (e.g., logging.DEBUG, logging.INFO).
-    - log_filename: The name of the log file.
-    - log_dir: Directory where the log file will be saved. Defaults to the system's temp dir.
-    - max_log_size: Max size of a single log file before rotating (in bytes).
-    - backup_count: Number of rotated log files to keep.
-    - enable_json: If True, logs will be formatted as JSON.
-    """
-    # Determine log directory
-    if log_dir is None:
-        log_dir = tempfile.gettempdir()
-    log_file_path = os.path.join(log_dir, log_filename)
-
-    # Define formatters
-    plain_formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-    json_formatter = logging.Formatter(
-        json.dumps(
-            {
-                "timestamp": "%(asctime)s",
-                "logger": "%(name)s",
-                "level": "%(levelname)s",
-                "message": "%(message)s",
-            }
+    def __init__(self, level: int = logging.NOTSET):
+        super().__init__(level)
+        self.setFormatter(
+            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         )
-    )
 
-    # Choose formatter based on user preference
-    formatter = json_formatter if enable_json else plain_formatter
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            tqdm.write(self.format(record))
+            self.flush()
+        except Exception:
+            self.handleError(record)
 
-    # Create custom logger
+
+class LoggerRegistry:
+    """Registry for managing loggers with tqdm-compatible output."""
+
+    def __init__(self, default_log_level: int = logging.INFO):
+        self.loggers: Dict[str, logging.Logger] = {}
+        self.default_log_level: int = default_log_level
+        self._tqdm_handler = TqdmLoggingHandler()
+
+    def get_logger(self, name: str, use_tqdm: bool = True) -> logging.Logger:
+        """Get or create a logger by name."""
+        if name in self.loggers:
+            return self.loggers[name]
+
+        logger = _setup_logging(name, log_level=self.default_log_level)
+
+        if use_tqdm and not any(
+            isinstance(h, TqdmLoggingHandler) for h in logger.handlers
+        ):
+            logger.addHandler(self._tqdm_handler)
+
+        self.loggers[name] = logger
+        return logger
+
+    def set_log_level(self, level: str | int) -> None:
+        """Set log level for all registered loggers."""
+        if isinstance(level, str):
+            level = getattr(logging, level.upper(), logging.INFO)
+
+        self.default_log_level = level
+        for logger_instance in self.loggers.values():
+            logger_instance.setLevel(level)
+            for handler in logger_instance.handlers:
+                handler.setLevel(level)
+
+
+def _setup_logging(name: str, log_level: int = logging.INFO) -> logging.Logger:
+    """Create a logger with file handler (console output via TqdmLoggingHandler)."""
     logger = logging.getLogger(name)
     logger.setLevel(log_level)
 
-    # Prevent duplicate handlers
     if logger.hasHandlers():
         return logger
 
-    # Console Handler
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(log_level)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
-    # Rotating File Handler
+    # File handler only - console output handled by TqdmLoggingHandler
+    log_file_path = os.path.join(tempfile.gettempdir(), "result_companion.log")
     try:
-        file_handler = RotatingFileHandler(
-            log_file_path, maxBytes=max_log_size, backupCount=backup_count
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
-        file_handler.setLevel(logging.DEBUG)  # TODO: not working
-        file_handler.setFormatter(json_formatter)
+        file_handler = RotatingFileHandler(
+            log_file_path, maxBytes=5 * 1024 * 1024, backupCount=3
+        )
+        file_handler.setLevel(logging.DEBUG)
+        file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
     except (OSError, IOError) as e:
         logger.warning(f"Failed to write to log file {log_file_path}: {e}")
 
-    # Log setup details
-    logger.debug(f"Logging initialized. Log file: {log_file_path}")
     return logger
 
 
-def log_uncaught_exceptions(logger) -> None:
-    """
-    Logs any uncaught exceptions globally for better diagnostics.
-    """
+# Module-level singleton and helpers
+logger_registry = LoggerRegistry()
+
+
+def set_global_log_level(log_level: str | int) -> None:
+    """Set log level for all loggers."""
+    logger_registry.set_log_level(log_level)
+
+
+def get_progress_logger(name: str = "RC") -> logging.Logger:
+    """Get a logger that works with progress bars."""
+    return logger_registry.get_logger(name)
+
+
+def log_uncaught_exceptions(target_logger: logging.Logger) -> None:
+    """Log uncaught exceptions globally."""
 
     def handle_exception(exc_type, exc_value, exc_traceback):
         if issubclass(exc_type, KeyboardInterrupt):
             sys.__excepthook__(exc_type, exc_value, exc_traceback)
             return
-        logger.critical(
+        target_logger.critical(
             "Uncaught Exception", exc_info=(exc_type, exc_value, exc_traceback)
         )
 
     sys.excepthook = handle_exception
 
 
-def set_global_log_level(logger, log_level) -> None:
-    """
-    Set log level for all loggers.
-    """
-    if logger:
-        logger.setLevel(log_level)
-        for handler in logger.handlers:
-            handler.setLevel(log_level)
-
-
-logger = setup_logging("RC")
+# Default logger
+logger = get_progress_logger("RC")

@@ -3,7 +3,6 @@ from typing import Any
 
 
 class LogLevels(str, Enum):
-    TRACE = "TRACE"
     DEBUG = "DEBUG"
     INFO = "INFO"
     WARNING = "WARNING"
