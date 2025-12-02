@@ -73,7 +73,7 @@ async def _main(
     parsed_config = load_config(config)
     # TODO: set output log level
     test_cases = get_robot_results_from_file_as_dict(
-        file_path=output, log_level=LogLevels.TRACE
+        file_path=output, log_level=LogLevels.DEBUG
     )
 
     question_from_config_file = parsed_config.llm_config.question_prompt
