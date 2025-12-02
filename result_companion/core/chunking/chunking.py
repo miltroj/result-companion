@@ -6,7 +6,6 @@ from langchain.prompts import PromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableSerializable
-from tqdm import tqdm
 
 from result_companion.core.analizers.models import MODELS
 from result_companion.core.chunking.utils import Chunking
@@ -64,30 +63,8 @@ async def summarize_test_case(test_case, chunks, llm, question_prompt):
     )
 
     summarization_chain = build_sumarization_chain(summarization_prompt, llm)
-
     chunk_tasks = [process_chunk(chunk, summarization_chain) for chunk in chunks]
-
-    if len(chunks) > 1:
-        with tqdm(
-            total=len(chunks),
-            desc=f"Processing chunks for {test_case['name']}",
-            leave=False,
-            position=0,  # Keep at bottom of screen
-            dynamic_ncols=True,  # Adjust width based on terminal
-            miniters=1,  # Update on each iteration
-        ) as pbar:
-            summaries = []
-            pending = [asyncio.create_task(task) for task in chunk_tasks]
-
-            while pending:
-                done, pending = await asyncio.wait(
-                    pending, return_when=asyncio.FIRST_COMPLETED
-                )
-                for task in done:
-                    summaries.append(task.result())
-                    pbar.update(1)
-    else:
-        summaries = await asyncio.gather(*chunk_tasks)
+    summaries = await asyncio.gather(*chunk_tasks)
 
     aggregated_summary = "\n".join(summaries)
 
