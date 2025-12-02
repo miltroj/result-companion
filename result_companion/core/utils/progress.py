@@ -27,9 +27,19 @@ async def run_tasks_with_progress(
     if semaphore is None:
         semaphore = asyncio.Semaphore(1)
 
+    active_count = 0
+    lock = asyncio.Lock()
+
     async def run_with_semaphore(coro):
+        nonlocal active_count
         async with semaphore:
-            return await coro
+            async with lock:
+                active_count += 1
+            try:
+                return await coro
+            finally:
+                async with lock:
+                    active_count -= 1
 
     tasks = [asyncio.create_task(run_with_semaphore(coro)) for coro in coroutines]
     results = [None] * len(tasks)
@@ -37,11 +47,7 @@ async def run_tasks_with_progress(
     pending = set(tasks)
 
     with tqdm(
-        total=len(tasks),
-        desc=desc,
-        position=0,
-        leave=True,
-        dynamic_ncols=True,
+        total=len(tasks), desc=desc, position=0, leave=True, dynamic_ncols=True
     ) as pbar:
         while pending:
             done, pending = await asyncio.wait(
@@ -50,5 +56,6 @@ async def run_tasks_with_progress(
             for task in done:
                 results[task_to_index[task]] = task.result()
                 pbar.update(1)
+            pbar.set_description(f"{desc} ({active_count} active)")
 
     return results
