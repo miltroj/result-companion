@@ -198,7 +198,6 @@ def setup_logging(
     return logger
 
 
-# Tqdm-compatible logging handler for progress bars
 class TqdmLoggingHandler(logging.Handler):
     """
     Custom logging handler that ensures logs are displayed above the tqdm progress bar.
@@ -223,7 +222,6 @@ class TqdmLoggingHandler(logging.Handler):
             self.handleError(record)
 
 
-# Register the TqdmLoggingHandler
 tqdm_handler = TqdmLoggingHandler()
 logger_registry.register_handler("tqdm", tqdm_handler)
 
@@ -255,7 +253,6 @@ def set_global_log_level(log_level) -> None:
     logger_registry.set_log_level(log_level)
 
 
-# Get a progress-bar aware logger
 def get_progress_logger(name="RC") -> logging.Logger:
     """
     Get a logger that works with progress bars.
