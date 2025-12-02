@@ -5,6 +5,8 @@ import tempfile
 from logging.handlers import RotatingFileHandler
 from typing import Dict
 
+from tqdm import tqdm
+
 
 class TqdmLoggingHandler(logging.Handler):
     """Logging handler that displays logs above tqdm progress bars."""
@@ -17,8 +19,6 @@ class TqdmLoggingHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
-            from tqdm import tqdm
-
             tqdm.write(self.format(record))
             self.flush()
         except Exception:
