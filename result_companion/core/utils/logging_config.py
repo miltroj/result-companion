@@ -5,7 +5,7 @@ import os
 import sys
 import tempfile
 from logging.handlers import RotatingFileHandler
-from typing import Dict
+from typing import Dict, Optional
 
 
 class LoggerRegistry:
@@ -15,22 +15,24 @@ class LoggerRegistry:
     It leverages the existing setup_logging function for consistent logger setup.
     """
 
-    def __init__(self, default_log_level=logging.INFO):
+    def __init__(self, default_log_level: int = logging.INFO):
         """Initialize the registry with a default log level."""
         self.loggers: Dict[str, logging.Logger] = {}
-        self.default_log_level = default_log_level
+        self.default_log_level: int = default_log_level
         self.custom_handlers: Dict[str, logging.Handler] = {}
-        self.log_filename = "result_companion.log"
-        self.log_dir = None
-        self.max_log_size = 5 * 1024 * 1024
-        self.backup_count = 3
-        self.enable_json = False
+        self.log_filename: str = "result_companion.log"
+        self.log_dir: Optional[str] = None
+        self.max_log_size: int = 5 * 1024 * 1024
+        self.backup_count: int = 3
+        self.enable_json: bool = False
 
     def register_handler(self, handler_name: str, handler: logging.Handler) -> None:
         """Register a custom handler that can be applied to loggers."""
         self.custom_handlers[handler_name] = handler
 
-    def get_logger(self, name: str, use_handlers: list = None) -> logging.Logger:
+    def get_logger(
+        self, name: str, use_handlers: Optional[list[str]] = None
+    ) -> logging.Logger:
         """
         Get a logger from the registry, creating it if it doesn't exist.
 
@@ -44,7 +46,6 @@ class LoggerRegistry:
         if name in self.loggers:
             return self.loggers[name]
 
-        # Create a new logger using the existing setup_logging function
         logger = setup_logging(
             name,
             log_level=self.default_log_level,
@@ -69,7 +70,7 @@ class LoggerRegistry:
         self.loggers[name] = logger
         return logger
 
-    def set_log_level(self, level) -> None:
+    def set_log_level(self, level: str | int) -> None:
         """
         Set the log level for all loggers in the registry.
 
@@ -90,12 +91,12 @@ class LoggerRegistry:
 
     def configure_file_logging(
         self,
-        log_filename=None,
-        log_dir=None,
-        max_log_size=None,
-        backup_count=None,
-        enable_json=None,
-    ):
+        log_filename: Optional[str] = None,
+        log_dir: Optional[str] = None,
+        max_log_size: Optional[int] = None,
+        backup_count: Optional[int] = None,
+        enable_json: Optional[bool] = None,
+    ) -> None:
         """
         Configure file logging parameters for future loggers.
 
