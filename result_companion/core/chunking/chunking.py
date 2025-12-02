@@ -1,5 +1,5 @@
 import asyncio
-from typing import Optional, Tuple
+from typing import Tuple
 
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
@@ -10,7 +10,9 @@ from tqdm import tqdm
 
 from result_companion.core.analizers.models import MODELS
 from result_companion.core.chunking.utils import Chunking
-from result_companion.core.utils.progress import ProgressLogger
+from result_companion.core.utils.logging_config import get_progress_logger
+
+logger = get_progress_logger("Chunking")
 
 
 def build_sumarization_chain(
@@ -37,40 +39,21 @@ async def accumulate_llm_results_for_summarizaton_chain(
     chain: RunnableSerializable,
     chunking_strategy: Chunking,
     llm: MODELS,
-    logger: Optional[ProgressLogger] = None,
 ) -> Tuple[str, str, list]:
-    log = logger or ProgressLogger("Chunking")
-
     chunks = split_text_into_chunks_using_text_splitter(
         str(test_case), chunking_strategy.chunk_size, chunking_strategy.chunk_size // 10
     )
-    return await summarize_test_case(
-        test_case, chunks, llm, question_from_config_file, chain, logger=log
-    )
+    return await summarize_test_case(test_case, chunks, llm, question_from_config_file)
 
 
-async def process_chunk(
-    chunk: str, summarization_chain: LLMChain, logger: Optional[ProgressLogger] = None
-) -> str:
-    log = logger or ProgressLogger("Chunking")
-    log.debug(f"Processing chunk of length {len(chunk)}")
+async def process_chunk(chunk: str, summarization_chain: LLMChain) -> str:
+    logger.debug(f"Processing chunk of length {len(chunk)}")
     return await summarization_chain.ainvoke({"text": chunk})
 
 
-async def summarize_test_case(
-    test_case,
-    chunks,
-    llm,
-    question_prompt,
-    chain,
-    logger: Optional[ProgressLogger] = None,
-):
-    log = logger or ProgressLogger("Chunking")
+async def summarize_test_case(test_case, chunks, llm, question_prompt):
+    logger.info(f"### For test case {test_case['name']}, {len(chunks)=}")
 
-    log.info(
-        f"### For test case {test_case['name']}, {len(chunks)=}",
-    )
-    # TODO: move to default_config.yaml
     summarization_prompt = PromptTemplate(
         input_variables=["text"],
         template=(
@@ -81,12 +64,9 @@ async def summarize_test_case(
 
     summarization_chain = build_sumarization_chain(summarization_prompt, llm)
 
-    chunk_tasks = []
-    for chunk in chunks:
-        chunk_tasks.append(process_chunk(chunk, summarization_chain, logger=log))
+    chunk_tasks = [process_chunk(chunk, summarization_chain) for chunk in chunks]
 
     if len(chunks) > 1:
-        # Only show progress for multiple chunks
         with tqdm(
             total=len(chunks),
             desc=f"Processing chunks for {test_case['name']}",
@@ -102,7 +82,6 @@ async def summarize_test_case(
                 done, pending = await asyncio.wait(
                     pending, return_when=asyncio.FIRST_COMPLETED
                 )
-
                 for task in done:
                     summaries.append(task.result())
                     pbar.update(1)
@@ -120,6 +99,6 @@ async def summarize_test_case(
     )
 
     final_analysis_chain = build_sumarization_chain(final_prompt, llm)
-
     final_result = await final_analysis_chain.ainvoke({"summary": aggregated_summary})
+
     return final_result, test_case["name"], chunks

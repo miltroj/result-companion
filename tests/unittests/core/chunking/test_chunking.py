@@ -77,13 +77,10 @@ async def test_executing_summarization_chain(mock_building_chain) -> None:
     test_case = {"name": "test_case_name", "content": "This is a test"}
 
     question_prompt = "question"
-    chain = "empty chain"
 
     chunks = ["text chunk1", "text chunk2"]
 
-    result = await summarize_test_case(
-        test_case, chunks, fake_llm, question_prompt, chain
-    )
+    result = await summarize_test_case(test_case, chunks, fake_llm, question_prompt)
     assert result == ("final summary", "test_case_name", ["text chunk1", "text chunk2"])
 
 

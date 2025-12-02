@@ -20,11 +20,11 @@ from result_companion.core.parsers.result_parser import (
 )
 from result_companion.core.utils.log_levels import LogLevels
 from result_companion.core.utils.logging_config import (
+    get_progress_logger,
     log_uncaught_exceptions,
     logger,
     set_global_log_level,
 )
-from result_companion.core.utils.progress import ProgressLogger
 
 log_uncaught_exceptions(logger)
 
@@ -63,11 +63,9 @@ async def _main(
     report: Optional[str],
     include_passing: bool,
 ) -> bool:
-    # Set the log level once for all loggers through our unified system
     set_global_log_level(str(log_level))
 
-    # Create a progress logger for the main entrypoint
-    progress_logger = ProgressLogger("RC")
+    progress_logger = get_progress_logger("RC")
 
     progress_logger.info("Starting Result Companion!")
     start = time.time()
@@ -108,6 +106,7 @@ async def _main(
             llm_output_path=report,
             llm_results=llm_results,
         )
+
     stop = time.time()
     progress_logger.debug(f"Execution time: {stop - start}")
     return True

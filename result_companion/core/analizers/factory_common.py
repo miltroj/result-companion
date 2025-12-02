@@ -14,9 +14,10 @@ from result_companion.core.chunking.chunking import (
 )
 from result_companion.core.chunking.utils import calculate_chunk_size
 from result_companion.core.parsers.config import DefaultConfigModel
-from result_companion.core.utils.progress import ProgressLogger, run_tasks_with_progress
+from result_companion.core.utils.logging_config import get_progress_logger
+from result_companion.core.utils.progress import run_tasks_with_progress
 
-logger = ProgressLogger("Analyzer")
+logger = get_progress_logger("Analyzer")
 
 MODELS = Tuple[
     OllamaLLM | AzureChatOpenAI | BedrockLLM | ChatGoogleGenerativeAI, Callable
@@ -91,16 +92,13 @@ async def execute_llm_and_get_results(
                     chain=chain,
                     chunking_strategy=chunk,
                     llm=model,
-                    logger=logger,  # Pass the logger to the chunking function
                 )
             )
 
-    semaphore = asyncio.Semaphore(concurrency)  # Limit concurrency
+    semaphore = asyncio.Semaphore(concurrency)
 
     desc = f"Analyzing {len(relevant_cases)} test cases"
-    results = await run_tasks_with_progress(
-        corutines, semaphore=semaphore, desc=desc, logger=logger
-    )
+    results = await run_tasks_with_progress(corutines, semaphore=semaphore, desc=desc)
 
     for result, name, chunks in results:
         llm_results[name] = result
