@@ -1,5 +1,3 @@
-"""Logging configuration utilities."""
-
 import logging
 import os
 import sys
@@ -123,5 +121,5 @@ def log_uncaught_exceptions(target_logger: logging.Logger) -> None:
     sys.excepthook = handle_exception
 
 
-# Default logger for backward compatibility
+# Default logger
 logger = get_progress_logger("RC")

@@ -54,6 +54,7 @@ async def process_chunk(chunk: str, summarization_chain: LLMChain) -> str:
 async def summarize_test_case(test_case, chunks, llm, question_prompt):
     logger.info(f"### For test case {test_case['name']}, {len(chunks)=}")
 
+    # TODO: move promt definition to default_config.yaml
     summarization_prompt = PromptTemplate(
         input_variables=["text"],
         template=(
