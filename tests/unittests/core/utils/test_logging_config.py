@@ -5,9 +5,9 @@ import logging
 from result_companion.core.utils.logging_config import (
     LoggerRegistry,
     TqdmLoggingHandler,
+    _setup_logging,
     get_progress_logger,
     set_global_log_level,
-    setup_logging,
 )
 
 # --- LoggerRegistry Tests ---
@@ -49,14 +49,22 @@ def test_logger_registry_set_log_level_accepts_string():
     assert registry.default_log_level == logging.ERROR
 
 
-def test_logger_registry_applies_custom_handlers():
+def test_logger_registry_adds_tqdm_handler_by_default():
     registry = LoggerRegistry()
-    custom_handler = logging.StreamHandler()
-    registry.register_handler("custom", custom_handler)
 
-    logger = registry.get_logger("test_reg_5", use_handlers=["custom"])
+    logger = registry.get_logger("test_reg_5")
 
-    assert custom_handler in logger.handlers
+    handler_types = [type(h).__name__ for h in logger.handlers]
+    assert "TqdmLoggingHandler" in handler_types
+
+
+def test_logger_registry_skips_tqdm_handler_when_disabled():
+    registry = LoggerRegistry()
+
+    logger = registry.get_logger("test_reg_6", use_tqdm=False)
+
+    handler_types = [type(h).__name__ for h in logger.handlers]
+    assert "TqdmLoggingHandler" not in handler_types
 
 
 # --- TqdmLoggingHandler Tests ---
@@ -89,11 +97,11 @@ def test_tqdm_handler_emits_message(monkeypatch):
     assert "Hello from tqdm" in written_messages[0]
 
 
-# --- setup_logging Tests ---
+# --- _setup_logging Tests ---
 
 
 def test_setup_logging_creates_logger_with_correct_level():
-    logger = setup_logging("test_setup_1", log_level=logging.DEBUG)
+    logger = _setup_logging("test_setup_1", log_level=logging.DEBUG)
 
     assert logger.name == "test_setup_1"
     assert logger.level == logging.DEBUG
@@ -102,10 +110,10 @@ def test_setup_logging_creates_logger_with_correct_level():
 def test_setup_logging_prevents_duplicate_handlers():
     name = "test_setup_2"
 
-    logger1 = setup_logging(name)
+    logger1 = _setup_logging(name)
     count_before = len(logger1.handlers)
 
-    setup_logging(name)  # Call again
+    _setup_logging(name)
     count_after = len(logger1.handlers)
 
     assert count_before == count_after
