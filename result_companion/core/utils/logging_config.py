@@ -61,26 +61,19 @@ class LoggerRegistry:
 
 
 def _setup_logging(name: str, log_level: int = logging.INFO) -> logging.Logger:
-    """Create a logger with console and file handlers."""
+    """Create a logger with file handler (console output via TqdmLoggingHandler)."""
     logger = logging.getLogger(name)
     logger.setLevel(log_level)
 
     if logger.hasHandlers():
         return logger
 
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-
-    # Console handler
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(log_level)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
-    # File handler
+    # File handler only - console output handled by TqdmLoggingHandler
     log_file_path = os.path.join(tempfile.gettempdir(), "result_companion.log")
     try:
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
         file_handler = RotatingFileHandler(
             log_file_path, maxBytes=5 * 1024 * 1024, backupCount=3
         )
