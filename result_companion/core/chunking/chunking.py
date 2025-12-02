@@ -10,12 +10,7 @@ from tqdm import tqdm
 
 from result_companion.core.analizers.models import MODELS
 from result_companion.core.chunking.utils import Chunking
-
-# Import progress utilities
 from result_companion.core.utils.progress import ProgressLogger
-
-# Create a logger for this module using the registry
-logger = ProgressLogger("Chunking")
 
 
 def build_sumarization_chain(
@@ -44,7 +39,6 @@ async def accumulate_llm_results_for_summarizaton_chain(
     llm: MODELS,
     logger: Optional[ProgressLogger] = None,
 ) -> Tuple[str, str, list]:
-    # Use the provided logger or create a new one
     log = logger or ProgressLogger("Chunking")
 
     chunks = split_text_into_chunks_using_text_splitter(
@@ -58,7 +52,6 @@ async def accumulate_llm_results_for_summarizaton_chain(
 async def process_chunk(
     chunk: str, summarization_chain: LLMChain, logger: Optional[ProgressLogger] = None
 ) -> str:
-    # Use the provided logger or create a new one
     log = logger or ProgressLogger("Chunking")
     log.debug(f"Processing chunk of length {len(chunk)}")
     return await summarization_chain.ainvoke({"text": chunk})
@@ -72,7 +65,6 @@ async def summarize_test_case(
     chain,
     logger: Optional[ProgressLogger] = None,
 ):
-    # Use the provided logger or create a new one
     log = logger or ProgressLogger("Chunking")
 
     log.info(
@@ -89,8 +81,6 @@ async def summarize_test_case(
 
     summarization_chain = build_sumarization_chain(summarization_prompt, llm)
 
-    # Process chunks with progress tracking
-    # Setup progress bar for chunk processing
     chunk_tasks = []
     for chunk in chunks:
         chunk_tasks.append(process_chunk(chunk, summarization_chain, logger=log))
@@ -105,7 +95,6 @@ async def summarize_test_case(
             dynamic_ncols=True,  # Adjust width based on terminal
             miniters=1,  # Update on each iteration
         ) as pbar:
-            # Create a list to hold results
             summaries = []
             pending = [asyncio.create_task(task) for task in chunk_tasks]
 
@@ -118,7 +107,6 @@ async def summarize_test_case(
                     summaries.append(task.result())
                     pbar.update(1)
     else:
-        # For single chunk just process normally
         summaries = await asyncio.gather(*chunk_tasks)
 
     aggregated_summary = "\n".join(summaries)

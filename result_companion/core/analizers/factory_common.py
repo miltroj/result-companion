@@ -14,11 +14,8 @@ from result_companion.core.chunking.chunking import (
 )
 from result_companion.core.chunking.utils import calculate_chunk_size
 from result_companion.core.parsers.config import DefaultConfigModel
-
-# Import progress utilities
 from result_companion.core.utils.progress import ProgressLogger, run_tasks_with_progress
 
-# Create a logger for this module using the registry
 logger = ProgressLogger("Analyzer")
 
 MODELS = Tuple[
@@ -29,7 +26,6 @@ MODELS = Tuple[
 async def accumulate_llm_results_without_streaming(
     test_case: list, question_from_config_file: str, chain: RunnableSerializable
 ) -> Tuple[str, str, list]:
-    # Use the module-level logger
     logger.info(
         f"### Test Case: {test_case['name']}, content length: {len(str(test_case))}"
     )
