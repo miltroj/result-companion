@@ -277,5 +277,7 @@ def test_succesfully_run_rc():
             config=None,
             report="/tmp/report.html",
             include_passing=False,
+            test_case_concurrency=None,
+            chunk_concurrency=None,
         )
         assert result == "RESULT"
