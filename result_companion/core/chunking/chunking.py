@@ -1,7 +1,6 @@
 import asyncio
 from typing import Tuple
 
-from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.output_parsers import StrOutputParser
@@ -48,11 +47,6 @@ async def accumulate_llm_results_for_summarizaton_chain(
     )
 
 
-async def process_chunk(chunk: str, summarization_chain: LLMChain) -> str:
-    logger.debug(f"Processing chunk of length {len(chunk)}")
-    return await summarization_chain.ainvoke({"text": chunk})
-
-
 async def summarize_test_case(
     test_case: dict,
     chunks: list,
@@ -73,12 +67,17 @@ async def summarize_test_case(
 
     summarization_chain = build_sumarization_chain(summarization_prompt, llm)
     semaphore = asyncio.Semaphore(chunk_concurrency)
+    test_name = test_case["name"]
+    total_chunks = len(chunks)
 
-    async def process_with_limit(chunk: str) -> str:
+    async def process_with_limit(chunk: str, chunk_idx: int) -> str:
         async with semaphore:
-            return await process_chunk(chunk, summarization_chain)
+            logger.debug(
+                f"[{test_name}] Processing chunk {chunk_idx + 1}/{total_chunks}, length {len(chunk)}"
+            )
+            return await summarization_chain.ainvoke({"text": chunk})
 
-    chunk_tasks = [process_with_limit(chunk) for chunk in chunks]
+    chunk_tasks = [process_with_limit(chunk, i) for i, chunk in enumerate(chunks)]
     summaries = await asyncio.gather(*chunk_tasks)
 
     aggregated_summary = "\n".join(summaries)
