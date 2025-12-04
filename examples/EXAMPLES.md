@@ -167,6 +167,8 @@ result-companion analyze -o output.xml -r report.html -c config.yaml \
 
 **Recommendation:** Start with low values (1, 1) and increase based on your API provider's rate limits.
 
+**Local models (Ollama):** Concurrency is supported but not recommended—local LLMs are CPU/GPU bound, and parallel requests typically don't improve performance.
+
 ## Understanding Content Tokenization and Chunking
 
 The `max_content_tokens` parameter in the configuration file is crucial for handling large test results. This parameter determines:
