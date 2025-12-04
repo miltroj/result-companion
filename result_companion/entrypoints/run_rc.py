@@ -72,7 +72,6 @@ async def _main(
     # TODO: move to testable method
     parsed_config = load_config(config)
 
-    # CLI overrides for concurrency
     if test_case_concurrency is not None:
         parsed_config.concurrency.test_case = test_case_concurrency
     if chunk_concurrency is not None:

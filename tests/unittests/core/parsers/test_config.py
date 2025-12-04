@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from pytest_mock import MockerFixture
 
 from result_companion.core.parsers.config import (
+    ConcurrencyModel,
     ConfigLoader,
     DefaultConfigModel,
     LLMFactoryModel,
@@ -352,3 +353,21 @@ def test_load_config_with_env_vars(mocker):
         assert config.llm_config.question_prompt == "Default question prompt"
         assert config.llm_config.prompt_template == "Default prompt template"
         assert config.llm_config.model_type == "local"
+
+
+def test_concurrency_model_with_defaults():
+    concurrency = ConcurrencyModel()
+    assert concurrency.test_case == 1
+    assert concurrency.chunk == 1
+
+
+def test_default_config_model_loads_custom_concurrency():
+    config = DefaultConfigModel(
+        version=1.0,
+        llm_config={"question_prompt": "Test prompt.", **prompt_template},
+        llm_factory={"model_type": "local", "parameters": {}},
+        tokenizer={"tokenizer": "ollama_tokenizer", "max_content_tokens": 1000},
+        concurrency={"test_case": 5, "chunk": 3},
+    )
+    assert config.concurrency.test_case == 5
+    assert config.concurrency.chunk == 3
