@@ -9,6 +9,7 @@
     - [3. BedrockLLM Model](#3-bedrockllm-model)
     - [4. ChatGoogleGenerativeAI Model](#4-chatgooglegenerativeai-model)
     - [5. ChatOpenAI with Custom Endpoint (Databricks, OpenAI-compatible APIs)](#5-chatopenai-with-custom-endpoint-databricks-openai-compatible-apis)
+  - [Concurrency Configuration](#concurrency-configuration)
   - [Understanding Content Tokenization and Chunking](#understanding-content-tokenization-and-chunking)
     - [Setting Appropriate Token Limits](#setting-appropriate-token-limits)
   - [Environment Variables in Configuration Files](#environment-variables-in-configuration-files)
@@ -135,6 +136,38 @@ tokenizer:
 - `OPENAI_MODEL`: Model name
 - `OPENAI_API_KEY`: Your API token
 - `OPENAI_BASE_URL`: Base URL for the API (e.g., "https://your-platform/serving-endpoints")
+
+## Concurrency Configuration
+
+Control how many API requests are made in parallel to avoid rate limits (HTTP 429 errors).
+
+```yaml
+# user_config.yaml
+concurrency:
+  test_case: 2  # Test cases processed in parallel
+  chunk: 2      # Chunks per test case in parallel
+```
+
+**Maximum concurrent API requests = test_case × chunk**
+
+| test_case | chunk | Max Concurrent Requests |
+|-----------|-------|------------------------|
+| 1 | 1 | 1 (sequential, safest) |
+| 2 | 1 | 2 |
+| 2 | 2 | 4 |
+| 3 | 3 | 9 |
+
+**CLI Override:** You can override config values via command line:
+
+```sh
+result-companion analyze -o output.xml -r report.html -c config.yaml \
+  --test-concurrency 2 \
+  --chunk-concurrency 1
+```
+
+**Recommendation:** Start with low values (1, 1) and increase based on your API provider's rate limits.
+
+**Local models (Ollama):** Concurrency is supported but not recommended—local LLMs are CPU/GPU bound, and parallel requests typically don't improve performance.
 
 ## Understanding Content Tokenization and Chunking
 

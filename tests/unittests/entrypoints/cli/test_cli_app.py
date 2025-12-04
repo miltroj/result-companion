@@ -84,6 +84,26 @@ class TestAnalizeEntrypoint:
         assert "Report: " in result.output
         assert "Include Passing: " in result.output
 
+    def test_cli_passes_both_concurrency_options(self):
+        mock_run = MagicMock()
+        result = self.runner.invoke(
+            app,
+            [
+                self.ENTRYPOINT,
+                "-o",
+                existing_xml_path,
+                "--test-concurrency",
+                "4",
+                "--chunk-concurrency",
+                "2",
+            ],
+            obj={"analyze": mock_run},
+        )
+        assert result.exit_code == 0
+        mock_run.assert_called_once()
+        assert mock_run.call_args[0][5] == 4  # test_case_concurrency
+        assert mock_run.call_args[0][6] == 2  # chunk_concurrency
+
 
 class TestInstallOllamaModel:
 

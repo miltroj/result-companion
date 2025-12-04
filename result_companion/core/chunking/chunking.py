@@ -1,7 +1,6 @@
 import asyncio
 from typing import Tuple
 
-from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.output_parsers import StrOutputParser
@@ -38,19 +37,23 @@ async def accumulate_llm_results_for_summarizaton_chain(
     chain: RunnableSerializable,
     chunking_strategy: Chunking,
     llm: MODELS,
+    chunk_concurrency: int = 1,
 ) -> Tuple[str, str, list]:
     chunks = split_text_into_chunks_using_text_splitter(
         str(test_case), chunking_strategy.chunk_size, chunking_strategy.chunk_size // 10
     )
-    return await summarize_test_case(test_case, chunks, llm, question_from_config_file)
+    return await summarize_test_case(
+        test_case, chunks, llm, question_from_config_file, chunk_concurrency
+    )
 
 
-async def process_chunk(chunk: str, summarization_chain: LLMChain) -> str:
-    logger.debug(f"Processing chunk of length {len(chunk)}")
-    return await summarization_chain.ainvoke({"text": chunk})
-
-
-async def summarize_test_case(test_case, chunks, llm, question_prompt):
+async def summarize_test_case(
+    test_case: dict,
+    chunks: list,
+    llm: MODELS,
+    question_prompt: str,
+    chunk_concurrency: int = 1,
+) -> Tuple[str, str, list]:
     logger.info(f"### For test case {test_case['name']}, {len(chunks)=}")
 
     # TODO: move promt definition to default_config.yaml
@@ -63,7 +66,18 @@ async def summarize_test_case(test_case, chunks, llm, question_prompt):
     )
 
     summarization_chain = build_sumarization_chain(summarization_prompt, llm)
-    chunk_tasks = [process_chunk(chunk, summarization_chain) for chunk in chunks]
+    semaphore = asyncio.Semaphore(chunk_concurrency)
+    test_name = test_case["name"]
+    total_chunks = len(chunks)
+
+    async def process_with_limit(chunk: str, chunk_idx: int) -> str:
+        async with semaphore:
+            logger.debug(
+                f"[{test_name}] Processing chunk {chunk_idx + 1}/{total_chunks}, length {len(chunk)}"
+            )
+            return await summarization_chain.ainvoke({"text": chunk})
+
+    chunk_tasks = [process_with_limit(chunk, i) for i, chunk in enumerate(chunks)]
     summaries = await asyncio.gather(*chunk_tasks)
 
     aggregated_summary = "\n".join(summaries)

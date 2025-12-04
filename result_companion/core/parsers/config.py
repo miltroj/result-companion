@@ -62,11 +62,21 @@ class TokenizerModel(BaseModel):
     max_content_tokens: int = Field(ge=0, description="Max content tokens.")
 
 
+class ConcurrencyModel(BaseModel):
+    test_case: int = Field(
+        default=1, ge=1, description="Test cases processed in parallel."
+    )
+    chunk: int = Field(
+        default=1, ge=1, description="Chunks processed in parallel per test case."
+    )
+
+
 class DefaultConfigModel(BaseModel):
     version: float
     llm_config: LLMConfigModel
     llm_factory: LLMFactoryModel
     tokenizer: TokenizerModel
+    concurrency: ConcurrencyModel = Field(default_factory=ConcurrencyModel)
 
 
 class CustomModelEndpointConfig(DefaultConfigModel):
@@ -141,6 +151,10 @@ class ConfigLoader:
                 "tokenizer": {
                     **default_config.get("tokenizer", {}),
                     **user_config.get("tokenizer", {}),
+                },
+                "concurrency": {
+                    **default_config.get("concurrency", {}),
+                    **user_config.get("concurrency", {}),
                 },
             }
             if user_config_file

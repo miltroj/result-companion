@@ -62,6 +62,8 @@ async def _main(
     config: Optional[Path],
     report: Optional[str],
     include_passing: bool,
+    test_case_concurrency: Optional[int] = None,
+    chunk_concurrency: Optional[int] = None,
 ) -> bool:
     set_global_log_level(str(log_level))
 
@@ -69,6 +71,11 @@ async def _main(
     start = time.time()
     # TODO: move to testable method
     parsed_config = load_config(config)
+
+    if test_case_concurrency is not None:
+        parsed_config.concurrency.test_case = test_case_concurrency
+    if chunk_concurrency is not None:
+        parsed_config.concurrency.chunk = chunk_concurrency
     # TODO: set output log level
     test_cases = get_robot_results_from_file_as_dict(
         file_path=output, log_level=LogLevels.DEBUG
@@ -116,6 +123,8 @@ def run_rc(
     config: Optional[Path],
     report: Optional[str],
     include_passing: bool,
+    test_case_concurrency: Optional[int] = None,
+    chunk_concurrency: Optional[int] = None,
 ) -> bool:
     return asyncio.run(
         _main(
@@ -124,5 +133,7 @@ def run_rc(
             config=config,
             report=report,
             include_passing=include_passing,
+            test_case_concurrency=test_case_concurrency,
+            chunk_concurrency=chunk_concurrency,
         )
     )

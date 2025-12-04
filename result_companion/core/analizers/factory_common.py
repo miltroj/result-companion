@@ -53,16 +53,19 @@ async def execute_llm_and_get_results(
     config: DefaultConfigModel,
     prompt: ChatPromptTemplate,
     model: MODELS,
-    concurrency: int = 1,
     include_passing: bool = True,
 ) -> dict:
     question_from_config_file = config.llm_config.question_prompt
     tokenizer = config.tokenizer
+    test_case_concurrency = config.concurrency.test_case
+    chunk_concurrency = config.concurrency.chunk
 
     llm_results = dict()
     corutines = []
     relevant_cases = []
-    logger.info(f"Executing chain, {len(test_cases)=}, {concurrency=}")
+    logger.info(
+        f"Executing chain, {len(test_cases)=}, {test_case_concurrency=}, {chunk_concurrency=}"
+    )
 
     for test_case in test_cases:
         if test_case.get("status") == "PASS" and not include_passing:
@@ -92,10 +95,11 @@ async def execute_llm_and_get_results(
                     chain=chain,
                     chunking_strategy=chunk,
                     llm=model,
+                    chunk_concurrency=chunk_concurrency,
                 )
             )
 
-    semaphore = asyncio.Semaphore(concurrency)
+    semaphore = asyncio.Semaphore(test_case_concurrency)
 
     desc = f"Analyzing {len(relevant_cases)} test cases"
     results = await run_tasks_with_progress(corutines, semaphore=semaphore, desc=desc)

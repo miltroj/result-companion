@@ -1,3 +1,4 @@
+import asyncio
 from unittest.mock import patch
 
 import pytest
@@ -129,3 +130,35 @@ async def test_splitting_into_chunks_and_accumulatiing_summary_results() -> None
 
     assert result == ("final summary", "chunking_test_case_name", expected_chunks)
     # add assert for the number of api calls
+
+
+@pytest.mark.asyncio
+async def test_summarize_test_case_respects_chunk_concurrency():
+    """Test that chunk_concurrency limits parallel processing."""
+    max_concurrent = 0
+    current_concurrent = 0
+    lock = asyncio.Lock()
+
+    async def tracking_ainvoke(input_dict):
+        nonlocal max_concurrent, current_concurrent
+        async with lock:
+            current_concurrent += 1
+            max_concurrent = max(max_concurrent, current_concurrent)
+        await asyncio.sleep(0.01)  # Simulate work
+        async with lock:
+            current_concurrent -= 1
+        return "chunk result"
+
+    test_case = {"name": "concurrency_test", "content": "test"}
+    chunks = ["chunk1", "chunk2", "chunk3", "chunk4"]
+
+    with patch(
+        "result_companion.core.chunking.chunking.build_sumarization_chain"
+    ) as mock_chain:
+        mock_chain.return_value.ainvoke = tracking_ainvoke
+
+        await summarize_test_case(
+            test_case, chunks, mock_chain, "question", chunk_concurrency=2
+        )
+
+    assert max_concurrent <= 2

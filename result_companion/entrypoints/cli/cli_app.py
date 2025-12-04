@@ -92,6 +92,16 @@ def analyze(
     include_passing: bool = typer.Option(
         False, "-i", "--include-passing", help="Include PASS test cases"
     ),
+    test_case_concurrency: Optional[int] = typer.Option(
+        None,
+        "--test-concurrency",
+        help="Test cases processed in parallel (overrides config)",
+    ),
+    chunk_concurrency: Optional[int] = typer.Option(
+        None,
+        "--chunk-concurrency",
+        help="Chunks per test case in parallel (overrides config)",
+    ),
 ):
     """Analyze Robot Framework test results with LLM assistance."""
     typer.echo(f"Output: {output}")
@@ -104,7 +114,15 @@ def analyze(
     ctx = get_current_context()
     run = ctx.obj.get("analyze")
     if run:
-        run(output, log_level, config, report, include_passing)
+        run(
+            output,
+            log_level,
+            config,
+            report,
+            include_passing,
+            test_case_concurrency,
+            chunk_concurrency,
+        )
 
 
 # Setup commands using the original functions
