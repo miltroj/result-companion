@@ -254,6 +254,7 @@ def test_main_e2e_execution(
         llm_results={
             "test2": "llm_result_2",
         },
+        model_info={"model": "AzureChatOpenAI"},
     )
     assert result is True
 
