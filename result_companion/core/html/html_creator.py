@@ -43,18 +43,19 @@ def _inject_llm_ui(html_path: Path) -> None:
     """Add JavaScript to display LLM results per test."""
     script = """
 <style>
-.llm-section { margin: 12px 0; border: 1px solid #d0d7de; border-radius: 6px; overflow: hidden; transition: all 0.2s; }
-.llm-section:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-.llm-header { padding: 10px 16px; background: linear-gradient(90deg, #0969da, #1f6feb); color: white; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; }
-.llm-header:hover { background: linear-gradient(90deg, #1f6feb, #0969da); }
+.llm-section { margin: 12px 0; border: 1px solid var(--secondary-color); border-radius: 6px; overflow: hidden; }
+.llm-header { padding: 10px 16px; background: var(--primary-color); color: var(--text-color); cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; }
+.llm-header:hover { background: var(--secondary-color); }
 .llm-chevron { transition: transform 0.2s; font-size: 12px; }
 .llm-chevron.collapsed { transform: rotate(-90deg); }
-.llm-content { padding: 16px; background: #f6f8fa; max-height: 500px; overflow-y: auto; display: none; position: relative; }
-.llm-content h2 { color: #0969da; font-size: 14px; margin-top: 12px; margin-bottom: 8px; }
-.llm-model { font-size: 11px; opacity: 0.9; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 10px; }
-.llm-copy { position: absolute; top: 8px; right: 8px; background: #0969da; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
-.llm-copy:hover { background: #1f6feb; }
-.llm-copy.copied { background: #28a745; }
+.llm-content { padding: 16px; background: var(--background-color); border-top: 1px solid var(--secondary-color); max-height: 500px; overflow-y: auto; display: none; position: relative; }
+.llm-content h2 { color: var(--link-color); font-size: 14px; margin-top: 12px; margin-bottom: 8px; }
+.llm-model { font-size: 11px; opacity: 0.7; margin-left: 8px; }
+.llm-copy { position: absolute; top: 8px; right: 8px; background: var(--secondary-color); color: var(--text-color); border: 1px solid var(--primary-color); padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+.llm-copy:hover { background: var(--primary-color); }
+.llm-copy.copied { background: var(--pass-color); color: white; }
+.test.fail .llm-header { border-left: 4px solid var(--fail-color); }
+.test.pass .llm-header { border-left: 4px solid var(--pass-color); }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
