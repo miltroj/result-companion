@@ -106,7 +106,6 @@ async def _main(
     )
 
     if report:
-        # Extract model info from config
         model_info = {
             "model": parsed_config.llm_factory.parameters.get(
                 "model", parsed_config.llm_factory.model_type
