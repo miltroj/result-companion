@@ -1,5 +1,3 @@
-"""LLM data injection into Robot Framework results."""
-
 import json
 from typing import Dict
 
@@ -15,7 +13,6 @@ class LLMDataInjector(ResultVisitor):
 
     def end_result(self, result):
         """Store LLM data as global metadata."""
-        # Store all LLM results in suite metadata for JS access
         if result.suite and self.llm_results:
             data = {"results": self.llm_results}
             if self.model_info:

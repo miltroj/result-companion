@@ -1,5 +1,3 @@
-"""HTML report generation with embedded LLM results."""
-
 from pathlib import Path
 from typing import Dict
 
@@ -24,18 +22,14 @@ def create_llm_html_log(
         llm_results: Mapping of test names to LLM analysis.
         model_info: Optional model information.
     """
-    # Load results
     results = ExecutionResult(str(input_result_path))
 
-    # Apply visitors
     results.visit(UniqueNameResultVisitor())
     results.visit(LLMDataInjector(llm_results, model_info))
 
-    # Generate HTML with standard writer
     writer = ResultWriter(results)
     writer.write_results(report=None, log=str(llm_output_path))
 
-    # Inject UI enhancements
     _inject_llm_ui(Path(llm_output_path))
 
 
