@@ -35,7 +35,7 @@ One of the key features is that users can customize the behavior of the applicat
 
 - **Integration with Robot Framework**: Analyzes test cases and logs from Robot Framework's `output.xml`.
 - **LLM-Powered Insights**: Utilizes LLM models to generate deeper insights, patterns, and potential issues in test suites.
-- **Modern Theme-Aware UI**: Automatic dark/light mode support, collapsible AI sections, copy functionality, visual status indicators, and model name display.
+- **Enhanced HTML Output**: Generates an enhanced HTML report with collapsible AI sections for better understanding.
 - **Flexible Model Layer**: Experiment with local or cloud-based LLM models using LangChain.
 - **Customizable Prompts**: Adjust system prompts and parameters to adapt the tool to different needs and expand its capabilities.
 - **Local LLM Model Support**: Primarily tested with the `ollama` package and local LLM models like `deepseek-r1` or `llama3.2`.
