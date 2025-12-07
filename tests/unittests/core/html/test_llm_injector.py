@@ -1,5 +1,3 @@
-"""Tests for LLM data injection."""
-
 import json
 from unittest.mock import MagicMock
 
