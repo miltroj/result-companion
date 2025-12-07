@@ -106,10 +106,16 @@ async def _main(
     )
 
     if report:
+        model_info = {
+            "model": parsed_config.llm_factory.parameters.get(
+                "model", parsed_config.llm_factory.model_type
+            )
+        }
         create_llm_html_log(
             input_result_path=output,
             llm_output_path=report,
             llm_results=llm_results,
+            model_info=model_info,
         )
 
     stop = time.time()
