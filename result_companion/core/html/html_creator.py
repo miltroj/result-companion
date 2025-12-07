@@ -58,32 +58,31 @@ $(function() {
     var modelInfo = null;
     var processed = new Set();
 
-    // Get LLM data from metadata
-    setTimeout(function() {
-        try {
-            var meta = window.testdata.suite().metadata;
-            for (var i in meta) {
-                if (meta[i][0] === '__llm_results') {
-                    var div = document.createElement('div');
-                    div.innerHTML = meta[i][1];
-                    var decoded = div.textContent || div.innerText || '';
-                    var data = JSON.parse(decoded);
+    // Hide metadata row immediately
+    $('th').filter(function() { return $(this).text().indexOf('__llm_results') !== -1; }).parent().hide();
 
-                    if (data.results) {
-                        llmData = data.results;
-                        modelInfo = data.model;
-                    } else {
-                        llmData = data;
-                    }
+    // Get LLM data
+    try {
+        var meta = window.testdata.suite().metadata;
+        for (var i in meta) {
+            if (meta[i][0] === '__llm_results') {
+                var div = document.createElement('div');
+                div.innerHTML = meta[i][1];
+                var decoded = div.textContent || div.innerText || '';
+                var data = JSON.parse(decoded);
 
-                    $('tr:has(th:contains("__llm_results"))').hide();
-                    break;
+                if (data.results) {
+                    llmData = data.results;
+                    modelInfo = data.model;
+                } else {
+                    llmData = data;
                 }
+                break;
             }
-        } catch(e) {
-            console.error('Failed to load LLM data:', e);
         }
-    }, 1000);
+    } catch(e) {
+        console.error('Failed to load LLM data:', e);
+    }
 
     // Process test element
     function process(test) {
