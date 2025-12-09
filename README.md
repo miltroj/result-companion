@@ -177,9 +177,10 @@ The creator of this package takes no responsibility for any exposure of private 
 
 - **Textual Data Only**: The current version of the project only supports handling textual data. Non-textual artifacts, such as images or binary logs, are not supported.
 
-- **Token Limitations**: LLMs have token constraints, which can be problematic when dealing with long logs. To address this, a chunking functionality has been introduced. However:
+- **Token Limitations**: LLMs have token constraints, which can be problematic when dealing with long logs. To address this, a chunking functionality with customizable prompts has been introduced. However:
   - For **local runs**, chunking slows down execution significantly due to the computational overhead.
   - For **third-party services** accessed via REST APIs, chunking increases network traffic and may lead to excessive costs.
+  - Users can customize chunking prompts through configuration to optimize for their use case.
 
 - **Single Test Case Analysis**: For local runs, the LLM analyzes only one test case at a time. This is due to the computational expense of processing multiple cases, and parallelization does not currently yield significant performance improvements.
 

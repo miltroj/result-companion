@@ -169,6 +169,26 @@ result-companion analyze -o output.xml -r report.html -c config.yaml \
 
 **Local models (Ollama):** Concurrency is supported but not recommended—local LLMs are CPU/GPU bound, and parallel requests typically don't improve performance.
 
+## Customizing Chunking Prompts
+
+When test results exceed `max_content_tokens`, Result Companion automatically chunks them. Customize prompts in `user_config.yaml`:
+
+```yaml
+llm_config:
+  chunking:
+    chunk_analysis_prompt: |
+      Custom prompt for individual chunks.
+      Available variable: {text}
+
+    final_synthesis_prompt: |
+      Custom prompt for combining analyses.
+      Available variable: {summary}
+```
+
+**chunk_analysis_prompt**: Applied to each chunk. Focus on fact extraction.
+
+**final_synthesis_prompt**: Applied to all summaries. Must produce final format.
+
 ## Understanding Content Tokenization and Chunking
 
 The `max_content_tokens` parameter in the configuration file is crucial for handling large test results. This parameter determines:
