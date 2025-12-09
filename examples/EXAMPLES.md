@@ -2,6 +2,28 @@
 
 Quick-start configurations for different LLM providers and use cases.
 
+## Table of Contents
+- [Examples \& Configuration](#examples--configuration)
+  - [Table of Contents](#table-of-contents)
+  - [Quick Configs](#quick-configs)
+    - [Local (Ollama) - Default](#local-ollama---default)
+    - [OpenAI](#openai)
+    - [Azure OpenAI](#azure-openai)
+    - [Google Gemini](#google-gemini)
+    - [AWS Bedrock](#aws-bedrock)
+    - [Custom OpenAI-Compatible Endpoint](#custom-openai-compatible-endpoint)
+  - [Custom Analysis](#custom-analysis)
+    - [Find Performance Issues](#find-performance-issues)
+    - [Security Audit](#security-audit)
+    - [Test Quality Review](#test-quality-review)
+  - [Advanced Settings](#advanced-settings)
+    - [Concurrency Control](#concurrency-control)
+    - [Token Limits by Model](#token-limits-by-model)
+    - [Chunking for Large Tests](#chunking-for-large-tests)
+  - [Complete Example](#complete-example)
+  - [Environment Variables Reference](#environment-variables-reference)
+  - [Additional Resources](#additional-resources)
+
 ## Quick Configs
 
 ### Local (Ollama) - Default
@@ -13,6 +35,10 @@ result-companion -o output.xml
 
 The default uses Ollama with `deepseek-r1:1.5b` model.
 
+**Other MacBook-friendly models:**
+- `phi-3-mini` (2.3GB, 8GB RAM) - Fast and efficient
+- `mistral:7b` (4.1GB, 16GB RAM) - Industry standard, excellent quality
+
 ### OpenAI
 
 ```yaml
@@ -20,12 +46,12 @@ The default uses Ollama with `deepseek-r1:1.5b` model.
 llm_factory:
   model_type: "ChatOpenAI"
   parameters:
-    model: "gpt-4o-mini"
+    model: "gpt-5-nano"
     api_key: "${OPENAI_API_KEY}"
 
 tokenizer:
   tokenizer: openai_tokenizer
-  max_content_tokens: 120000
+  max_content_tokens: 390000
 ```
 
 Run with:
@@ -66,13 +92,13 @@ result-companion -o output.xml -c azure_config.yaml
 llm_factory:
   model_type: "ChatGoogleGenerativeAI"
   parameters:
-    model: "gemini-2.0-flash"
+    model: "gemini-2.5-flash"
     google_api_key: "${GOOGLE_API_KEY}"
     temperature: 0
 
 tokenizer:
   tokenizer: google_tokenizer
-  max_content_tokens: 900000
+  max_content_tokens: 1000000
 ```
 
 Run with:
@@ -166,9 +192,9 @@ llm_config:
 
 ## Advanced Settings
 
-### Rate Limiting
+### Concurrency Control
 
-Control parallel requests to avoid API rate limits:
+Control how many test cases and chunks are processed in parallel:
 
 ```yaml
 concurrency:
@@ -190,18 +216,20 @@ CLI override:
 result-companion -o output.xml --test-concurrency 2 --chunk-concurrency 1
 ```
 
-**Note**: Local models (Ollama) don't benefit from concurrency.
+**Note**: Useful for cloud APIs to avoid rate limits. Local models (Ollama) don't benefit from concurrency.
 
 ### Token Limits by Model
 
-| Provider | Model | Max Tokens | Config Setting |
-|----------|-------|------------|----------------|
-| Ollama | deepseek-r1 | 32K | `max_content_tokens: 30000` |
-| OpenAI | gpt-4o-mini | 128K | `max_content_tokens: 120000` |
-| Azure | gpt-4 | 8K | `max_content_tokens: 7000` |
-| Google | gemini-2.0-flash | 1M | `max_content_tokens: 900000` |
+| Provider | Model | Input Tokens | Output Tokens | Config Setting |
+|----------|-------|--------------|---------------|----------------|
+| Ollama | phi-3-mini | 4K | - | `max_content_tokens: 4000` |
+| Ollama | deepseek-r1:1.5b | 8K | - | `max_content_tokens: 8000` |
+| Ollama | mistral:7b | 8K | - | `max_content_tokens: 8000` |
+| OpenAI | gpt-5-nano | 400K | 128K | `max_content_tokens: 390000` |
+| Azure | gpt-4 | 8K | - | `max_content_tokens: 7000` |
+| Google | gemini-2.5-flash | 1,048K | 65K | `max_content_tokens: 1000000` |
 
-Set slightly below actual limit to account for prompt overhead.
+**Note**: Set input slightly below actual limit to account for prompt overhead. Gemini 2.5 Flash is ideal for large test suites.
 
 ### Chunking for Large Tests
 
@@ -235,7 +263,7 @@ cat > my_config.yaml << 'EOF'
 llm_factory:
   model_type: "ChatOpenAI"
   parameters:
-    model: "gpt-4o-mini"
+    model: "gpt-5-nano"
     api_key: "${OPENAI_API_KEY}"
 
 llm_config:
@@ -274,6 +302,16 @@ export AWS_REGION="us-west-2"
 export AWS_ACCESS_KEY_ID="..."
 export AWS_SECRET_ACCESS_KEY="..."
 ```
+
+## Additional Resources
+
+LangChain documentation for each model type:
+
+- [OllamaLLM](https://python.langchain.com/docs/integrations/llms/ollama/)
+- [AzureChatOpenAI](https://python.langchain.com/docs/integrations/chat/azure_chat_openai/)
+- [BedrockLLM](https://python.langchain.com/api_reference/aws/llms/langchain_aws.llms.bedrock.BedrockLLM.html)
+- [ChatGoogleGenerativeAI](https://python.langchain.com/docs/integrations/chat/google_generative_ai)
+- [ChatOpenAI](https://python.langchain.com/docs/integrations/chat/openai/)
 
 ---
 
