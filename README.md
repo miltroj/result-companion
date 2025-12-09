@@ -1,223 +1,150 @@
 # Result Companion
 
-## Overview
-
-**Result Companion** is an open-source project designed to help test and QA engineers leverage Large Language Models (LLMs) for analyzing and identifying potential issues in their test suites written in Robot Framework. The project integrates Robot Framework’s internal API and LangChain to build a flexible, experimental layer that allows users to experiment with both local and cloud-based LLM models.
-
-The package reads test artifacts from `output.xml` files and recursively analyzes all test cases, including logs, to draw solid conclusions around test failures. It then generates a `log.html` file with theme-aware UI enhancements, making it easy for Robot Framework users to understand the test results with collapsible AI analysis sections.
-
-**Customizable Analysis**: Fully customizable prompts enable diverse use cases beyond error analysis—security audits, performance reviews, test quality assessment, or custom workflows. See [Examples](examples/EXAMPLES.md#customizing-analysis-prompts) for configuration details.
+**Turn your Robot Framework test failures into instant, actionable insights with AI.**
 
 ![Demo](assets/demo.gif)
 
-## Table of Contents
-- [Result Companion](#result-companion)
-  - [Overview](#overview)
-  - [Table of Contents](#table-of-contents)
-  - [Features](#features)
-  - [Installation](#installation)
-    - [Prerequisites](#prerequisites)
-    - [Local Model Installation](#local-model-installation)
-      - [Option 1: Automatic Installation (Recommended)](#option-1-automatic-installation-recommended)
-      - [Option 2: Manual Installation](#option-2-manual-installation)
-    - [Quick Test](#quick-test)
-  - [Usage](#usage)
-    - [Running Result Companion](#running-result-companion)
-    - [📋 Example Configurations](#-example-configurations)
-  - [Local LLM Model Support](#local-llm-model-support)
-  - [Security and Privacy Considerations](#security-and-privacy-considerations)
-  - [Limitations](#limitations)
-  - [Contributing](#contributing)
-  - [Running Tests](#running-tests)
-  - [License](#license)
+## Why Result Companion?
 
-## Features
+Every QA engineer knows the pain: A test fails. You dig through logs. You trace keywords. You hunt for that one error message buried in thousands of lines. **Hours wasted.**
 
-- **Integration with Robot Framework**: Analyzes test cases and logs from Robot Framework's `output.xml`.
-- **LLM-Powered Insights**: Utilizes LLM models to generate deeper insights, patterns, and potential issues in test suites.
-- **Enhanced HTML Output**: Generates an enhanced HTML report with collapsible AI sections for better understanding.
-- **Flexible Model Layer**: Experiment with local or cloud-based LLM models using LangChain.
-- **Customizable Analysis Prompts**: Configure analysis behavior for error detection, security audits, performance reviews, or custom use cases through prompt customization.
-- **Local LLM Model Support**: Primarily tested with the `ollama` package and local LLM models like `deepseek-r1` or `llama3.2`.
-- **Cloud Provider Support**: Compatible with OpenAI, Azure, and other remote LLM API providers.
-- **Automated Installation**: Built-in commands to automatically install Ollama and required LLM models.
+Result Companion changes that. It reads your `output.xml`, understands the entire test flow, and tells you exactly what went wrong and how to fix it—in seconds, not hours.
 
-## Installation
+## What It Does
 
-To install Result Companion, follow these steps:
-
-### Prerequisites
-1. Install [Poetry](https://python-poetry.org/docs/#installation) for managing dependencies and virtual environments.
-
-   If you don't have Poetry installed, you can install it via:
-    ```bash
-    curl -sSL https://install.python-poetry.org | python3 -
-    ```
-2. Install the required dependencies with Poetry:
-    ```bash
-    python -m poetry install --with=dev
-    ```
-   This will create a virtual environment and install all the necessary dependencies for the Result Companion project.
-3. Install pre-commit:
-    ```bash
-    poetry run pre-commit install
-    ```
-   To run on all files:
-    ```bash
-    poetry run pre-commit run --all-files --verbose
-    ```
-
-
-### Local Model Installation
-To use the **Deepseek-r1** model locally, you have two options:
-
-#### Option 1: Automatic Installation (Recommended)
-Result Companion provides built-in commands to automatically install Ollama and models:
-
-1. **Install Ollama** on your system:
-   ```bash
-   result-companion setup ollama
-   ```
-   This command automatically detects your operating system and installs Ollama using the appropriate method.
-
-2. **Install the Deepseek-r1 model**:
-   ```bash
-   result-companion setup model deepseek-r1:1.5b
-   ```
-
-3. **List installed models** to verify installation:
-   ```bash
-   result-companion setup list-models
-   ```
-   You should see `deepseek-r1:1.5b` in the list of installed models.
-
-#### Option 2: Manual Installation
-If you prefer to install components manually:
-
-1. **Install Ollama** based on your operating system:
-
-   - **For macOS**:
-     ```bash
-     brew install ollama
-     ```
-
-   - **For Windows and Linux**:
-     Visit [Ollama's official website](https://ollama.ai) and follow the installation instructions.
-
-   Verify installation:
-   ```bash
-   ollama --version
-   ```
-
-2. **Install the Deepseek-r1 Model**:
-   ```bash
-   ollama run deepseek-r1:1.5b
-   ```
-
-3. **Verify Installation**:
-   ```bash
-   ollama list
-   ```
-   The output should include the `deepseek-r1:1.5b` model.
-
-### Quick Test
-
-To quickly test the solution, run:
-
-```
-inv run-result-companion-test
-```
-
-
-## Usage
-
-### Running Result Companion
-
-After installation, you can run Result Companion to analyze your Robot Framework test artifacts.
-
-Example command:
 ```bash
-poetry run result-companion -o output.xml -r log_with_results.html
+# Before: Manual debugging for hours
+robot tests/                     # Test fails
+# Now: Where did it fail? Why? What's the root cause?
+
+# After: Instant AI analysis
+result-companion -o output.xml   # Get answers in seconds
 ```
 
-### 📋 Example Configurations
+Your enhanced `log.html` now includes:
+- **Root Cause Analysis**: Pinpoints the exact keyword and reason for failure
+- **Test Flow Summary**: Understand what happened at a glance
+- **Actionable Fixes**: Specific suggestions to resolve the issue
 
-**Looking for ready-to-use examples?** The [`examples/`](examples/) folder contains complete working examples with:
+## Quick Start
 
-- **Different configuration files** for various LLM providers
-- **Cloud-based setups** for OpenAI, Azure, and other remote API integrations
-- **Local execution configurations** with Ollama models
-- **Custom prompt templates** to tailor the analysis to your needs
+### Option 1: Local AI (Free, Private)
 
-Each example includes detailed instructions to help you quickly adapt Result Companion to your specific requirements. Check out [Examples Documentation](examples/EXAMPLES.md) for a comprehensive guide.
+```bash
+# Install from source (PyPI release coming soon)
+git clone https://github.com/yourusername/result-companion.git
+cd result-companion
+poetry install
 
-## Local LLM Model Support
+# Auto-setup local AI model
+poetry run result-companion setup ollama
+poetry run result-companion setup model deepseek-r1:1.5b
 
-The project is primarily tested with local LLM models using the `ollama` package. The best model for local usage is `deepseek-r1`, available at:
+# Analyze your tests
+poetry run result-companion -o output.xml
+```
 
-- **Deepseek-r1**: [Ollama's Deepseek-r1](https://ollama.com/library/deepseek-r1)
+### Option 2: Cloud AI (OpenAI, Azure, Google)
 
-The model comes in various sizes, and the 7B parameter version (or larger) is preferred for optimal performance. Keep in mind that the model's performance also depends on the hardware on which it runs.
+```bash
+# Install from source
+git clone https://github.com/yourusername/result-companion.git
+cd result-companion
+poetry install
 
-## Security and Privacy Considerations
+# Configure and run (see examples/)
+export OPENAI_API_KEY="your-key"
+poetry run result-companion -o output.xml -c examples/openai_config.yaml
+```
 
-When using LLMs, especially in local or cloud-based environments, it is crucial to consider the potential exposure of sensitive or private data. LLMs may inadvertently expose private information or intellectual property if used without proper precautions. Users are advised to evaluate and address these risks thoroughly before utilizing this application.
+## Real Example
 
-Before using Result Companion or any LLM-based tool, you should:
+**Your test fails with:**
+```
+Login Test Suite
+└── Login With Valid Credentials [FAIL]
+```
 
-- Be mindful of the data being processed by the model and ensure it does not contain sensitive or proprietary information unless you are confident in the security of the environment.
-- Familiarize yourself with the privacy and data-sharing policies of the LLM you are using, whether it is a local or cloud-based model.
-- If using cloud-based models, ensure that any proprietary or sensitive data is encrypted or anonymized before being shared.
-- Review the documentation and known risks associated with the specific LLM model and provider to ensure compliance with your organization’s privacy policies.
+**Result Companion tells you:**
+```markdown
+**Flow**
+- Open browser to login page ✓
+- Enter username "testuser" ✓
+- Enter password ✓
+- Click login button ✓
+- Wait for dashboard [FAILED after 10s timeout]
 
-**Disclaimer**:
-The creator of this package takes no responsibility for any exposure of private data, intellectual property, or sensitive information resulting from the use of this application. By using Result Companion, you acknowledge and accept all associated risks, including but not limited to the potential leakage of data to public internet or third-party services. Users run this application at their own risk and are fully responsible for ensuring the security and privacy of their data.
+**Failure Root Cause**
+The keyword "Wait Until Page Contains Element" failed because
+element 'id=dashboard' was not found. Server returned 503 error
+in network logs at timestamp 14:23:45.
+
+**Potential Fixes**
+- Check if backend service is running and healthy
+- Verify dashboard element selector hasn't changed
+- Increase timeout if service startup is slow
+```
+
+## Beyond Error Analysis
+
+Customize prompts for any use case:
+
+```yaml
+# security_audit.yaml
+llm_config:
+  question_prompt: |
+    Find security issues: hardcoded passwords,
+    exposed tokens, insecure configurations...
+```
+
+```yaml
+# performance_review.yaml
+llm_config:
+  question_prompt: |
+    Identify slow operations, unnecessary waits,
+    inefficient loops...
+```
+
+See [examples/EXAMPLES.md](examples/EXAMPLES.md) for more.
+
+## Configuration Examples
+
+Check [`examples/`](examples/) for ready-to-use configs:
+- Local Ollama setup (default)
+- OpenAI, Azure, Google Cloud
+- Custom endpoints (Databricks, self-hosted)
+- Prompt customization for security, performance, quality reviews
 
 ## Limitations
 
-- **Textual Data Only**: The current version of the project only supports handling textual data. Non-textual artifacts, such as images or binary logs, are not supported.
-
-- **Token Limitations**: LLMs have token constraints, which can be problematic when dealing with long logs. To address this, a chunking functionality with customizable prompts has been introduced. However:
-  - For **local runs**, chunking slows down execution significantly due to the computational overhead.
-  - For **third-party services** accessed via REST APIs, chunking increases network traffic and may lead to excessive costs.
-  - Users can customize chunking prompts through configuration to optimize for their use case.
-
-- **Single Test Case Analysis**: For local runs, the LLM analyzes only one test case at a time. This is due to the computational expense of processing multiple cases, and parallelization does not currently yield significant performance improvements.
-
+- Text-only analysis (no screenshots/videos)
+- Large test suites processed in chunks
+- Local models need 4-8GB RAM
 
 ## Contributing
 
-Feel free to contribute to Result Companion! You can:
+Contributions welcome! Fork, create a feature branch, submit a pull request.
 
-- Fork the repository.
-- Create a feature branch.
-- Submit a pull request with your improvements.
+For bugs or feature requests, open an issue on GitHub.
 
-For bug reports or feature requests, please open an issue on the GitHub repository.
+## Development Setup
 
-## Running Tests
-
-To ensure the correctness of the **Result Companion**, you can run tests using `invoke` commands:
-
-- Run unittests:
-  ```
-  inv unittests
-  ```
-
-- Run tests with coverage:
-  ```
-  inv test_coverage
-  ```
-
-Make sure you have installed poetry with dev dependencies:
 ```bash
-python -m poetry install --with=dev
+# Install with dev dependencies
+poetry install --with=dev
+
+# Install pre-commit hooks
+poetry run pre-commit install
+
+# Run tests
+poetry run inv unittests
+poetry run inv test_coverage
 ```
 
 ## License
 
-Result Companion is licensed under the [Apache 2.0 License](LICENSE).
+Apache 2.0 - See [LICENSE](LICENSE)
 
 ---
 
-For further documentation, including setup instructions and configuration examples, please visit the [Examples](examples/EXAMPLES.md) folder in the repository.
+**Privacy Note**: Cloud AI providers may process your test data. Local models (Ollama) keep everything on your machine.
