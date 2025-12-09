@@ -181,6 +181,10 @@ def test_main_e2e_execution(
         llm_config={
             "question_prompt": "question prompt",
             "prompt_template": "my_template {question}",
+            "chunking": {
+                "chunk_analysis_prompt": "Analyze: {text}",
+                "final_synthesis_prompt": "Synthesize: {summary}",
+            },
             "model_type": "local",
         },
         llm_factory={
@@ -227,6 +231,10 @@ def test_main_e2e_execution(
             llm_config=LLMConfigModel(
                 question_prompt="question prompt",
                 prompt_template="my_template {question}",
+                chunking={
+                    "chunk_analysis_prompt": "Analyze: {text}",
+                    "final_synthesis_prompt": "Synthesize: {summary}",
+                },
                 model_type=ModelType.LOCAL,
             ),
             llm_factory=LLMFactoryModel(

@@ -77,11 +77,14 @@ async def test_executing_summarization_chain(mock_building_chain) -> None:
 
     test_case = {"name": "test_case_name", "content": "This is a test"}
 
-    question_prompt = "question"
+    chunk_prompt = "Analyze: {text}"
+    final_prompt = "Synthesize: {summary}"
 
     chunks = ["text chunk1", "text chunk2"]
 
-    result = await summarize_test_case(test_case, chunks, fake_llm, question_prompt)
+    result = await summarize_test_case(
+        test_case, chunks, fake_llm, chunk_prompt, final_prompt
+    )
     assert result == ("final summary", "test_case_name", ["text chunk1", "text chunk2"])
 
 
@@ -89,7 +92,12 @@ async def test_executing_summarization_chain(mock_building_chain) -> None:
 async def test_splitting_into_chunks_and_accumulatiing_summary_results() -> None:
     test_case_text = "a" * 10
     test_case = {"name": "chunking_test_case_name", "content": test_case_text}
-    question_prompt = "question"
+    config = {
+        "chunking": {
+            "chunk_analysis_prompt": "Analyze: {text}",
+            "final_synthesis_prompt": "Synthesize: {summary}",
+        }
+    }
     chain = "empty chain"
 
     fake_llm = FakeListLLM(
@@ -109,7 +117,7 @@ async def test_splitting_into_chunks_and_accumulatiing_summary_results() -> None
     assert test_case_len == 60
 
     result = await accumulate_llm_results_for_summarizaton_chain(
-        test_case, question_prompt, chain, chunking_strategy, fake_llm
+        test_case, config, chain, chunking_strategy, fake_llm
     )
     expected_chunks = [
         "{'nam",
@@ -158,7 +166,35 @@ async def test_summarize_test_case_respects_chunk_concurrency():
         mock_chain.return_value.ainvoke = tracking_ainvoke
 
         await summarize_test_case(
-            test_case, chunks, mock_chain, "question", chunk_concurrency=2
+            test_case,
+            chunks,
+            mock_chain,
+            "Analyze: {text}",
+            "Synthesize: {summary}",
+            chunk_concurrency=2,
         )
 
     assert max_concurrent <= 2
+
+
+@pytest.mark.asyncio
+async def test_summarize_uses_config_prompts():
+    """Test that summarize_test_case uses prompts from config."""
+    test_case = {"name": "config_test", "content": "test"}
+    chunks = ["chunk1", "chunk2"]
+
+    chunk_prompt = "Custom chunk analysis: {text}"
+    final_prompt = "Custom final synthesis: {summary}"
+
+    fake_llm = FakeListLLM(
+        responses=["chunk1_result", "chunk2_result", "final_result"],
+        model="fake",
+    )
+
+    result, name, returned_chunks = await summarize_test_case(
+        test_case, chunks, fake_llm, chunk_prompt, final_prompt
+    )
+
+    assert result == "final_result"
+    assert name == "config_test"
+    assert returned_chunks == ["chunk1", "chunk2"]

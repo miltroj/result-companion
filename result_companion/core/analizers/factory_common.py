@@ -59,6 +59,7 @@ async def execute_llm_and_get_results(
     tokenizer = config.tokenizer
     test_case_concurrency = config.concurrency.test_case
     chunk_concurrency = config.concurrency.chunk
+    llm_config_dict = config.llm_config.model_dump()
 
     llm_results = dict()
     corutines = []
@@ -91,7 +92,7 @@ async def execute_llm_and_get_results(
             corutines.append(
                 accumulate_llm_results_for_summarizaton_chain(
                     test_case=test_case,
-                    question_from_config_file=question_from_config_file,
+                    config=llm_config_dict,
                     chain=chain,
                     chunking_strategy=chunk,
                     llm=model,

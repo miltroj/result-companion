@@ -18,6 +18,13 @@ from result_companion.core.parsers.config import (
 
 prompt_template = {"prompt_template": "{question} {cotext}"}
 
+chunking_prompts = {
+    "chunking": {
+        "chunk_analysis_prompt": "Analyze: {text}",
+        "final_synthesis_prompt": "Synthesize: {summary}",
+    }
+}
+
 
 def test_reading_yaml_from_file(mocker: MockerFixture) -> None:
     mocked_data = mocker.mock_open(read_data="something: here")
@@ -27,7 +34,7 @@ def test_reading_yaml_from_file(mocker: MockerFixture) -> None:
 
 def test_load_default_config(mocker: MockerFixture) -> None:
     mock_data = mocker.mock_open(
-        read_data="version: 1.0\nllm_config:\n  question_prompt: Test prompt message.\n  prompt_template: question context\nllm_factory:\n  model_type: local_model\n  parameters: {}\ntokenizer:\n  ollama:\n  tokenizer: ollama_tokenizer\n  max_content_tokens: 1234"
+        read_data="version: 1.0\nllm_config:\n  question_prompt: Test prompt message.\n  prompt_template: question context\n  chunking:\n    chunk_analysis_prompt: 'Analyze: {text}'\n    final_synthesis_prompt: 'Synthesize: {summary}'\nllm_factory:\n  model_type: local_model\n  parameters: {}\ntokenizer:\n  ollama:\n  tokenizer: ollama_tokenizer\n  max_content_tokens: 1234"
     )
     mocker.patch("builtins.open", mock_data)
 
@@ -39,7 +46,7 @@ def test_load_default_config(mocker: MockerFixture) -> None:
 
 def test_reading_existing_user_config_not_default(mocker: MockerFixture) -> None:
     mock_data = mocker.mock_open(
-        read_data="version: 1.0\nllm_config:\n  question_prompt: User config.\n  prompt_template: question context\nllm_factory:\n  model_type: local_model\n  parameters: {}\ntokenizer:\n  ollama:\n  tokenizer: ollama_tokenizer\n  max_content_tokens: 1234"
+        read_data="version: 1.0\nllm_config:\n  question_prompt: User config.\n  prompt_template: question context\n  chunking:\n    chunk_analysis_prompt: 'Analyze: {text}'\n    final_synthesis_prompt: 'Synthesize: {summary}'\nllm_factory:\n  model_type: local_model\n  parameters: {}\ntokenizer:\n  ollama:\n  tokenizer: ollama_tokenizer\n  max_content_tokens: 1234"
     )
     mocker.patch("builtins.open", mock_data)
     config = ConfigLoader(default_config_file="default_config.yaml").load_config(
@@ -54,7 +61,11 @@ def test_default_config_model_loads_parameters() -> None:
     config = DefaultConfigModel(
         version=1.0,
         **{
-            "llm_config": {"question_prompt": "Test prompt message.", **prompt_template}
+            "llm_config": {
+                "question_prompt": "Test prompt message.",
+                **prompt_template,
+                **chunking_prompts,
+            }
         },
         **{"llm_factory": {"model_type": "local", "parameters": {}}},
         **{"tokenizer": {"tokenizer": "ollama_tokenizer", "max_content_tokens": 1234}}
@@ -73,7 +84,11 @@ def test_default_config_model_drops_redundant_parameters() -> None:
     config = DefaultConfigModel(
         version=1.0,
         **{
-            "llm_config": {"question_prompt": "Test prompt message.", **prompt_template}
+            "llm_config": {
+                "question_prompt": "Test prompt message.",
+                **prompt_template,
+                **chunking_prompts,
+            }
         },
         redundant="redundant",
         **{"llm_factory": {"model_type": "local", "parameters": {}}},
@@ -101,6 +116,9 @@ def test_user_llm_config_takes_precedense_over_default(mocker):
     llm_config:
       question_prompt: "Default question prompt"
       prompt_template: "Default prompt template"
+      chunking:
+        chunk_analysis_prompt: "Analyze: {text}"
+        final_synthesis_prompt: "Synthesize: {summary}"
       model_type: "local"
     llm_factory:
       model_type: "OllamaLLM"
@@ -185,7 +203,11 @@ def test_default_config_model_loads_default_empty_strategy() -> None:
     config = DefaultConfigModel(
         version=1.0,
         **{
-            "llm_config": {"question_prompt": "Test prompt message.", **prompt_template}
+            "llm_config": {
+                "question_prompt": "Test prompt message.",
+                **prompt_template,
+                **chunking_prompts,
+            }
         },
         **{"llm_factory": {"model_type": "local", "parameters": {}}},
         **{"tokenizer": {"tokenizer": "ollama_tokenizer", "max_content_tokens": 1234}}
@@ -200,7 +222,11 @@ def test_default_config_model_loads_default_empty_strategy() -> None:
 def test_default_config_model_loads_custom_strategy() -> None:
     config = DefaultConfigModel(
         version=1.0,
-        llm_config={"question_prompt": "Test prompt message.", **prompt_template},
+        llm_config={
+            "question_prompt": "Test prompt message.",
+            **prompt_template,
+            **chunking_prompts,
+        },
         llm_factory={
             "model_type": "local",
             "parameters": {},
@@ -304,6 +330,9 @@ def test_load_config_with_env_vars(mocker):
     llm_config:
       question_prompt: "Default question prompt"
       prompt_template: "Default prompt template"
+      chunking:
+        chunk_analysis_prompt: "Analyze: {text}"
+        final_synthesis_prompt: "Synthesize: {summary}"
       model_type: "local"
     llm_factory:
       model_type: "OllamaLLM"
@@ -364,10 +393,73 @@ def test_concurrency_model_with_defaults():
 def test_default_config_model_loads_custom_concurrency():
     config = DefaultConfigModel(
         version=1.0,
-        llm_config={"question_prompt": "Test prompt.", **prompt_template},
+        llm_config={
+            "question_prompt": "Test prompt.",
+            **prompt_template,
+            **chunking_prompts,
+        },
         llm_factory={"model_type": "local", "parameters": {}},
         tokenizer={"tokenizer": "ollama_tokenizer", "max_content_tokens": 1000},
         concurrency={"test_case": 5, "chunk": 3},
     )
     assert config.concurrency.test_case == 5
     assert config.concurrency.chunk == 3
+
+
+def test_default_config_model_loads_chunking_prompts():
+    """Test that chunking prompts are properly loaded."""
+    config = DefaultConfigModel(
+        version=1.0,
+        llm_config={
+            "question_prompt": "Test prompt.",
+            **prompt_template,
+            **chunking_prompts,
+        },
+        llm_factory={"model_type": "local", "parameters": {}},
+        tokenizer={"tokenizer": "ollama_tokenizer", "max_content_tokens": 1000},
+    )
+    assert config.llm_config.chunking.chunk_analysis_prompt == "Analyze: {text}"
+    assert config.llm_config.chunking.final_synthesis_prompt == "Synthesize: {summary}"
+
+
+def test_user_config_can_override_chunking_prompts(mocker):
+    """Test that user config can override chunking prompts."""
+    default_config_content = """
+    version: 1.0
+    llm_config:
+      question_prompt: "Default prompt"
+      prompt_template: "Default template"
+      chunking:
+        chunk_analysis_prompt: "Default analyze: {text}"
+        final_synthesis_prompt: "Default synthesize: {summary}"
+    llm_factory:
+      model_type: "OllamaLLM"
+      parameters: {}
+    tokenizer:
+      tokenizer: "ollama_tokenizer"
+      max_content_tokens: 1000
+    """
+
+    user_config_content = """
+    llm_config:
+      chunking:
+        chunk_analysis_prompt: "Custom analyze: {text}"
+        final_synthesis_prompt: "Custom synthesize: {summary}"
+    """
+
+    mock_open_instance = mock_open()
+    mock_open_instance.side_effect = [
+        mock_open(read_data=default_config_content).return_value,
+        mock_open(read_data=user_config_content).return_value,
+    ]
+
+    mocker.patch("builtins.open", mock_open_instance)
+
+    config_loader = ConfigLoader(default_config_file=Path("default_config.yaml"))
+    config = config_loader.load_config(user_config_file=Path("user_config.yaml"))
+
+    assert config.llm_config.chunking.chunk_analysis_prompt == "Custom analyze: {text}"
+    assert (
+        config.llm_config.chunking.final_synthesis_prompt
+        == "Custom synthesize: {summary}"
+    )

@@ -3,6 +3,7 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from result_companion.core.analizers.factory_common import execute_llm_and_get_results
 from result_companion.core.parsers.config import (
+    ChunkingPromptsModel,
     DefaultConfigModel,
     LLMConfigModel,
     LLMFactoryModel,
@@ -15,7 +16,12 @@ async def test_gather_llm_runs_and_get_results() -> None:
     config = DefaultConfigModel(
         version=1,
         llm_config=LLMConfigModel(
-            question_prompt="question", prompt_template="template"
+            question_prompt="question",
+            prompt_template="template",
+            chunking=ChunkingPromptsModel(
+                chunk_analysis_prompt="Analyze: {text}",
+                final_synthesis_prompt="Synthesize: {summary}",
+            ),
         ),
         llm_factory=LLMFactoryModel(model_type="model_type"),
         tokenizer=TokenizerModel(tokenizer="ollama_tokenizer", max_content_tokens=10),

@@ -33,7 +33,7 @@ def split_text_into_chunks_using_text_splitter(
 
 async def accumulate_llm_results_for_summarizaton_chain(
     test_case: dict,
-    question_from_config_file: str,
+    config: dict,
     chain: RunnableSerializable,
     chunking_strategy: Chunking,
     llm: MODELS,
@@ -42,8 +42,11 @@ async def accumulate_llm_results_for_summarizaton_chain(
     chunks = split_text_into_chunks_using_text_splitter(
         str(test_case), chunking_strategy.chunk_size, chunking_strategy.chunk_size // 10
     )
+    chunk_prompt = config["chunking"]["chunk_analysis_prompt"]
+    final_prompt = config["chunking"]["final_synthesis_prompt"]
+
     return await summarize_test_case(
-        test_case, chunks, llm, question_from_config_file, chunk_concurrency
+        test_case, chunks, llm, chunk_prompt, final_prompt, chunk_concurrency
     )
 
 
@@ -51,18 +54,28 @@ async def summarize_test_case(
     test_case: dict,
     chunks: list,
     llm: MODELS,
-    question_prompt: str,
+    chunk_analysis_prompt: str,
+    final_synthesis_prompt: str,
     chunk_concurrency: int = 1,
 ) -> Tuple[str, str, list]:
+    """Summarizes large test case by analyzing chunks and synthesizing results.
+
+    Args:
+        test_case: Test case dictionary with name and data.
+        chunks: List of text chunks to analyze.
+        llm: Language model instance.
+        chunk_analysis_prompt: Template for analyzing chunks.
+        final_synthesis_prompt: Template for final synthesis.
+        chunk_concurrency: Chunks to process concurrently.
+
+    Returns:
+        Tuple of (final_analysis, test_name, chunks).
+    """
     logger.info(f"### For test case {test_case['name']}, {len(chunks)=}")
 
-    # TODO: move promt definition to default_config.yaml
     summarization_prompt = PromptTemplate(
         input_variables=["text"],
-        template=(
-            "You are analyzing chunk of system test logs. Identify potential errors and failure root causes "
-            "from the following chunk of json text, do not propose solutions focus on facts:\n\n{text}"
-        ),
+        template=chunk_analysis_prompt,
     )
 
     summarization_chain = build_sumarization_chain(summarization_prompt, llm)
@@ -80,14 +93,16 @@ async def summarize_test_case(
     chunk_tasks = [process_with_limit(chunk, i) for i, chunk in enumerate(chunks)]
     summaries = await asyncio.gather(*chunk_tasks)
 
-    aggregated_summary = "\n".join(summaries)
+    aggregated_summary = "\n\n---\n\n".join(
+        [
+            f"### Chunk {i+1}/{total_chunks}\n{summary}"
+            for i, summary in enumerate(summaries)
+        ]
+    )
 
     final_prompt = PromptTemplate(
         input_variables=["summary"],
-        template=(
-            "Based on the aggregated summary below, provide a detailed analysis of the system test logs. "
-            "Highlight spotted problems in specific keywords, root causes, and recommendations for resolving them:\n\n{summary}"
-        ),
+        template=final_synthesis_prompt,
     )
 
     final_analysis_chain = build_sumarization_chain(final_prompt, llm)
