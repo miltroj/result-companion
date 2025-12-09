@@ -85,6 +85,21 @@ def test_init_llm_model_for_chatopenai_with_custom_base_url():
     assert strategy is None
 
 
+def test_init_llm_model_for_chatanthropic():
+    config = LLMFactoryModel(
+        **{
+            "model_type": "ChatAnthropic",
+            "parameters": {
+                "model": "claude-opus-4-5-20241022",
+                "api_key": "fake-api-key",
+            },
+        }
+    )
+    model, strategy = init_llm_with_strategy_factory(config)
+    assert model.__class__.__name__ == "ChatAnthropic"
+    assert strategy is None
+
+
 def test_fail_llm_init_on_unsupported_llm_parameters():
     config = LLMFactoryModel(
         **{

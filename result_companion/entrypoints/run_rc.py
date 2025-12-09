@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from langchain_anthropic import ChatAnthropic
 from langchain_aws import BedrockLLM
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -40,6 +41,7 @@ def init_llm_with_strategy_factory(
         "BedrockLLM": (BedrockLLM, None),
         "ChatGoogleGenerativeAI": (ChatGoogleGenerativeAI, None),
         "ChatOpenAI": (ChatOpenAI, None),
+        "ChatAnthropic": (ChatAnthropic, None),
     }
 
     if model_type not in model_classes:
