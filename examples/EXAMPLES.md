@@ -10,6 +10,7 @@
     - [4. ChatGoogleGenerativeAI Model](#4-chatgooglegenerativeai-model)
     - [5. ChatOpenAI with Custom Endpoint (Databricks, OpenAI-compatible APIs)](#5-chatopenai-with-custom-endpoint-databricks-openai-compatible-apis)
   - [Concurrency Configuration](#concurrency-configuration)
+  - [Customizing Chunking Prompts](#customizing-chunking-prompts)
   - [Understanding Content Tokenization and Chunking](#understanding-content-tokenization-and-chunking)
     - [Setting Appropriate Token Limits](#setting-appropriate-token-limits)
   - [Environment Variables in Configuration Files](#environment-variables-in-configuration-files)
