@@ -119,7 +119,7 @@ Check [`examples/`](examples/) for ready-to-use configs:
 
 - Text-only analysis (no screenshots/videos)
 - Large test suites processed in chunks
-- Local models need 4-8GB RAM
+- **Local models**: Need 4-8GB RAM + GPU/NPU for good performance (Apple Silicon, NVIDIA, AMD)
 
 ## Contributing
 
@@ -145,6 +145,8 @@ poetry run inv test_coverage
 
 Apache 2.0 - See [LICENSE](LICENSE)
 
----
+## Disclaimer
 
-**Privacy Note**: Cloud AI providers may process your test data. Local models (Ollama) keep everything on your machine.
+Cloud AI providers may process your test data. Local models (Ollama) keep everything private on your machine.
+
+**You are responsible for data privacy.** The creator takes no responsibility for data exposure, intellectual property leakage, or security issues. By using Result Companion, you accept all risks and ensure compliance with your organization's data policies.

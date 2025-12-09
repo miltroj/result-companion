@@ -39,6 +39,8 @@ The default uses Ollama with `deepseek-r1:1.5b` model.
 - `phi-3-mini` (2.3GB, 8GB RAM) - Fast and efficient
 - `mistral:7b` (4.1GB, 16GB RAM) - Industry standard, excellent quality
 
+**Hardware note**: GPU/NPU significantly improves inference speed. Apple Silicon Macs use unified memory (RAM serves both CPU and GPU).
+
 ### OpenAI
 
 ```yaml
@@ -230,6 +232,8 @@ result-companion -o output.xml --test-concurrency 2 --chunk-concurrency 1
 | Google | gemini-2.5-flash | 1,048K | 65K | `max_content_tokens: 1000000` |
 
 **Note**: Set input slightly below actual limit to account for prompt overhead. Gemini 2.5 Flash is ideal for large test suites.
+
+**Local models (Ollama)**: Models run faster with GPU/NPU acceleration (Apple Silicon, NVIDIA CUDA, AMD ROCm). CPU-only is slower but works.
 
 ### Chunking for Large Tests
 
