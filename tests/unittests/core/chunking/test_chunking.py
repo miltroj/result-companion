@@ -94,7 +94,6 @@ async def test_splitting_into_chunks_and_accumulatiing_summary_results() -> None
     test_case = {"name": "chunking_test_case_name", "content": test_case_text}
     chunk_prompt = "Analyze: {text}"
     final_prompt = "Synthesize: {summary}"
-    chain = "empty chain"
 
     fake_llm = FakeListLLM(
         responses=["chunk 1", "chunk 2", "final summary"],
@@ -113,7 +112,7 @@ async def test_splitting_into_chunks_and_accumulatiing_summary_results() -> None
     assert test_case_len == 60
 
     result = await accumulate_llm_results_for_summarizaton_chain(
-        test_case, chunk_prompt, final_prompt, chain, chunking_strategy, fake_llm
+        test_case, chunk_prompt, final_prompt, chunking_strategy, fake_llm
     )
     expected_chunks = [
         "{'nam",

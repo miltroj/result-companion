@@ -35,7 +35,6 @@ async def accumulate_llm_results_for_summarizaton_chain(
     test_case: dict,
     chunk_analysis_prompt: str,
     final_synthesis_prompt: str,
-    chain: RunnableSerializable,
     chunking_strategy: Chunking,
     llm: MODELS,
     chunk_concurrency: int = 1,
