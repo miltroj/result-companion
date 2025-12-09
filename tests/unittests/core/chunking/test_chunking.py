@@ -92,12 +92,8 @@ async def test_executing_summarization_chain(mock_building_chain) -> None:
 async def test_splitting_into_chunks_and_accumulatiing_summary_results() -> None:
     test_case_text = "a" * 10
     test_case = {"name": "chunking_test_case_name", "content": test_case_text}
-    config = {
-        "chunking": {
-            "chunk_analysis_prompt": "Analyze: {text}",
-            "final_synthesis_prompt": "Synthesize: {summary}",
-        }
-    }
+    chunk_prompt = "Analyze: {text}"
+    final_prompt = "Synthesize: {summary}"
     chain = "empty chain"
 
     fake_llm = FakeListLLM(
@@ -117,7 +113,7 @@ async def test_splitting_into_chunks_and_accumulatiing_summary_results() -> None
     assert test_case_len == 60
 
     result = await accumulate_llm_results_for_summarizaton_chain(
-        test_case, config, chain, chunking_strategy, fake_llm
+        test_case, chunk_prompt, final_prompt, chain, chunking_strategy, fake_llm
     )
     expected_chunks = [
         "{'nam",

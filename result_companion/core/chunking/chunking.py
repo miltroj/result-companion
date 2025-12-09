@@ -33,7 +33,8 @@ def split_text_into_chunks_using_text_splitter(
 
 async def accumulate_llm_results_for_summarizaton_chain(
     test_case: dict,
-    config: dict,
+    chunk_analysis_prompt: str,
+    final_synthesis_prompt: str,
     chain: RunnableSerializable,
     chunking_strategy: Chunking,
     llm: MODELS,
@@ -42,11 +43,13 @@ async def accumulate_llm_results_for_summarizaton_chain(
     chunks = split_text_into_chunks_using_text_splitter(
         str(test_case), chunking_strategy.chunk_size, chunking_strategy.chunk_size // 10
     )
-    chunk_prompt = config["chunking"]["chunk_analysis_prompt"]
-    final_prompt = config["chunking"]["final_synthesis_prompt"]
-
     return await summarize_test_case(
-        test_case, chunks, llm, chunk_prompt, final_prompt, chunk_concurrency
+        test_case,
+        chunks,
+        llm,
+        chunk_analysis_prompt,
+        final_synthesis_prompt,
+        chunk_concurrency,
     )
 
 
