@@ -34,11 +34,21 @@ class CustomEndpointModel(BaseModel):
     openai_api_key: str = Field(min_length=5, description="OpenAI API key.")
 
 
+class ChunkingPromptsModel(BaseModel):
+    chunk_analysis_prompt: str = Field(
+        min_length=5, description="Prompt for analyzing individual chunks."
+    )
+    final_synthesis_prompt: str = Field(
+        min_length=5, description="Prompt for synthesizing chunk summaries."
+    )
+
+
 class LLMConfigModel(BaseModel):
     question_prompt: str = Field(min_length=5, description="User prompt.")
     prompt_template: str = Field(
         min_length=5, description="Template for LLM ChatPromptTemplate."
     )
+    chunking: ChunkingPromptsModel
     model_type: ModelType = Field(
         default=ModelType.LOCAL,
         description=f"Which type of llm model runners to use {[el.name for el in ModelType]}",

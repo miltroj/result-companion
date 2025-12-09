@@ -22,13 +22,35 @@ llm_config:
 
     **Potential Fixes**
     [very concise and actionable fix for robot framework test case, do not use code example]
+
+  chunking:
+    chunk_analysis_prompt: |
+      Analyze this Robot Framework test chunk (JSON format with keyword calls, names, arguments, messages).
+      Extract: 1) Key actions and outcomes 2) Errors, exceptions, tracebacks 3) Failing/suspicious keywords 4) Important logs.
+      Focus on FACTS. Be specific about keyword names.
+
+      {text}
+
+    final_synthesis_prompt: |
+      Synthesize chunk summaries into final Robot Framework test analysis.
+
+      **Flow**
+      [Step by step bullet points from all chunks]
+
+      **Failure Root Cause**
+      [Root cause from all summaries. Explicit keyword names. Look for patterns, errors, tracebacks.]
+
+      **Potential Fixes**
+      [Concise, actionable fixes. No code examples.]
+
+      SKIP THOUGHT PROCESS!
+
+      {summary}
+
   prompt_template: |
     Question: {question}
 
     Answer the question based on the following context: {context}
-  # REMOVE
-  model_type: local
-  model_name: llama3.2
 
 llm_factory:
   model_type: "OllamaLLM" # AzureChatOpenAI OllamaLLM BedrockLLM

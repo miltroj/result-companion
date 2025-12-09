@@ -3,6 +3,7 @@
 ## Table of Contents
 - [Using Different LLM Models with ***result-companion***](#using-different-llm-models-with-result-companion)
   - [Table of Contents](#table-of-contents)
+  - [Configuration Overview](#configuration-overview)
   - [Configuration File: ***user\_config.yaml***](#configuration-file-user_configyaml)
     - [1. OllamaLLM with DeepSeek Model](#1-ollamallm-with-deepseek-model)
     - [2. AzureChatOpenAI Model](#2-azurechatopenai-model)
@@ -10,17 +11,37 @@
     - [4. ChatGoogleGenerativeAI Model](#4-chatgooglegenerativeai-model)
     - [5. ChatOpenAI with Custom Endpoint (Databricks, OpenAI-compatible APIs)](#5-chatopenai-with-custom-endpoint-databricks-openai-compatible-apis)
   - [Concurrency Configuration](#concurrency-configuration)
+  - [Customizing Analysis Prompts](#customizing-analysis-prompts)
+    - [Main Analysis Prompt](#main-analysis-prompt)
+    - [Chunking Prompts](#chunking-prompts)
   - [Understanding Content Tokenization and Chunking](#understanding-content-tokenization-and-chunking)
     - [Setting Appropriate Token Limits](#setting-appropriate-token-limits)
   - [Environment Variables in Configuration Files](#environment-variables-in-configuration-files)
   - [Running the Application](#running-the-application)
   - [Additional Resources](#additional-resources)
 
-This guide provides instructions on configuring and utilizing various Large Language Models (LLMs) such as ***OllamaLLM***, ***AzureChatOpenAI***, ***BedrockLLM***, and ***ChatGoogleGenerativeAI*** within your application. By specifying the appropriate parameters in the ***user_config.yaml*** file, you can invoke these models during runtime using the ***result-companion*** command.
+This guide provides instructions on configuring and utilizing various Large Language Models (LLMs) such as ***OllamaLLM***, ***AzureChatOpenAI***, ***BedrockLLM***, and ***ChatGoogleGenerativeAI*** within your application.
+
+## Configuration Overview
+
+**Default Configuration**: [`result_companion/core/configs/default_config.yaml`](../result_companion/core/configs/default_config.yaml)
+Built-in defaults for model, prompts, and settings. Works out-of-the-box.
+
+**User Configuration**: `user_config.yaml` (you create this)
+Your customizations that override defaults. Required when using different models or custom prompts.
+
+**Usage**:
+```sh
+# Use defaults
+result-companion -o output.xml -r report.html
+
+# Override with your config
+result-companion -o output.xml -r report.html -c user_config.yaml
+```
 
 ## Configuration File: ***user_config.yaml***
 
-The ***user_config.yaml*** file is used to define the LLM model and its parameters. Below are example configurations for each supported model.
+Create `user_config.yaml` to customize model, prompts, or settings. Only specify what you want to override—unspecified values use defaults.
 
 ### 1. OllamaLLM with DeepSeek Model
 
@@ -169,6 +190,61 @@ result-companion analyze -o output.xml -r report.html -c config.yaml \
 
 **Local models (Ollama):** Concurrency is supported but not recommended—local LLMs are CPU/GPU bound, and parallel requests typically don't improve performance.
 
+## Customizing Analysis Prompts
+
+Result Companion's analysis behavior is fully customizable through prompts. This enables use cases beyond error analysis: security audits, performance issues, test quality assessment, or custom workflows.
+
+**Defaults**: See [`default_config.yaml`](../result_companion/core/configs/default_config.yaml) for built-in prompts.
+**Override**: Create `user_config.yaml` with your custom prompts.
+
+### Main Analysis Prompt
+
+Override `question_prompt` in your `user_config.yaml` to change analysis behavior:
+
+```yaml
+# user_config.yaml
+llm_config:
+  question_prompt: |
+    Your custom analysis instructions here.
+    Define what to look for, how to structure output, etc.
+```
+
+**Use Cases:**
+- **Error Analysis** (default): Identify test failures and root causes
+- **Security Audit**: Look for security vulnerabilities in test execution
+- **Performance Review**: Analyze timing and resource usage patterns
+- **Code Quality**: Assess test structure and maintainability
+
+**Example - Security Focus:**
+```yaml
+# user_config.yaml
+llm_config:
+  question_prompt: |
+    Analyze this Robot Framework test for security concerns:
+    - Hardcoded credentials or secrets
+    - Insecure API calls or configurations
+    - Data exposure risks
+
+    Output: **Security Findings** | **Severity** | **Recommendations**
+```
+
+### Chunking Prompts
+
+For large tests exceeding `max_content_tokens`, override chunking prompts in `user_config.yaml`:
+
+```yaml
+# user_config.yaml
+llm_config:
+  chunking:
+    chunk_analysis_prompt: |
+      Extract key information from this test chunk.
+      {text}
+
+    final_synthesis_prompt: |
+      Synthesize findings from all chunks.
+      {summary}
+```
+
 ## Understanding Content Tokenization and Chunking
 
 The `max_content_tokens` parameter in the configuration file is crucial for handling large test results. This parameter determines:
@@ -229,13 +305,17 @@ export AWS_SECRET_ACCESS_KEY="your-aws-secret-access-key"
 
 ## Running the Application
 
-After configuring the ***user_config.yaml*** file with the desired model parameters and setting any required environment variables, run the application using the following command:
+**With default configuration** (built-in OllamaLLM):
+```sh
+result-companion -o output.xml -r log_with_llm_results.html
+```
 
+**With custom configuration** (your `user_config.yaml`):
 ```sh
 result-companion -o output.xml -r log_with_llm_results.html -c user_config.yaml
 ```
 
-This command will execute the application, utilizing the specified LLM model as defined in your configuration file.
+The `-c` flag applies your customizations while keeping unspecified settings from defaults.
 
 ## Additional Resources
 

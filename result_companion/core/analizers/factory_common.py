@@ -4,7 +4,6 @@ from typing import Callable, Tuple
 from langchain_aws import BedrockLLM
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import RunnableSerializable
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_ollama.llms import OllamaLLM
 from langchain_openai import AzureChatOpenAI
@@ -25,11 +24,15 @@ MODELS = Tuple[
 
 
 async def accumulate_llm_results_without_streaming(
-    test_case: list, question_from_config_file: str, chain: RunnableSerializable
+    test_case: dict,
+    question_from_config_file: str,
+    prompt: ChatPromptTemplate,
+    model: MODELS,
 ) -> Tuple[str, str, list]:
     logger.info(
         f"### Test Case: {test_case['name']}, content length: {len(str(test_case))}"
     )
+    chain = prompt | model | StrOutputParser()
     return (
         await chain.ainvoke(
             {"context": test_case, "question": question_from_config_file}, verbose=True
@@ -37,15 +40,6 @@ async def accumulate_llm_results_without_streaming(
         test_case["name"],
         [],
     )
-
-
-def default_chain(prompt: ChatPromptTemplate, model: MODELS) -> RunnableSerializable:
-    return prompt | model | StrOutputParser()
-
-
-def compose_chain(prompt: ChatPromptTemplate, model: MODELS) -> RunnableSerializable:
-    # TODO: create a propper chain
-    return default_chain(prompt, model)
 
 
 async def execute_llm_and_get_results(
@@ -59,6 +53,8 @@ async def execute_llm_and_get_results(
     tokenizer = config.tokenizer
     test_case_concurrency = config.concurrency.test_case
     chunk_concurrency = config.concurrency.chunk
+    chunk_analysis_prompt = config.llm_config.chunking.chunk_analysis_prompt
+    final_synthesis_prompt = config.llm_config.chunking.final_synthesis_prompt
 
     llm_results = dict()
     corutines = []
@@ -80,19 +76,17 @@ async def execute_llm_and_get_results(
 
         # TODO: zero chunk size seems magical
         if chunk.chunk_size == 0:
-            chain = default_chain(prompt, model)
             corutines.append(
                 accumulate_llm_results_without_streaming(
-                    test_case, question_from_config_file, chain
+                    test_case, question_from_config_file, prompt, model
                 )
             )
         else:
-            chain = compose_chain(prompt, model)
             corutines.append(
                 accumulate_llm_results_for_summarizaton_chain(
                     test_case=test_case,
-                    question_from_config_file=question_from_config_file,
-                    chain=chain,
+                    chunk_analysis_prompt=chunk_analysis_prompt,
+                    final_synthesis_prompt=final_synthesis_prompt,
                     chunking_strategy=chunk,
                     llm=model,
                     chunk_concurrency=chunk_concurrency,

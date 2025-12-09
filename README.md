@@ -6,7 +6,7 @@
 
 The package reads test artifacts from `output.xml` files and recursively analyzes all test cases, including logs, to draw solid conclusions around test failures. It then generates a `log.html` file with theme-aware UI enhancements, making it easy for Robot Framework users to understand the test results with collapsible AI analysis sections.
 
-One of the key features is that users can customize the behavior of the application by altering the system prompt and other parameters, greatly expanding the capabilities of Result Companion.
+**Customizable Analysis**: Fully customizable prompts enable diverse use cases beyond error analysis—security audits, performance reviews, test quality assessment, or custom workflows. See [Examples](examples/EXAMPLES.md#customizing-analysis-prompts) for configuration details.
 
 ![Demo](assets/demo.gif)
 
@@ -37,7 +37,7 @@ One of the key features is that users can customize the behavior of the applicat
 - **LLM-Powered Insights**: Utilizes LLM models to generate deeper insights, patterns, and potential issues in test suites.
 - **Enhanced HTML Output**: Generates an enhanced HTML report with collapsible AI sections for better understanding.
 - **Flexible Model Layer**: Experiment with local or cloud-based LLM models using LangChain.
-- **Customizable Prompts**: Adjust system prompts and parameters to adapt the tool to different needs and expand its capabilities.
+- **Customizable Analysis Prompts**: Configure analysis behavior for error detection, security audits, performance reviews, or custom use cases through prompt customization.
 - **Local LLM Model Support**: Primarily tested with the `ollama` package and local LLM models like `deepseek-r1` or `llama3.2`.
 - **Cloud Provider Support**: Compatible with OpenAI, Azure, and other remote LLM API providers.
 - **Automated Installation**: Built-in commands to automatically install Ollama and required LLM models.
@@ -177,9 +177,10 @@ The creator of this package takes no responsibility for any exposure of private 
 
 - **Textual Data Only**: The current version of the project only supports handling textual data. Non-textual artifacts, such as images or binary logs, are not supported.
 
-- **Token Limitations**: LLMs have token constraints, which can be problematic when dealing with long logs. To address this, a chunking functionality has been introduced. However:
+- **Token Limitations**: LLMs have token constraints, which can be problematic when dealing with long logs. To address this, a chunking functionality with customizable prompts has been introduced. However:
   - For **local runs**, chunking slows down execution significantly due to the computational overhead.
   - For **third-party services** accessed via REST APIs, chunking increases network traffic and may lead to excessive costs.
+  - Users can customize chunking prompts through configuration to optimize for their use case.
 
 - **Single Test Case Analysis**: For local runs, the LLM analyzes only one test case at a time. This is due to the computational expense of processing multiple cases, and parallelization does not currently yield significant performance improvements.
 

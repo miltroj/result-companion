@@ -1,8 +1,13 @@
 import pytest
+from langchain_community.llms.fake import FakeListLLM
 from langchain_core.prompts import ChatPromptTemplate
 
-from result_companion.core.analizers.factory_common import execute_llm_and_get_results
+from result_companion.core.analizers.factory_common import (
+    accumulate_llm_results_without_streaming,
+    execute_llm_and_get_results,
+)
 from result_companion.core.parsers.config import (
+    ChunkingPromptsModel,
     DefaultConfigModel,
     LLMConfigModel,
     LLMFactoryModel,
@@ -15,7 +20,12 @@ async def test_gather_llm_runs_and_get_results() -> None:
     config = DefaultConfigModel(
         version=1,
         llm_config=LLMConfigModel(
-            question_prompt="question", prompt_template="template"
+            question_prompt="question",
+            prompt_template="template",
+            chunking=ChunkingPromptsModel(
+                chunk_analysis_prompt="Analyze: {text}",
+                final_synthesis_prompt="Synthesize: {summary}",
+            ),
         ),
         llm_factory=LLMFactoryModel(model_type="model_type"),
         tokenizer=TokenizerModel(tokenizer="ollama_tokenizer", max_content_tokens=10),
@@ -38,3 +48,21 @@ async def test_gather_llm_runs_and_get_results() -> None:
         include_passing=False,
     )
     assert result == {"test2_failing": "llm generated result"}
+
+
+@pytest.mark.asyncio
+async def test_accumulate_llm_results_without_streaming():
+    """Test non-streaming analysis builds chain and returns correct tuple."""
+    test_case = {"name": "test_case_name", "status": "FAIL", "content": "test data"}
+    question = "What failed?"
+    prompt = ChatPromptTemplate.from_template("{question} {context}")
+
+    fake_llm = FakeListLLM(responses=["Analysis result"], model="fake")
+
+    result, name, chunks = await accumulate_llm_results_without_streaming(
+        test_case, question, prompt, fake_llm
+    )
+
+    assert result == "Analysis result"
+    assert name == "test_case_name"
+    assert chunks == []
