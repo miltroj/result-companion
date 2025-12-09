@@ -6,7 +6,7 @@
 
 The package reads test artifacts from `output.xml` files and recursively analyzes all test cases, including logs, to draw solid conclusions around test failures. It then generates a `log.html` file with theme-aware UI enhancements, making it easy for Robot Framework users to understand the test results with collapsible AI analysis sections.
 
-One of the key features is that users can customize the behavior of the application by altering the system prompt and other parameters, greatly expanding the capabilities of Result Companion.
+**Customizable Analysis**: Fully customizable prompts enable diverse use cases beyond error analysis—security audits, performance reviews, test quality assessment, or custom workflows. See [Examples](examples/EXAMPLES.md#customizing-analysis-prompts) for configuration details.
 
 ![Demo](assets/demo.gif)
 
@@ -37,7 +37,7 @@ One of the key features is that users can customize the behavior of the applicat
 - **LLM-Powered Insights**: Utilizes LLM models to generate deeper insights, patterns, and potential issues in test suites.
 - **Enhanced HTML Output**: Generates an enhanced HTML report with collapsible AI sections for better understanding.
 - **Flexible Model Layer**: Experiment with local or cloud-based LLM models using LangChain.
-- **Customizable Prompts**: Adjust system prompts and parameters to adapt the tool to different needs and expand its capabilities.
+- **Customizable Analysis Prompts**: Configure analysis behavior for error detection, security audits, performance reviews, or custom use cases through prompt customization.
 - **Local LLM Model Support**: Primarily tested with the `ollama` package and local LLM models like `deepseek-r1` or `llama3.2`.
 - **Cloud Provider Support**: Compatible with OpenAI, Azure, and other remote LLM API providers.
 - **Automated Installation**: Built-in commands to automatically install Ollama and required LLM models.
