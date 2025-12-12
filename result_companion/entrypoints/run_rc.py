@@ -21,12 +21,9 @@ from result_companion.core.parsers.result_parser import (
 )
 from result_companion.core.utils.log_levels import LogLevels
 from result_companion.core.utils.logging_config import (
-    log_uncaught_exceptions,
     logger,
     set_global_log_level,
 )
-
-log_uncaught_exceptions(logger)
 
 
 def init_llm_with_strategy_factory(
@@ -134,14 +131,19 @@ def run_rc(
     test_case_concurrency: Optional[int] = None,
     chunk_concurrency: Optional[int] = None,
 ) -> bool:
-    return asyncio.run(
-        _main(
-            output=output,
-            log_level=log_level,
-            config=config,
-            report=report,
-            include_passing=include_passing,
-            test_case_concurrency=test_case_concurrency,
-            chunk_concurrency=chunk_concurrency,
+    try:
+        return asyncio.run(
+            _main(
+                output=output,
+                log_level=log_level,
+                config=config,
+                report=report,
+                include_passing=include_passing,
+                test_case_concurrency=test_case_concurrency,
+                chunk_concurrency=chunk_concurrency,
+            )
         )
-    )
+    except Exception:
+        # logging unhandled exceptions to file from asyncio.run
+        logger.critical("Unhandled exception", exc_info=True)
+        raise

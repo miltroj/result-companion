@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import sys
 import tempfile
 from logging.handlers import RotatingFileHandler
 from typing import Dict
@@ -14,14 +13,17 @@ class JsonFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         """Formats a log record as JSON."""
-        return json.dumps(
-            {
-                "timestamp": self.formatTime(record),
-                "logger": record.name,
-                "level": record.levelname,
-                "message": record.getMessage(),
-            }
-        )
+        log_data = {
+            "timestamp": self.formatTime(record),
+            "logger": record.name,
+            "level": record.levelname,
+            "message": record.getMessage(),
+        }
+
+        if record.exc_info:
+            log_data["exception"] = self.formatException(record.exc_info)
+
+        return json.dumps(log_data)
 
 
 class TqdmLoggingHandler(logging.Handler):
@@ -107,20 +109,6 @@ def set_global_log_level(log_level: str | int) -> None:
 def get_progress_logger(name: str = "RC") -> logging.Logger:
     """Get a logger that works with progress bars."""
     return logger_registry.get_logger(name)
-
-
-def log_uncaught_exceptions(target_logger: logging.Logger) -> None:
-    """Log uncaught exceptions globally."""
-
-    def handle_exception(exc_type, exc_value, exc_traceback):
-        if issubclass(exc_type, KeyboardInterrupt):
-            sys.__excepthook__(exc_type, exc_value, exc_traceback)
-            return
-        target_logger.critical(
-            "Uncaught Exception", exc_info=(exc_type, exc_value, exc_traceback)
-        )
-
-    sys.excepthook = handle_exception
 
 
 # Default logger

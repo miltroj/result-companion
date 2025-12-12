@@ -36,6 +36,34 @@ def test_json_formatter_creates_valid_json():
     assert "timestamp" in parsed
 
 
+def test_json_formatter_includes_exception_when_present():
+    formatter = JsonFormatter()
+
+    try:
+        raise ValueError("test error")
+    except ValueError:
+        import sys
+
+        exc_info = sys.exc_info()
+
+    record = logging.LogRecord(
+        name="TestLogger",
+        level=logging.ERROR,
+        pathname="",
+        lineno=0,
+        msg="Error occurred",
+        args=(),
+        exc_info=exc_info,
+    )
+
+    result = formatter.format(record)
+    parsed = json.loads(result)
+
+    assert "exception" in parsed
+    assert "ValueError: test error" in parsed["exception"]
+    assert "Traceback" in parsed["exception"]
+
+
 # --- LoggerRegistry Tests ---
 
 
