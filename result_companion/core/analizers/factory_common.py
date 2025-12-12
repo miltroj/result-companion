@@ -65,17 +65,11 @@ async def execute_llm_and_get_results(
 
     llm_results = dict()
     corutines = []
-    relevant_cases = []
     logger.info(
         f"Executing chain, {len(test_cases)=}, {test_case_concurrency=}, {chunk_concurrency=}"
     )
 
     for test_case in test_cases:
-        if test_case.get("status") == "PASS" and not include_passing:
-            logger.debug(f"Skipping, passing tests {test_case['name']!r}!")
-            continue
-
-        relevant_cases.append(test_case)
         raw_test_case_text = str(test_case)
         chunk = calculate_chunk_size(
             raw_test_case_text, question_from_config_file, tokenizer
@@ -102,7 +96,7 @@ async def execute_llm_and_get_results(
 
     semaphore = asyncio.Semaphore(test_case_concurrency)
 
-    desc = f"Analyzing {len(relevant_cases)} test cases"
+    desc = f"Analyzing {len(test_cases)} test cases"
     results = await run_tasks_with_progress(corutines, semaphore=semaphore, desc=desc)
 
     for result, name, chunks in results:

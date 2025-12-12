@@ -19,6 +19,7 @@ from result_companion.core.parsers.config import LLMFactoryModel, load_config
 from result_companion.core.parsers.result_parser import (
     get_robot_results_from_file_as_dict,
 )
+from result_companion.core.results.test_filter import TestFilter, filter_tests
 from result_companion.core.utils.log_levels import LogLevels
 from result_companion.core.utils.logging_config import logger, set_global_log_level
 
@@ -60,6 +61,8 @@ async def _main(
     include_passing: bool,
     test_case_concurrency: Optional[int] = None,
     chunk_concurrency: Optional[int] = None,
+    include_tags: Optional[list[str]] = None,
+    exclude_tags: Optional[list[str]] = None,
 ) -> bool:
     set_global_log_level(str(log_level))
 
@@ -72,10 +75,24 @@ async def _main(
         parsed_config.concurrency.test_case = test_case_concurrency
     if chunk_concurrency is not None:
         parsed_config.concurrency.chunk = chunk_concurrency
+    if include_tags is not None:
+        parsed_config.test_filter.include_tags = include_tags
+    if exclude_tags is not None:
+        parsed_config.test_filter.exclude_tags = exclude_tags
+
     # TODO: set output log level
     test_cases = get_robot_results_from_file_as_dict(
         file_path=output, log_level=LogLevels.DEBUG
     )
+
+    # Apply test filtering
+    test_filter = TestFilter(
+        include_tags=parsed_config.test_filter.include_tags,
+        exclude_tags=parsed_config.test_filter.exclude_tags,
+        include_passing=include_passing or parsed_config.test_filter.include_passing,
+    )
+    test_cases = filter_tests(test_cases, test_filter)
+    logger.info(f"Filtered to {len(test_cases)} test cases")
 
     question_from_config_file = parsed_config.llm_config.question_prompt
     template = parsed_config.llm_config.prompt_template
@@ -98,7 +115,7 @@ async def _main(
         parsed_config,
         prompt_template,
         model,
-        include_passing=include_passing,
+        include_passing=True,
     )
 
     if report:
@@ -127,6 +144,8 @@ def run_rc(
     include_passing: bool,
     test_case_concurrency: Optional[int] = None,
     chunk_concurrency: Optional[int] = None,
+    include_tags: Optional[list[str]] = None,
+    exclude_tags: Optional[list[str]] = None,
 ) -> bool:
     try:
         return asyncio.run(
@@ -138,6 +157,8 @@ def run_rc(
                 include_passing=include_passing,
                 test_case_concurrency=test_case_concurrency,
                 chunk_concurrency=chunk_concurrency,
+                include_tags=include_tags,
+                exclude_tags=exclude_tags,
             )
         )
     except Exception:

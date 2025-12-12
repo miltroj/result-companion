@@ -82,12 +82,28 @@ class ConcurrencyModel(BaseModel):
     )
 
 
+class TestFilterModel(BaseModel):
+    """Test filtering configuration (RF-style)."""
+
+    include_tags: list[str] = Field(
+        default=[],
+        description="Include tests with these tags (wildcards supported: 'smoke*').",
+    )
+    exclude_tags: list[str] = Field(
+        default=[], description="Exclude tests with these tags."
+    )
+    include_passing: bool = Field(
+        default=False, description="Include tests with PASS status."
+    )
+
+
 class DefaultConfigModel(BaseModel):
     version: float
     llm_config: LLMConfigModel
     llm_factory: LLMFactoryModel
     tokenizer: TokenizerModel
     concurrency: ConcurrencyModel = Field(default_factory=ConcurrencyModel)
+    test_filter: TestFilterModel = Field(default_factory=TestFilterModel)
 
 
 class CustomModelEndpointConfig(DefaultConfigModel):
@@ -166,6 +182,10 @@ class ConfigLoader:
                 "concurrency": {
                     **default_config.get("concurrency", {}),
                     **user_config.get("concurrency", {}),
+                },
+                "test_filter": {
+                    **default_config.get("test_filter", {}),
+                    **user_config.get("test_filter", {}),
                 },
             }
             if user_config_file

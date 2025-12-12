@@ -1,4 +1,10 @@
 version: 1.0
+
+test_filter:
+  include_tags: []
+  exclude_tags: []
+  include_passing: false
+
 llm_config:
   question_prompt: |
     You are an AI assistant specialized in test case analysis focusing on robot framework,

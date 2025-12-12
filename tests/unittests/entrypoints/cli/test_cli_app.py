@@ -112,6 +112,8 @@ class TestAnalizeEntrypoint:
         mock_run.assert_called_once()
         assert mock_run.call_args[0][5] == 4  # test_case_concurrency
         assert mock_run.call_args[0][6] == 2  # chunk_concurrency
+        assert mock_run.call_args[0][7] is None  # include_tags
+        assert mock_run.call_args[0][8] is None  # exclude_tags
 
 
 class TestInstallOllamaModel:

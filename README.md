@@ -57,6 +57,31 @@ export OPENAI_API_KEY="your-key"
 poetry run result-companion -o output.xml -c examples/openai_config.yaml
 ```
 
+## Filter Tests by Tags
+
+Analyze only the tests you care about:
+
+```bash
+# Analyze smoke tests only
+result-companion -o output.xml --include "smoke*"
+
+# Exclude work-in-progress tests
+result-companion -o output.xml --exclude "wip,draft*"
+
+# Analyze critical tests (including passes)
+result-companion -o output.xml --include "critical*" -i
+```
+
+Or use config file:
+```yaml
+test_filter:
+  include_tags: ["smoke", "critical*"]
+  exclude_tags: ["wip", "flaky"]
+  include_passing: false  # Analyze failures only
+```
+
+See [examples/tag_filtering_config.yaml](examples/tag_filtering_config.yaml) for details.
+
 ## Real Example
 
 **Your test fails with:**

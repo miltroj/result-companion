@@ -1,0 +1,60 @@
+version: 1.0
+
+# Test filtering configuration
+test_filter:
+  # Include only tests with these tags (RF-style wildcards supported)
+  include_tags:
+    - "smoke*"
+    - "critical"
+  # Exclude tests with these tags (takes precedence over include)
+  exclude_tags:
+    - "wip"
+    - "bug-*"
+  # Include tests with PASS status (default: false - only failures)
+  include_passing: false
+
+llm_config:
+  question_prompt: |
+    You are an AI assistant analyzing critical and smoke test failures.
+    Focus on identifying patterns and root causes in high-priority tests.
+
+    Respond in Markdown format:
+    **Flow**
+    [Step by step test execution]
+
+    **Failure Root Cause**
+    [Detailed root cause analysis]
+
+    **Potential Fixes**
+    [Actionable fixes for the test]
+
+  chunking:
+    chunk_analysis_prompt: |
+      Analyze this Robot Framework test chunk (JSON format).
+      Extract key actions, errors, and failing keywords.
+      {text}
+
+    final_synthesis_prompt: |
+      Synthesize chunk summaries into final analysis.
+      {summary}
+
+  prompt_template: |
+    Question: {question}
+
+    Answer based on: {context}
+
+llm_factory:
+  model_type: "OllamaLLM"
+  parameters:
+    model: "deepseek-r1:1.5b"
+  strategy:
+    parameters:
+      model_name: "deepseek-r1"
+
+tokenizer:
+  tokenizer: ollama_tokenizer
+  max_content_tokens: 140000
+
+concurrency:
+  test_case: 1
+  chunk: 1

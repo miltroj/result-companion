@@ -13,6 +13,10 @@ Quick-start configurations for different LLM providers and use cases.
     - [AWS Bedrock](#aws-bedrock)
     - [Custom OpenAI-Compatible Endpoint](#custom-openai-compatible-endpoint)
     - [Anthropic with Claude Models](#anthropic-with-claude-models)
+  - [Test Filtering](#test-filtering)
+    - [CLI Examples](#cli-examples)
+    - [Config File](#config-file)
+    - [Filter Logic](#filter-logic)
   - [Custom Analysis](#custom-analysis)
     - [Find Performance Issues](#find-performance-issues)
     - [Security Audit](#security-audit)
@@ -167,6 +171,53 @@ tokenizer:
 - `claude-haiku-4-5`: Lightweight, 3x cheaper, 2x faster (recommended for most cases)
 - `claude-sonnet-4-5`: Balanced performance and cost
 - `claude-opus-4-5`: Best reasoning capabilities
+
+## Test Filtering
+
+Focus analysis on specific tests using Robot Framework tag patterns.
+
+### CLI Examples
+
+```bash
+# Analyze only smoke tests (failures only)
+result-companion -o output.xml --include "smoke*"
+
+# Analyze critical tests including passes
+result-companion -o output.xml --include "critical*" -i
+
+# Exclude WIP and known bugs
+result-companion -o output.xml --exclude "wip,bug-*"
+
+# Combine filters
+result-companion -o output.xml --include "api,smoke" --exclude "flaky"
+```
+
+### Config File
+
+```yaml
+# tag_filtering_config.yaml
+test_filter:
+  include_tags: ["smoke*", "critical"]  # Wildcards supported
+  exclude_tags: ["wip", "bug-*"]        # Exclude takes precedence
+  include_passing: false                # false = failures only
+```
+
+Run with:
+```bash
+result-companion -o output.xml -c tag_filtering_config.yaml
+```
+
+### Filter Logic
+
+| Filters | Result |
+|---------|--------|
+| No filters | All failed tests |
+| `--include smoke` | Failed tests with "smoke" tag |
+| `--include smoke -i` | All tests (pass+fail) with "smoke" tag |
+| `--exclude wip` | All failed tests except "wip" |
+| Both | Include "smoke" AND exclude "wip" |
+
+**Note**: Exclude patterns override include patterns.
 
 ## Custom Analysis
 
