@@ -164,9 +164,9 @@ tokenizer:
 ```
 
 **Note:** Set up the `ANTHROPIC_API_KEY` environment variable. Anthropic offers multiple Claude 4.5 models:
-- `claude-haiku-4-5-20241022`: Lightweight, 3x cheaper, 2x faster (recommended for most cases)
-- `claude-sonnet-4-5-20241022`: Balanced performance and cost
-- `claude-opus-4-5-20241022`: Best reasoning capabilities
+- `claude-haiku-4-5`: Lightweight, 3x cheaper, 2x faster (recommended for most cases)
+- `claude-sonnet-4-5`: Balanced performance and cost
+- `claude-opus-4-5`: Best reasoning capabilities
 
 ## Custom Analysis
 
