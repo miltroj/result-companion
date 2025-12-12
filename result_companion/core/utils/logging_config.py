@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import sys
@@ -6,6 +7,21 @@ from logging.handlers import RotatingFileHandler
 from typing import Dict
 
 from tqdm import tqdm
+
+
+class JsonFormatter(logging.Formatter):
+    """Formats log records as JSON."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Formats a log record as JSON."""
+        return json.dumps(
+            {
+                "timestamp": self.formatTime(record),
+                "logger": record.name,
+                "level": record.levelname,
+                "message": record.getMessage(),
+            }
+        )
 
 
 class TqdmLoggingHandler(logging.Handler):
@@ -71,14 +87,11 @@ def _setup_logging(name: str, log_level: int = logging.INFO) -> logging.Logger:
     # File handler only - console output handled by TqdmLoggingHandler
     log_file_path = os.path.join(tempfile.gettempdir(), "result_companion.log")
     try:
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
         file_handler = RotatingFileHandler(
             log_file_path, maxBytes=5 * 1024 * 1024, backupCount=3
         )
         file_handler.setLevel(logging.DEBUG)
-        file_handler.setFormatter(formatter)
+        file_handler.setFormatter(JsonFormatter())
         logger.addHandler(file_handler)
     except (OSError, IOError) as e:
         logger.warning(f"Failed to write to log file {log_file_path}: {e}")
