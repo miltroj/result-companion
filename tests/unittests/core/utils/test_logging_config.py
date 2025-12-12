@@ -1,14 +1,40 @@
 """Tests for logging configuration utilities."""
 
+import json
 import logging
 
 from result_companion.core.utils.logging_config import (
+    JsonFormatter,
     LoggerRegistry,
     TqdmLoggingHandler,
     _add_file_handler,
     get_progress_logger,
     set_global_log_level,
 )
+
+# --- JsonFormatter Tests ---
+
+
+def test_json_formatter_creates_valid_json():
+    formatter = JsonFormatter()
+    record = logging.LogRecord(
+        name="TestLogger",
+        level=logging.INFO,
+        pathname="",
+        lineno=0,
+        msg="Test message",
+        args=(),
+        exc_info=None,
+    )
+
+    result = formatter.format(record)
+
+    parsed = json.loads(result)
+    assert parsed["logger"] == "TestLogger"
+    assert parsed["level"] == "INFO"
+    assert parsed["message"] == "Test message"
+    assert "timestamp" in parsed
+
 
 # --- LoggerRegistry Tests ---
 
@@ -101,7 +127,7 @@ def test_tqdm_handler_emits_message(monkeypatch):
 
 
 def test_add_file_handler_creates_logger_with_correct_level():
-    logger = _add_file_handler("test_setup_1", log_level=logging.WARNING)
+    logger = _add_file_handler("test_setup_1")
 
     assert logger.name == "test_setup_1"
     assert logger.level == logging.DEBUG

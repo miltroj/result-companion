@@ -54,7 +54,7 @@ class LoggerRegistry:
         if name in self.loggers:
             return self.loggers[name]
 
-        logger = _add_file_handler(name, log_level=self.default_log_level)
+        logger = _add_file_handler(name)
 
         if use_tqdm and not any(
             isinstance(h, TqdmLoggingHandler) for h in logger.handlers
@@ -73,7 +73,7 @@ class LoggerRegistry:
         self._tqdm_handler.setLevel(level)
 
 
-def _add_file_handler(name: str, log_level: int = logging.INFO) -> logging.Logger:
+def _add_file_handler(name: str) -> logging.Logger:
     """Adds JSON file handler to logger. Returns logger set to DEBUG level."""
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
