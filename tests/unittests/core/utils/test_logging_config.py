@@ -1,14 +1,68 @@
 """Tests for logging configuration utilities."""
 
+import json
 import logging
 
 from result_companion.core.utils.logging_config import (
+    JsonFormatter,
     LoggerRegistry,
     TqdmLoggingHandler,
-    _setup_logging,
+    _add_file_handler,
     get_progress_logger,
     set_global_log_level,
 )
+
+# --- JsonFormatter Tests ---
+
+
+def test_json_formatter_creates_valid_json():
+    formatter = JsonFormatter()
+    record = logging.LogRecord(
+        name="TestLogger",
+        level=logging.INFO,
+        pathname="",
+        lineno=0,
+        msg="Test message",
+        args=(),
+        exc_info=None,
+    )
+
+    result = formatter.format(record)
+
+    parsed = json.loads(result)
+    assert parsed["logger"] == "TestLogger"
+    assert parsed["level"] == "INFO"
+    assert parsed["message"] == "Test message"
+    assert "timestamp" in parsed
+
+
+def test_json_formatter_includes_exception_when_present():
+    formatter = JsonFormatter()
+
+    try:
+        raise ValueError("test error")
+    except ValueError:
+        import sys
+
+        exc_info = sys.exc_info()
+
+    record = logging.LogRecord(
+        name="TestLogger",
+        level=logging.ERROR,
+        pathname="",
+        lineno=0,
+        msg="Error occurred",
+        args=(),
+        exc_info=exc_info,
+    )
+
+    result = formatter.format(record)
+    parsed = json.loads(result)
+
+    assert "exception" in parsed
+    assert "ValueError: test error" in parsed["exception"]
+    assert "Traceback" in parsed["exception"]
+
 
 # --- LoggerRegistry Tests ---
 
@@ -18,7 +72,9 @@ def test_logger_registry_creates_logger_with_specified_level():
 
     logger = registry.get_logger("test_reg_1")
 
-    assert logger.level == logging.WARNING
+    assert logger.level == logging.DEBUG
+    tqdm_handlers = [h for h in logger.handlers if isinstance(h, TqdmLoggingHandler)]
+    assert tqdm_handlers[0].level == logging.WARNING
 
 
 def test_logger_registry_caches_loggers():
@@ -39,6 +95,7 @@ def test_logger_registry_set_log_level_updates_all_loggers():
 
     assert logger1.level == logging.DEBUG
     assert logger2.level == logging.DEBUG
+    assert registry._tqdm_handler.level == logging.DEBUG
 
 
 def test_logger_registry_set_log_level_accepts_string():
@@ -97,23 +154,20 @@ def test_tqdm_handler_emits_message(monkeypatch):
     assert "Hello from tqdm" in written_messages[0]
 
 
-# --- _setup_logging Tests ---
-
-
-def test_setup_logging_creates_logger_with_correct_level():
-    logger = _setup_logging("test_setup_1", log_level=logging.DEBUG)
+def test_add_file_handler_creates_logger_with_correct_level():
+    logger = _add_file_handler("test_setup_1")
 
     assert logger.name == "test_setup_1"
     assert logger.level == logging.DEBUG
 
 
-def test_setup_logging_prevents_duplicate_handlers():
+def test_add_file_handler_prevents_duplicate_handlers():
     name = "test_setup_2"
 
-    logger1 = _setup_logging(name)
+    logger1 = _add_file_handler(name)
     count_before = len(logger1.handlers)
 
-    _setup_logging(name)
+    _add_file_handler(name)
     count_after = len(logger1.handlers)
 
     assert count_before == count_after

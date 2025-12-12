@@ -1,11 +1,29 @@
+import json
 import logging
 import os
-import sys
 import tempfile
 from logging.handlers import RotatingFileHandler
 from typing import Dict
 
 from tqdm import tqdm
+
+
+class JsonFormatter(logging.Formatter):
+    """Formats log records as JSON."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Formats a log record as JSON."""
+        log_data = {
+            "timestamp": self.formatTime(record),
+            "logger": record.name,
+            "level": record.levelname,
+            "message": record.getMessage(),
+        }
+
+        if record.exc_info:
+            log_data["exception"] = self.formatException(record.exc_info)
+
+        return json.dumps(log_data)
 
 
 class TqdmLoggingHandler(logging.Handler):
@@ -31,14 +49,14 @@ class LoggerRegistry:
     def __init__(self, default_log_level: int = logging.INFO):
         self.loggers: Dict[str, logging.Logger] = {}
         self.default_log_level: int = default_log_level
-        self._tqdm_handler = TqdmLoggingHandler()
+        self._tqdm_handler = TqdmLoggingHandler(level=default_log_level)
 
     def get_logger(self, name: str, use_tqdm: bool = True) -> logging.Logger:
         """Get or create a logger by name."""
         if name in self.loggers:
             return self.loggers[name]
 
-        logger = _setup_logging(name, log_level=self.default_log_level)
+        logger = _add_file_handler(name)
 
         if use_tqdm and not any(
             isinstance(h, TqdmLoggingHandler) for h in logger.handlers
@@ -49,36 +67,29 @@ class LoggerRegistry:
         return logger
 
     def set_log_level(self, level: str | int) -> None:
-        """Set log level for all registered loggers."""
+        """Set log level for console output only. File logging always captures DEBUG."""
         if isinstance(level, str):
             level = getattr(logging, level.upper(), logging.INFO)
 
         self.default_log_level = level
-        for logger_instance in self.loggers.values():
-            logger_instance.setLevel(level)
-            for handler in logger_instance.handlers:
-                handler.setLevel(level)
+        self._tqdm_handler.setLevel(level)
 
 
-def _setup_logging(name: str, log_level: int = logging.INFO) -> logging.Logger:
-    """Create a logger with file handler (console output via TqdmLoggingHandler)."""
+def _add_file_handler(name: str) -> logging.Logger:
+    """Adds JSON file handler to logger. Returns logger set to DEBUG level."""
     logger = logging.getLogger(name)
-    logger.setLevel(log_level)
+    logger.setLevel(logging.DEBUG)
 
     if logger.hasHandlers():
         return logger
 
-    # File handler only - console output handled by TqdmLoggingHandler
     log_file_path = os.path.join(tempfile.gettempdir(), "result_companion.log")
     try:
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
         file_handler = RotatingFileHandler(
             log_file_path, maxBytes=5 * 1024 * 1024, backupCount=3
         )
         file_handler.setLevel(logging.DEBUG)
-        file_handler.setFormatter(formatter)
+        file_handler.setFormatter(JsonFormatter())
         logger.addHandler(file_handler)
     except (OSError, IOError) as e:
         logger.warning(f"Failed to write to log file {log_file_path}: {e}")
@@ -98,20 +109,6 @@ def set_global_log_level(log_level: str | int) -> None:
 def get_progress_logger(name: str = "RC") -> logging.Logger:
     """Get a logger that works with progress bars."""
     return logger_registry.get_logger(name)
-
-
-def log_uncaught_exceptions(target_logger: logging.Logger) -> None:
-    """Log uncaught exceptions globally."""
-
-    def handle_exception(exc_type, exc_value, exc_traceback):
-        if issubclass(exc_type, KeyboardInterrupt):
-            sys.__excepthook__(exc_type, exc_value, exc_traceback)
-            return
-        target_logger.critical(
-            "Uncaught Exception", exc_info=(exc_type, exc_value, exc_traceback)
-        )
-
-    sys.excepthook = handle_exception
 
 
 # Default logger
