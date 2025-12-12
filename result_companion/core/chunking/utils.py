@@ -49,12 +49,28 @@ def google_tokenizer(text: str) -> int:
         return len(text) // 4
 
 
+def anthropic_tokenizer(text: str) -> int:
+    """Tokenizer for Anthropic Claude models.
+
+    Uses cl100k_base encoding as approximation for Claude tokenization.
+    """
+    try:
+        encoding = tiktoken.get_encoding("cl100k_base")
+        return len(encoding.encode(text))
+    except Exception as e:
+        logger.warning(
+            f"Failed to use cl100k_base encoding for Anthropic tokenizer: {e}"
+        )
+        return len(text) // 4
+
+
 tokenizer_mappings = {
     "azure_openai_tokenizer": azure_openai_tokenizer,
     "ollama_tokenizer": ollama_tokenizer,
     "bedrock_tokenizer": bedrock_tokenizer,
     "google_tokenizer": google_tokenizer,
     "openai_tokenizer": azure_openai_tokenizer,  # Same tokenization as Azure
+    "anthropic_tokenizer": anthropic_tokenizer,
 }
 
 

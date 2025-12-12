@@ -12,6 +12,7 @@ Quick-start configurations for different LLM providers and use cases.
     - [Google Gemini](#google-gemini)
     - [AWS Bedrock](#aws-bedrock)
     - [Custom OpenAI-Compatible Endpoint](#custom-openai-compatible-endpoint)
+    - [Anthropic with Claude Models](#anthropic-with-claude-models)
   - [Custom Analysis](#custom-analysis)
     - [Find Performance Issues](#find-performance-issues)
     - [Security Audit](#security-audit)
@@ -144,9 +145,34 @@ tokenizer:
   max_content_tokens: 16000
 ```
 
+### Anthropic with Claude Models
+
+```yaml
+# user_config.yaml
+version: 1.0
+
+llm_factory:
+  model_type: "ChatAnthropic"
+  parameters:
+    model: "claude-haiku-4-5"
+    api_key: "${ANTHROPIC_API_KEY}"
+    temperature: 0
+
+tokenizer:
+  tokenizer: anthropic_tokenizer
+  max_content_tokens: 200000  # Claude 4.5 supports 200K context window
+```
+
+**Note:** Set up the `ANTHROPIC_API_KEY` environment variable. Anthropic offers multiple Claude 4.5 models:
+- `claude-haiku-4-5`: Lightweight, 3x cheaper, 2x faster (recommended for most cases)
+- `claude-sonnet-4-5`: Balanced performance and cost
+- `claude-opus-4-5`: Best reasoning capabilities
+
 ## Custom Analysis
 
 ### Find Performance Issues
+
+Control how many API requests are made in parallel to avoid rate limits (HTTP 429 errors).
 
 ```yaml
 # performance_config.yaml

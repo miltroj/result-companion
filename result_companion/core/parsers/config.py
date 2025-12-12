@@ -20,6 +20,7 @@ class TokenizerTypes(str, Enum):
     BEDROCK = "bedrock_tokenizer"
     GOOGLE = "google_tokenizer"
     OPENAI = "openai_tokenizer"
+    ANTHROPIC = "anthropic_tokenizer"
 
 
 class CustomEndpointModel(BaseModel):

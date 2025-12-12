@@ -1,12 +1,13 @@
 import asyncio
 from typing import Callable, Tuple
 
+from langchain_anthropic import ChatAnthropic
 from langchain_aws import BedrockLLM
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_ollama.llms import OllamaLLM
-from langchain_openai import AzureChatOpenAI
+from langchain_openai import AzureChatOpenAI, ChatOpenAI
 
 from result_companion.core.chunking.chunking import (
     accumulate_llm_results_for_summarizaton_chain,
@@ -19,7 +20,13 @@ from result_companion.core.utils.progress import run_tasks_with_progress
 logger = get_progress_logger("Analyzer")
 
 MODELS = Tuple[
-    OllamaLLM | AzureChatOpenAI | BedrockLLM | ChatGoogleGenerativeAI, Callable
+    OllamaLLM
+    | AzureChatOpenAI
+    | BedrockLLM
+    | ChatGoogleGenerativeAI
+    | ChatOpenAI
+    | ChatAnthropic,
+    Callable,
 ]
 
 

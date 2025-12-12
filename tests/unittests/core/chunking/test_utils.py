@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 from result_companion.core.chunking.utils import (
+    anthropic_tokenizer,
     azure_openai_tokenizer,
     calculate_chunk_size,
     calculate_overall_chunk_size,
@@ -99,6 +100,23 @@ def test_azure_openai_tokenizer(mock_encoding_for_model):
     assert result == 3
     mock_encoding_for_model.assert_called_once_with("gpt-3.5-turbo")
     mock_encode.assert_called_once_with("hello world")
+
+
+@patch("tiktoken.get_encoding")
+def test_anthropic_tokenizer(mock_get_encoding):
+    """Test the anthropic_tokenizer function with mocking."""
+    mock_encode = mock_get_encoding.return_value.encode
+    mock_encode.return_value = [1, 2, 3, 4]
+
+    result = anthropic_tokenizer("test text")
+
+    assert result == 4
+    mock_get_encoding.assert_called_once_with("cl100k_base")
+    mock_encode.assert_called_once_with("test text")
+
+    with patch("tiktoken.get_encoding", side_effect=Exception("Test exception")):
+        result = anthropic_tokenizer("test")
+        assert result == 1
 
 
 def test_all_tokenizer_types_have_mapping():
