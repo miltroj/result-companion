@@ -16,9 +16,8 @@ from result_companion.core.analizers.local.ollama_server_manager import (
 )
 from result_companion.core.utils.log_levels import LogLevels
 from result_companion.core.utils.logging_config import logger
-from result_companion.entrypoints.run_rc import run_rc
 
-app = typer.Typer(context_settings={"obj": {"analyze": run_rc}})
+app = typer.Typer()
 setup_app = typer.Typer(help="Manage Ollama installation and models")
 app.add_typer(setup_app, name="setup")
 
@@ -110,19 +109,23 @@ def analyze(
     typer.echo(f"Report: {report}")
     typer.echo(f"Include Passing: {include_passing}")
 
-    # Get the run function from context
+    # Allow test injection via context, otherwise lazy import
     ctx = get_current_context()
-    run = ctx.obj.get("analyze")
-    if run:
-        run(
-            output,
-            log_level,
-            config,
-            report,
-            include_passing,
-            test_case_concurrency,
-            chunk_concurrency,
-        )
+    run = ctx.obj.get("analyze") if ctx.obj else None
+    if not run:
+        from result_companion.entrypoints.run_rc import run_rc
+
+        run = run_rc
+
+    run(
+        output,
+        log_level,
+        config,
+        report,
+        include_passing,
+        test_case_concurrency,
+        chunk_concurrency,
+    )
 
 
 # Setup commands using the original functions

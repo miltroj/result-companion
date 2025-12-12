@@ -26,6 +26,7 @@ class TestAnalizeEntrypoint:
     def setup_method(self):
         """Setup common test fixtures"""
         self.runner = CliRunner()
+        self.noop_analyze = lambda *args: None
 
     def test_cli_fail_when_outpu_not_exists(self):
         result = self.runner.invoke(
@@ -45,28 +46,36 @@ class TestAnalizeEntrypoint:
 
     def test_cli_by_default_uses_include_passing_false(self):
         result = self.runner.invoke(
-            app, [self.ENTRYPOINT, "-o", existing_xml_path], obj={}
+            app,
+            [self.ENTRYPOINT, "-o", existing_xml_path],
+            obj={"analyze": self.noop_analyze},
         )
         assert result.exit_code == 0
         assert "Include Passing: False" in result.output
 
     def test_cli_sets_include_passing(self):
         result = self.runner.invoke(
-            app, [self.ENTRYPOINT, "-o", existing_xml_path, "-i"], obj={}
+            app,
+            [self.ENTRYPOINT, "-o", existing_xml_path, "-i"],
+            obj={"analyze": self.noop_analyze},
         )
         assert result.exit_code == 0
         assert "Include Passing: True" in result.output
 
     def test_cli_stets_generating_report(self):
         result = self.runner.invoke(
-            app, [self.ENTRYPOINT, "-o", existing_xml_path, "-r", "report.html"], obj={}
+            app,
+            [self.ENTRYPOINT, "-o", existing_xml_path, "-r", "report.html"],
+            obj={"analyze": self.noop_analyze},
         )
         assert result.exit_code == 0
         assert "Report: report.html" in result.output
 
     def test_cli_sets_info_as_default_log_level(self):
         result = self.runner.invoke(
-            app, [self.ENTRYPOINT, "-o", existing_xml_path], obj={}
+            app,
+            [self.ENTRYPOINT, "-o", existing_xml_path],
+            obj={"analyze": self.noop_analyze},
         )
         assert result.exit_code == 0
         assert "Log Level: INFO" in result.output
@@ -75,7 +84,7 @@ class TestAnalizeEntrypoint:
         result = self.runner.invoke(
             app,
             [self.ENTRYPOINT, "-o", existing_xml_path],
-            obj={"main": lambda *args: echo("RUNNING MAIN")},
+            obj={"analyze": lambda *args: echo("RUNNING MAIN")},
         )
         assert result.exit_code == 0
         assert "Output: " in result.output
