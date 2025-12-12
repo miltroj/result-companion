@@ -35,8 +35,8 @@ async def test_gather_llm_runs_and_get_results() -> None:
     def mocked_model(x):
         return "llm generated result"
 
+    # Simulate pre-filtered test cases (filtering now done in run_rc.py)
     test_cases = [
-        {"name": "test1_passing", "status": "PASS"},
         {"name": "test2_failing", "status": "FAIL"},
     ]
 
@@ -45,7 +45,7 @@ async def test_gather_llm_runs_and_get_results() -> None:
         config=config,
         prompt=prompt,
         model=mocked_model,
-        include_passing=False,
+        include_passing=True,
     )
     assert result == {"test2_failing": "llm generated result"}
 

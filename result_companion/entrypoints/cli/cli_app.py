@@ -91,6 +91,18 @@ def analyze(
     include_passing: bool = typer.Option(
         False, "-i", "--include-passing", help="Include PASS test cases"
     ),
+    include_tags: Optional[str] = typer.Option(
+        None,
+        "-I",
+        "--include",
+        help="Include tests by tags (comma-separated: 'smoke,critical*')",
+    ),
+    exclude_tags: Optional[str] = typer.Option(
+        None,
+        "-E",
+        "--exclude",
+        help="Exclude tests by tags (comma-separated: 'wip,bug*')",
+    ),
     test_case_concurrency: Optional[int] = typer.Option(
         None,
         "--test-concurrency",
@@ -109,6 +121,14 @@ def analyze(
     typer.echo(f"Report: {report}")
     typer.echo(f"Include Passing: {include_passing}")
 
+    # Parse CLI tag options
+    include_tag_list = (
+        [t.strip() for t in include_tags.split(",")] if include_tags else None
+    )
+    exclude_tag_list = (
+        [t.strip() for t in exclude_tags.split(",")] if exclude_tags else None
+    )
+
     # Allow test injection via context, otherwise lazy import
     ctx = get_current_context()
     run = ctx.obj.get("analyze") if ctx.obj else None
@@ -125,6 +145,8 @@ def analyze(
         include_passing,
         test_case_concurrency,
         chunk_concurrency,
+        include_tag_list,
+        exclude_tag_list,
     )
 
 

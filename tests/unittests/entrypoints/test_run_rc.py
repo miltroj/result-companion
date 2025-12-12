@@ -11,6 +11,7 @@ from result_companion.core.parsers.config import (
     LLMFactoryModel,
     LLMInitStrategyModel,
     ModelType,
+    TestFilterModel,
     TokenizerModel,
     TokenizerTypes,
 )
@@ -184,12 +185,10 @@ def test_main_e2e_execution(
     mocked_azure_model,
     mocked_html_creation,
 ):
-    mocked_get_robot_results.return_value = {
-        "tests": [
-            {"name": "test1", "status": "PASS"},
-            {"name": "test2", "status": "FAIL"},
-        ]
-    }
+    mocked_get_robot_results.return_value = [
+        {"name": "test1", "status": "PASS", "tags": []},
+        {"name": "test2", "status": "FAIL", "tags": []},
+    ]
 
     mock_config_loading.return_value = DefaultConfigModel(
         version=1.0,
@@ -213,6 +212,7 @@ def test_main_e2e_execution(
             },
         },
         tokenizer={"tokenizer": "azure_openai_tokenizer", "max_content_tokens": 1000},
+        test_filter={"include_tags": [], "exclude_tags": [], "include_passing": False},
     )
 
     mocked_execute_llm_chain.return_value = {
@@ -226,6 +226,10 @@ def test_main_e2e_execution(
             config=None,
             report="/tmp/report.html",
             include_passing=False,
+            test_case_concurrency=None,
+            chunk_concurrency=None,
+            include_tags=None,
+            exclude_tags=None,
         )
     )
 
@@ -235,12 +239,7 @@ def test_main_e2e_execution(
     mock_config_loading.assert_called_once_with(None)
 
     mocked_execute_llm_chain.assert_called_once_with(
-        {
-            "tests": [
-                {"name": "test1", "status": "PASS"},
-                {"name": "test2", "status": "FAIL"},
-            ]
-        },
+        [{"name": "test2", "status": "FAIL", "tags": []}],
         DefaultConfigModel(
             version=1.0,
             llm_config=LLMConfigModel(
@@ -266,10 +265,13 @@ def test_main_e2e_execution(
             tokenizer=TokenizerModel(
                 tokenizer=TokenizerTypes.AZURE_OPENAI, max_content_tokens=1000
             ),
+            test_filter=TestFilterModel(
+                include_tags=[], exclude_tags=[], include_passing=False
+            ),
         ),
         ChatPromptTemplate.from_template("my_template {question}"),
         mocked_azure_model(),
-        include_passing=False,
+        include_passing=True,
     )
     mocked_html_creation.assert_called_once_with(
         input_result_path=Path("output.xml"),
@@ -294,6 +296,10 @@ def test_succesfully_run_rc():
             config=None,
             report="/tmp/report.html",
             include_passing=False,
+            test_case_concurrency=None,
+            chunk_concurrency=None,
+            include_tags=None,
+            exclude_tags=None,
         )
         mocked_main.assert_called_once_with(
             output=Path("output.xml"),
@@ -303,5 +309,7 @@ def test_succesfully_run_rc():
             include_passing=False,
             test_case_concurrency=None,
             chunk_concurrency=None,
+            include_tags=None,
+            exclude_tags=None,
         )
         assert result == "RESULT"
