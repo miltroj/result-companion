@@ -47,14 +47,14 @@ class LoggerRegistry:
     def __init__(self, default_log_level: int = logging.INFO):
         self.loggers: Dict[str, logging.Logger] = {}
         self.default_log_level: int = default_log_level
-        self._tqdm_handler = TqdmLoggingHandler()
+        self._tqdm_handler = TqdmLoggingHandler(level=default_log_level)
 
     def get_logger(self, name: str, use_tqdm: bool = True) -> logging.Logger:
         """Get or create a logger by name."""
         if name in self.loggers:
             return self.loggers[name]
 
-        logger = _setup_logging(name, log_level=self.default_log_level)
+        logger = _add_file_handler(name, log_level=self.default_log_level)
 
         if use_tqdm and not any(
             isinstance(h, TqdmLoggingHandler) for h in logger.handlers
@@ -65,26 +65,22 @@ class LoggerRegistry:
         return logger
 
     def set_log_level(self, level: str | int) -> None:
-        """Set log level for all registered loggers."""
+        """Set log level for console output only. File logging always captures DEBUG."""
         if isinstance(level, str):
             level = getattr(logging, level.upper(), logging.INFO)
 
         self.default_log_level = level
-        for logger_instance in self.loggers.values():
-            logger_instance.setLevel(level)
-            for handler in logger_instance.handlers:
-                handler.setLevel(level)
+        self._tqdm_handler.setLevel(level)
 
 
-def _setup_logging(name: str, log_level: int = logging.INFO) -> logging.Logger:
-    """Create a logger with file handler (console output via TqdmLoggingHandler)."""
+def _add_file_handler(name: str, log_level: int = logging.INFO) -> logging.Logger:
+    """Adds JSON file handler to logger. Returns logger set to DEBUG level."""
     logger = logging.getLogger(name)
-    logger.setLevel(log_level)
+    logger.setLevel(logging.DEBUG)
 
     if logger.hasHandlers():
         return logger
 
-    # File handler only - console output handled by TqdmLoggingHandler
     log_file_path = os.path.join(tempfile.gettempdir(), "result_companion.log")
     try:
         file_handler = RotatingFileHandler(

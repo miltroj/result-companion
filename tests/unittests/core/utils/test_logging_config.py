@@ -5,7 +5,7 @@ import logging
 from result_companion.core.utils.logging_config import (
     LoggerRegistry,
     TqdmLoggingHandler,
-    _setup_logging,
+    _add_file_handler,
     get_progress_logger,
     set_global_log_level,
 )
@@ -18,7 +18,9 @@ def test_logger_registry_creates_logger_with_specified_level():
 
     logger = registry.get_logger("test_reg_1")
 
-    assert logger.level == logging.WARNING
+    assert logger.level == logging.DEBUG
+    tqdm_handlers = [h for h in logger.handlers if isinstance(h, TqdmLoggingHandler)]
+    assert tqdm_handlers[0].level == logging.WARNING
 
 
 def test_logger_registry_caches_loggers():
@@ -39,6 +41,7 @@ def test_logger_registry_set_log_level_updates_all_loggers():
 
     assert logger1.level == logging.DEBUG
     assert logger2.level == logging.DEBUG
+    assert registry._tqdm_handler.level == logging.DEBUG
 
 
 def test_logger_registry_set_log_level_accepts_string():
@@ -97,23 +100,20 @@ def test_tqdm_handler_emits_message(monkeypatch):
     assert "Hello from tqdm" in written_messages[0]
 
 
-# --- _setup_logging Tests ---
-
-
-def test_setup_logging_creates_logger_with_correct_level():
-    logger = _setup_logging("test_setup_1", log_level=logging.DEBUG)
+def test_add_file_handler_creates_logger_with_correct_level():
+    logger = _add_file_handler("test_setup_1", log_level=logging.WARNING)
 
     assert logger.name == "test_setup_1"
     assert logger.level == logging.DEBUG
 
 
-def test_setup_logging_prevents_duplicate_handlers():
+def test_add_file_handler_prevents_duplicate_handlers():
     name = "test_setup_2"
 
-    logger1 = _setup_logging(name)
+    logger1 = _add_file_handler(name)
     count_before = len(logger1.handlers)
 
-    _setup_logging(name)
+    _add_file_handler(name)
     count_after = len(logger1.handlers)
 
     assert count_before == count_after
