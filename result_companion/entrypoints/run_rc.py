@@ -20,10 +20,7 @@ from result_companion.core.parsers.result_parser import (
     get_robot_results_from_file_as_dict,
 )
 from result_companion.core.utils.log_levels import LogLevels
-from result_companion.core.utils.logging_config import (
-    logger,
-    set_global_log_level,
-)
+from result_companion.core.utils.logging_config import logger, set_global_log_level
 
 
 def init_llm_with_strategy_factory(
