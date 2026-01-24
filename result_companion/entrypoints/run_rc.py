@@ -115,7 +115,6 @@ async def _main(
         parsed_config,
         prompt_template,
         model,
-        include_passing=True,
     )
 
     if report:

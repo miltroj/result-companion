@@ -271,7 +271,6 @@ def test_main_e2e_execution(
         ),
         ChatPromptTemplate.from_template("my_template {question}"),
         mocked_azure_model(),
-        include_passing=True,
     )
     mocked_html_creation.assert_called_once_with(
         input_result_path=Path("output.xml"),

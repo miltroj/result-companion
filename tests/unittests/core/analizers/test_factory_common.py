@@ -45,7 +45,6 @@ async def test_gather_llm_runs_and_get_results() -> None:
         config=config,
         prompt=prompt,
         model=mocked_model,
-        include_passing=True,
     )
     assert result == {"test2_failing": "llm generated result"}
 

@@ -54,7 +54,6 @@ async def execute_llm_and_get_results(
     config: DefaultConfigModel,
     prompt: ChatPromptTemplate,
     model: MODELS,
-    include_passing: bool = True,
 ) -> dict:
     question_from_config_file = config.llm_config.question_prompt
     tokenizer = config.tokenizer
