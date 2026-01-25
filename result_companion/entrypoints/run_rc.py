@@ -80,6 +80,7 @@ async def _main(
     final_exclude = exclude_tags or parsed_config.test_filter.exclude_tags or None
 
     # Use RF's native filtering (same as rebot --include/--exclude)
+    # TODO: set output log level from config or cli
     test_cases = get_robot_results_from_file_as_dict(
         file_path=output,
         log_level=LogLevels.DEBUG,
