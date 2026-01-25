@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -48,6 +48,9 @@ jobs:
 
       - name: Run unit tests
         run: poetry run pytest -vv tests/unittests/
+
+      - name: Run integration tests
+        run: poetry run pytest -vv tests/integration/
 
       - name: Run unit tests with coverage
         run: poetry run pytest --cov=result_companion --cov-report=xml --cov-fail-under=$(cat .coverage_threshold || echo 0) tests/unittests
