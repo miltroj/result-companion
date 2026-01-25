@@ -2,10 +2,15 @@ name: Publish Package
 
 on:
   push:
-    branches:
-      - test_pypi_release
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      publish_testpypi:
+        description: 'Publish to Test PyPI'
+        required: true
+        type: boolean
+        default: false
 
 jobs:
   test:
@@ -43,7 +48,7 @@ jobs:
 
   publish-testpypi:
     needs: test
-    if: github.ref == 'refs/heads/test_pypi_release'
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_testpypi
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
