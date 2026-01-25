@@ -32,7 +32,7 @@ Your enhanced `log.html` now includes:
 
 ```bash
 # Install from source (PyPI release coming soon)
-git clone https://github.com/yourusername/result-companion.git
+git clone https://github.com/miltroj/result-companion.git
 cd result-companion
 poetry install
 
