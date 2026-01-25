@@ -1,7 +1,12 @@
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
 from result_companion.core.parsers.result_parser import (
+    get_robot_results_from_file_as_dict,
     remove_redundant_fields,
     search_for_test_cases,
 )
+from result_companion.core.utils.log_levels import LogLevels
 
 neasted_suites = {
     "name": "E2E",
@@ -206,3 +211,25 @@ def test_removing_redundant_fields():
         "name": "Ollama Local Model Run Should Succede",
         "status": "FAIL",
     }
+
+
+@patch("result_companion.core.parsers.result_parser.ExecutionResult")
+@patch("result_companion.core.parsers.result_parser.UniqueNameResultVisitor")
+def test_get_robot_results_passes_tags_to_rf_configure(mock_visitor, mock_exec_result):
+    """Verifies include/exclude tags are passed to RF's result.configure()."""
+    mock_result = MagicMock()
+    mock_result.suite.to_dict.return_value = {
+        "tests": [{"name": "Test1", "status": "FAIL", "tags": ["smoke"]}]
+    }
+    mock_exec_result.return_value = mock_result
+
+    get_robot_results_from_file_as_dict(
+        file_path=Path("fake.xml"),
+        log_level=LogLevels.DEBUG,
+        include_tags=["smoke*", "critical"],
+        exclude_tags=["wip"],
+    )
+
+    mock_result.configure.assert_called_once_with(
+        suite_config={"include_tags": ["smoke*", "critical"], "exclude_tags": ["wip"]}
+    )
