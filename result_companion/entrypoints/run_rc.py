@@ -120,7 +120,8 @@ async def _main(
         model,
     )
 
-    if report:
+    report_path = report if report else "rc_log.html"
+    if llm_results:
         model_info = {
             "model": parsed_config.llm_factory.parameters.get(
                 "model", parsed_config.llm_factory.model_type
@@ -128,10 +129,11 @@ async def _main(
         }
         create_llm_html_log(
             input_result_path=output,
-            llm_output_path=report,
+            llm_output_path=report_path,
             llm_results=llm_results,
             model_info=model_info,
         )
+        logger.info(f"Report created: {Path(report_path).resolve()}")
 
     stop = time.time()
     logger.debug(f"Execution time: {stop - start}")

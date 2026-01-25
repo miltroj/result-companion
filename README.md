@@ -1,8 +1,13 @@
 # Result Companion
 
+[![PyPI version](https://img.shields.io/pypi/v/result-companion)](https://pypi.org/project/result-companion/)
+[![Python versions](https://img.shields.io/pypi/pyversions/result-companion)](https://pypi.org/project/result-companion/)
+[![License](https://img.shields.io/pypi/l/result-companion)](https://github.com/miltroj/result-companion/blob/main/LICENSE)
+[![CI](https://github.com/miltroj/result-companion/actions/workflows/publish.yml/badge.svg)](https://github.com/miltroj/result-companion/actions/workflows/publish.yml)
+
 **Turn your Robot Framework test failures into instant, actionable insights with AI.**
 
-![Demo](assets/demo.gif)
+![Demo](https://raw.githubusercontent.com/miltroj/result-companion/main/assets/demo.gif)
 
 ## Why Result Companion?
 
@@ -18,7 +23,7 @@ robot tests/                     # Test fails
 # Now: Where did it fail? Why? What's the root cause?
 
 # After: Instant AI analysis
-result-companion -o output.xml   # Get answers in seconds
+result-companion analyze -o output.xml   # Get answers in seconds
 ```
 
 Your enhanced `log.html` now includes:
@@ -31,56 +36,25 @@ Your enhanced `log.html` now includes:
 ### Option 1: Local AI (Free, Private)
 
 ```bash
-# Install from source (PyPI release coming soon)
-git clone https://github.com/yourusername/result-companion.git
-cd result-companion
-poetry install
+pip install result-companion
 
 # Auto-setup local AI model
-poetry run result-companion setup ollama
-poetry run result-companion setup model deepseek-r1:1.5b
+result-companion setup ollama
+result-companion setup model deepseek-r1:1.5b
 
 # Analyze your tests
-poetry run result-companion -o output.xml
+result-companion analyze -o output.xml
 ```
 
-### Option 2: Cloud AI (OpenAI, Azure, Google)
+### Option 2: Cloud AI ([OpenAI](https://github.com/miltroj/result-companion/blob/main/examples/EXAMPLES.md#openai), Azure, Google)
 
 ```bash
-# Install from source
-git clone https://github.com/yourusername/result-companion.git
-cd result-companion
-poetry install
+pip install result-companion
 
-# Configure and run (see examples/)
+# Configure and run
 export OPENAI_API_KEY="your-key"
-poetry run result-companion -o output.xml -c examples/openai_config.yaml
+result-companion analyze -o output.xml -c examples/openai_config.yaml
 ```
-
-## Filter Tests by Tags
-
-Analyze only the tests you care about:
-
-```bash
-# Analyze smoke tests only
-result-companion -o output.xml --include "smoke*"
-
-# Exclude work-in-progress tests
-result-companion -o output.xml --exclude "wip,draft*"
-
-# Analyze critical tests (including passes)
-result-companion -o output.xml --include "critical*" -i
-```
-
-Or use config file:
-```yaml
-test_filter:
-  include_tags: ["smoke", "critical*"]
-  exclude_tags: ["wip", "flaky"]
-  include_passing: false  # Analyze failures only
-```
-
-See [examples/tag_filtering_config.yaml](examples/tag_filtering_config.yaml) for details.
 
 ## Real Example
 
@@ -130,15 +104,40 @@ llm_config:
     inefficient loops...
 ```
 
-See [examples/EXAMPLES.md](examples/EXAMPLES.md) for more.
+See [examples/EXAMPLES.md](https://github.com/miltroj/result-companion/blob/main/examples/EXAMPLES.md) for more.
 
 ## Configuration Examples
 
-Check [`examples/`](examples/) for ready-to-use configs:
+Check [`examples/`](https://github.com/miltroj/result-companion/tree/main/examples) for ready-to-use configs:
 - Local Ollama setup (default)
 - OpenAI, Azure, Google Cloud
 - Custom endpoints (Databricks, self-hosted)
 - Prompt customization for security, performance, quality reviews
+
+## Filter Tests by Tags
+
+Analyze only the tests you care about:
+
+```bash
+# Analyze smoke tests only
+result-companion -o output.xml --include "smoke*"
+
+# Exclude work-in-progress tests
+result-companion -o output.xml --exclude "wip,draft*"
+
+# Analyze critical tests (including passes)
+result-companion -o output.xml --include "critical*" -i
+```
+
+Or use config file:
+```yaml
+test_filter:
+  include_tags: ["smoke", "critical*"]
+  exclude_tags: ["wip", "flaky"]
+  include_passing: false  # Analyze failures only
+```
+
+See [examples/tag_filtering_config.yaml](https://github.com/miltroj/result-companion/blob/main/examples/tag_filtering_config.yaml) for details.
 
 ## Limitations
 
@@ -148,7 +147,7 @@ Check [`examples/`](examples/) for ready-to-use configs:
 
 ## Contributing
 
-Contributions welcome! Fork, create a feature branch, submit a pull request.
+Contributions welcome! See [CONTRIBUTING.md](https://github.com/miltroj/result-companion/blob/main/CONTRIBUTING.md) for guidelines.
 
 For bugs or feature requests, open an issue on GitHub.
 
@@ -168,7 +167,7 @@ poetry run inv test_coverage
 
 ## License
 
-Apache 2.0 - See [LICENSE](LICENSE)
+Apache 2.0 - See [LICENSE](https://github.com/miltroj/result-companion/blob/main/LICENSE)
 
 ## Disclaimer
 
