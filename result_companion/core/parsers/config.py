@@ -4,7 +4,7 @@ from enum import Enum
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, SecretStr, ValidationError, model_serializer
 
 from result_companion.core.utils.logging_config import logger
 
@@ -32,7 +32,7 @@ class CustomEndpointModel(BaseModel):
     openai_api_type: str = Field(
         min_length=5, description="OpenAI API type.", default="azure"
     )
-    openai_api_key: str = Field(min_length=5, description="OpenAI API key.")
+    openai_api_key: SecretStr = Field(min_length=5, description="OpenAI API key.")
 
 
 class ChunkingPromptsModel(BaseModel):
@@ -66,6 +66,34 @@ class LLMFactoryModel(BaseModel):
     strategy: LLMInitStrategyModel = Field(
         description="Strategy to run on init.", default_factory=LLMInitStrategyModel
     )
+
+    def _get_masked_params(self) -> dict:
+        """Returns parameters dict with sensitive values masked."""
+        sensitive_keys = {"api_key", "token", "password", "secret", "auth"}
+        masked = {}
+        for key, value in self.parameters.items():
+            if any(s in key.lower() for s in sensitive_keys):
+                masked[key] = "***REDACTED***"
+            else:
+                masked[key] = value
+        return masked
+
+    def __repr__(self) -> str:
+        """Returns string representation with masked sensitive fields."""
+        return (
+            f"LLMFactoryModel(model_type={self.model_type!r}, "
+            f"parameters={self._get_masked_params()!r}, "
+            f"strategy={self.strategy!r})"
+        )
+
+    @model_serializer
+    def _mask_sensitive_fields(self) -> dict:
+        """Masks sensitive fields in parameters dict for serialization."""
+        return {
+            "model_type": self.model_type,
+            "parameters": self._get_masked_params(),
+            "strategy": self.strategy,
+        }
 
 
 class TokenizerModel(BaseModel):
