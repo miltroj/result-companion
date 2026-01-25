@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "result-companion"
-version = "0.0.1"
+version = "0.0.2"
 description = "AI-powered analysis of Robot Framework test failures - instant insights from output.xml"
 authors = ["Milosz Trojanowski <mil.troj@gmail.com>"]
 license = "Apache-2.0"
