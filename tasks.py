@@ -13,6 +13,12 @@ def unittests(c):
 
 
 @task
+def integration_tests(c):
+    """Run Python integration tests (requires file I/O, no mocks)."""
+    c.run("poetry run pytest -vv tests/integration/")
+
+
+@task
 def test_coverage(c):
     c.run("poetry run pytest --cov=result_companion tests/unittests")
 

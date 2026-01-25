@@ -315,3 +315,24 @@ def test_succesfully_run_rc():
             exclude_tags=None,
         )
         assert result == "RESULT"
+
+
+def test_run_rc_passes_tag_filters_to_main():
+    with patch(
+        "result_companion.entrypoints.run_rc._main",
+        return_value=True,
+        autospec=True,
+    ) as mocked_main:
+        run_rc(
+            output=Path("output.xml"),
+            log_level="DEBUG",
+            config=None,
+            report=None,
+            include_passing=False,
+            include_tags=["smoke*", "critical"],
+            exclude_tags=["wip"],
+        )
+
+        call_kwargs = mocked_main.call_args.kwargs
+        assert call_kwargs["include_tags"] == ["smoke*", "critical"]
+        assert call_kwargs["exclude_tags"] == ["wip"]
