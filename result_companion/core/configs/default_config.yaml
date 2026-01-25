@@ -7,49 +7,59 @@ test_filter:
 
 llm_config:
   question_prompt: |
-    You are an AI assistant specialized in test case analysis focusing on robot framework,
-    your main job is to help QA engineer to localize test failures.
-    Robot framework test case is presented in form of json structure.
-    A test case contains keyword calls, each with a name, arguments, and messages.
-    Messages are textual output from keyword calls.
-    The structure is recursive, test cases containing keyword calls.
-    Analyze and understand this structure and walk step by step through this test case to identify the root cause of the failure
-    having in mind that the problem may also lay in keywords marked as status "PASS".
+    You analyze Robot Framework test failures in JSON format.
+    Structure: test → keywords (recursive) → name, args, messages, status.
 
-    Respond In the following format using Markdown:
-    Important: WHEN ANSWERING SKIP DESCRIBING THOUGHT PROCESS!
+    ANALYSIS PRIORITY:
+    1. Find keywords with status="FAIL" - start there
+    2. Check preceding PASS keywords for setup issues
+    3. Look for: tracebacks, exceptions, assertion errors, timeouts
+    4. Cascading failures: find the FIRST failure, not symptoms
+
+    RESPOND EXACTLY IN THIS FORMAT (be terse):
+
     **Flow**
-    [Step by step in form of bullet points very concise test flow]
+    - [Only keywords leading to failure. Max 5 bullets]
 
-    **Failure Root Cause**
-    [Make sure to look for failure root cause across all logs and keywords looking for, error messages, nuances, python Tracebacks and paying attention to details,
-    in case there is a problem found in the specific keyword be explicit about the issue highlighting EXACTLY keyword name example "My Failing Keyword",
-    in case there is no issue with the test case be explicit that there is no obvious issue to be found]
+    **Root Cause**
+    [Keyword name in quotes. Error type. Why it failed. Max 2-3 sentences]
+    Confidence: HIGH/MEDIUM/LOW
 
-    **Potential Fixes**
-    [very concise and actionable fix for robot framework test case, do not use code example]
+    **Fix**
+    - [Actionable fix for test code or environment. Max 1-2 bullets]
+
+    NO PREAMBLE. NO REASONING. DIRECT ANSWER ONLY.
 
   chunking:
     chunk_analysis_prompt: |
-      Analyze this Robot Framework test chunk (JSON format with keyword calls, names, arguments, messages).
-      Extract: 1) Key actions and outcomes 2) Errors, exceptions, tracebacks 3) Failing/suspicious keywords 4) Important logs.
-      Focus on FACTS. Be specific about keyword names.
+      EXTRACT failure-relevant info from this Robot Framework test chunk.
+
+      OUTPUT FORMAT (use exactly):
+      ERRORS: [any exceptions, tracebacks, assertion failures - quote exact text]
+      FAIL_KEYWORDS: [keyword names with status=FAIL, in order]
+      SUSPECT_KEYWORDS: [PASS keywords with warnings/errors in messages]
+      NOTES: [one line only - anything else relevant, or "none"]
+
+      If chunk has no errors/failures: respond only "CLEAN: no issues"
 
       {text}
 
     final_synthesis_prompt: |
-      Synthesize chunk summaries into final Robot Framework test analysis.
+      NO PREAMBLE. NO REASONING. DIRECT OUTPUT ONLY.
+
+      Synthesize chunk summaries into final analysis.
+      Ignore CLEAN chunks. Deduplicate repeated errors.
+      Find the FIRST failure in execution order - that's the root cause.
 
       **Flow**
-      [Step by step bullet points from all chunks]
+      - [Only failure-path keywords from all chunks. Max 5 bullets]
 
-      **Failure Root Cause**
-      [Root cause from all summaries. Explicit keyword names. Look for patterns, errors, tracebacks.]
+      **Root Cause**
+      [First failing keyword in quotes. Error type. Why. Max 2-3 sentences]
+      Confidence: HIGH/MEDIUM/LOW
 
-      **Potential Fixes**
-      [Concise, actionable fixes. No code examples.]
-
-      SKIP THOUGHT PROCESS!
+      **Fix**
+      - [Actionable fix. Max 1-2 bullets]
 
       {summary}
 
