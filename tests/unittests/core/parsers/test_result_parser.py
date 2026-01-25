@@ -1,6 +1,6 @@
 from result_companion.core.parsers.result_parser import (
     remove_redundant_fields,
-    search_for_test_caseses,
+    search_for_test_cases,
 )
 
 neasted_suites = {
@@ -93,7 +93,7 @@ def test_search_for_all_tests_recursively():
         },
     ]
 
-    result = search_for_test_caseses(neasted_suites, acumulated_tests=[])
+    result = search_for_test_cases(neasted_suites)
     assert len(result) == 2
     assert result == expected_result
 
@@ -136,7 +136,7 @@ def test_should_search_for_tests_where_there_are_no_test_suites():
         ]
     }
 
-    results = search_for_test_caseses(test_suite, acumulated_tests=[])
+    results = search_for_test_cases(test_suite)
     assert len(results) == 2
     assert results == [
         {

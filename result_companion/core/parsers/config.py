@@ -83,18 +83,11 @@ class ConcurrencyModel(BaseModel):
 
 
 class TestFilterModel(BaseModel):
-    """Test filtering configuration (RF-style)."""
+    """Test filtering config - passed to RF's native result.configure()."""
 
-    include_tags: list[str] = Field(
-        default=[],
-        description="Include tests with these tags (wildcards supported: 'smoke*').",
-    )
-    exclude_tags: list[str] = Field(
-        default=[], description="Exclude tests with these tags."
-    )
-    include_passing: bool = Field(
-        default=False, description="Include tests with PASS status."
-    )
+    include_tags: list[str] = Field(default=[], description="RF --include patterns.")
+    exclude_tags: list[str] = Field(default=[], description="RF --exclude patterns.")
+    include_passing: bool = Field(default=False, description="Include PASS tests.")
 
 
 class DefaultConfigModel(BaseModel):
