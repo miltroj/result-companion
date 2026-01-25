@@ -199,6 +199,31 @@ def test_init_factory_llm_model_with_extra_params() -> None:
     assert factory.strategy.parameters == {"custom": "strategy"}
 
 
+def test_llm_factory_model_dump_masks_sensitive_parameters() -> None:
+    factory = LLMFactoryModel(
+        model_type="local_model",
+        parameters={"api_key": "super-secret-key", "model_name": "llama3"},
+    )
+
+    result = factory.model_dump()
+
+    assert result["parameters"]["api_key"] == "***REDACTED***"
+    assert result["parameters"]["model_name"] == "llama3"
+
+
+def test_llm_factory_repr_masks_sensitive_parameters() -> None:
+    factory = LLMFactoryModel(
+        model_type="local_model",
+        parameters={"api_key": "super-secret-key", "model_name": "llama3"},
+    )
+
+    result = repr(factory)
+
+    assert "super-secret-key" not in result
+    assert "***REDACTED***" in result
+    assert "llama3" in result
+
+
 def test_default_config_model_loads_default_empty_strategy() -> None:
     config = DefaultConfigModel(
         version=1.0,
