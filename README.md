@@ -2,7 +2,7 @@
 
 **Turn your Robot Framework test failures into instant, actionable insights with AI.**
 
-![Demo](assets/demo.gif)
+![Demo](https://raw.githubusercontent.com/miltroj/result-companion/main/assets/demo.gif)
 
 ## Why Result Companion?
 
@@ -74,7 +74,7 @@ test_filter:
   include_passing: false  # Analyze failures only
 ```
 
-See [examples/tag_filtering_config.yaml](examples/tag_filtering_config.yaml) for details.
+See [examples/tag_filtering_config.yaml](https://github.com/miltroj/result-companion/blob/main/examples/tag_filtering_config.yaml) for details.
 
 ## Real Example
 
@@ -124,11 +124,11 @@ llm_config:
     inefficient loops...
 ```
 
-See [examples/EXAMPLES.md](examples/EXAMPLES.md) for more.
+See [examples/EXAMPLES.md](https://github.com/miltroj/result-companion/blob/main/examples/EXAMPLES.md) for more.
 
 ## Configuration Examples
 
-Check [`examples/`](examples/) for ready-to-use configs:
+Check [`examples/`](https://github.com/miltroj/result-companion/tree/main/examples) for ready-to-use configs:
 - Local Ollama setup (default)
 - OpenAI, Azure, Google Cloud
 - Custom endpoints (Databricks, self-hosted)
@@ -162,7 +162,7 @@ poetry run inv test_coverage
 
 ## License
 
-Apache 2.0 - See [LICENSE](LICENSE)
+Apache 2.0 - See [LICENSE](https://github.com/miltroj/result-companion/blob/main/LICENSE)
 
 ## Disclaimer
 
