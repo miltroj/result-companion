@@ -31,30 +31,24 @@ Your enhanced `log.html` now includes:
 ### Option 1: Local AI (Free, Private)
 
 ```bash
-# Install from source (PyPI release coming soon)
-git clone https://github.com/miltroj/result-companion.git
-cd result-companion
-poetry install
+pip install result-companion
 
 # Auto-setup local AI model
-poetry run result-companion setup ollama
-poetry run result-companion setup model deepseek-r1:1.5b
+result-companion setup ollama
+result-companion setup model deepseek-r1:1.5b
 
 # Analyze your tests
-poetry run result-companion -o output.xml
+result-companion analyze -o output.xml
 ```
 
 ### Option 2: Cloud AI (OpenAI, Azure, Google)
 
 ```bash
-# Install from source
-git clone https://github.com/yourusername/result-companion.git
-cd result-companion
-poetry install
+pip install result-companion
 
 # Configure and run (see examples/)
 export OPENAI_API_KEY="your-key"
-poetry run result-companion -o output.xml -c examples/openai_config.yaml
+result-companion analyze -o output.xml -c examples/openai_config.yaml
 ```
 
 ## Filter Tests by Tags
