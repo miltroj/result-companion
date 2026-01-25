@@ -1,5 +1,10 @@
 # Result Companion
 
+[![PyPI version](https://img.shields.io/pypi/v/result-companion)](https://pypi.org/project/result-companion/)
+[![Python versions](https://img.shields.io/pypi/pyversions/result-companion)](https://pypi.org/project/result-companion/)
+[![License](https://img.shields.io/pypi/l/result-companion)](https://github.com/miltroj/result-companion/blob/main/LICENSE)
+[![CI](https://github.com/miltroj/result-companion/actions/workflows/publish.yml/badge.svg)](https://github.com/miltroj/result-companion/actions/workflows/publish.yml)
+
 **Turn your Robot Framework test failures into instant, actionable insights with AI.**
 
 ![Demo](https://raw.githubusercontent.com/miltroj/result-companion/main/assets/demo.gif)
@@ -18,7 +23,7 @@ robot tests/                     # Test fails
 # Now: Where did it fail? Why? What's the root cause?
 
 # After: Instant AI analysis
-result-companion -o output.xml   # Get answers in seconds
+result-companion analyze -o output.xml   # Get answers in seconds
 ```
 
 Your enhanced `log.html` now includes:
@@ -41,40 +46,15 @@ result-companion setup model deepseek-r1:1.5b
 result-companion analyze -o output.xml
 ```
 
-### Option 2: Cloud AI (OpenAI, Azure, Google)
+### Option 2: Cloud AI ([OpenAI](https://github.com/miltroj/result-companion/blob/main/examples/EXAMPLES.md#openai), Azure, Google)
 
 ```bash
 pip install result-companion
 
-# Configure and run (see examples/)
+# Configure and run
 export OPENAI_API_KEY="your-key"
 result-companion analyze -o output.xml -c examples/openai_config.yaml
 ```
-
-## Filter Tests by Tags
-
-Analyze only the tests you care about:
-
-```bash
-# Analyze smoke tests only
-result-companion -o output.xml --include "smoke*"
-
-# Exclude work-in-progress tests
-result-companion -o output.xml --exclude "wip,draft*"
-
-# Analyze critical tests (including passes)
-result-companion -o output.xml --include "critical*" -i
-```
-
-Or use config file:
-```yaml
-test_filter:
-  include_tags: ["smoke", "critical*"]
-  exclude_tags: ["wip", "flaky"]
-  include_passing: false  # Analyze failures only
-```
-
-See [examples/tag_filtering_config.yaml](https://github.com/miltroj/result-companion/blob/main/examples/tag_filtering_config.yaml) for details.
 
 ## Real Example
 
@@ -134,6 +114,31 @@ Check [`examples/`](https://github.com/miltroj/result-companion/tree/main/exampl
 - Custom endpoints (Databricks, self-hosted)
 - Prompt customization for security, performance, quality reviews
 
+## Filter Tests by Tags
+
+Analyze only the tests you care about:
+
+```bash
+# Analyze smoke tests only
+result-companion -o output.xml --include "smoke*"
+
+# Exclude work-in-progress tests
+result-companion -o output.xml --exclude "wip,draft*"
+
+# Analyze critical tests (including passes)
+result-companion -o output.xml --include "critical*" -i
+```
+
+Or use config file:
+```yaml
+test_filter:
+  include_tags: ["smoke", "critical*"]
+  exclude_tags: ["wip", "flaky"]
+  include_passing: false  # Analyze failures only
+```
+
+See [examples/tag_filtering_config.yaml](https://github.com/miltroj/result-companion/blob/main/examples/tag_filtering_config.yaml) for details.
+
 ## Limitations
 
 - Text-only analysis (no screenshots/videos)
@@ -142,7 +147,7 @@ Check [`examples/`](https://github.com/miltroj/result-companion/tree/main/exampl
 
 ## Contributing
 
-Contributions welcome! Fork, create a feature branch, submit a pull request.
+Contributions welcome! See [CONTRIBUTING.md](https://github.com/miltroj/result-companion/blob/main/CONTRIBUTING.md) for guidelines.
 
 For bugs or feature requests, open an issue on GitHub.
 
