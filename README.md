@@ -53,7 +53,7 @@ pip install result-companion
 
 # Configure and run
 export OPENAI_API_KEY="your-key"
-result-companion analyze -o output.xml -c examples/openai_config.yaml
+result-companion analyze -o output.xml -c examples/configs/openai_config.yaml
 ```
 
 ## Real Example
@@ -120,13 +120,13 @@ Analyze only the tests you care about:
 
 ```bash
 # Analyze smoke tests only
-result-companion -o output.xml --include "smoke*"
+result-companion analyze -o output.xml --include "smoke*"
 
 # Exclude work-in-progress tests
-result-companion -o output.xml --exclude "wip,draft*"
+result-companion analyze -o output.xml --exclude "wip,draft*"
 
 # Analyze critical tests (including passes)
-result-companion -o output.xml --include "critical*" -i
+result-companion analyze -o output.xml --include "critical*" -i
 ```
 
 Or use config file:
