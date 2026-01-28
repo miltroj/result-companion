@@ -75,10 +75,27 @@ tokenizer_mappings = {
 
 
 def calculate_overall_chunk_size(
-    raw_text: str, actual_tokens_from_text: int, max_tokens_acceptable: int
+    raw_text: str,
+    actual_tokens_from_text: int,
+    max_tokens_acceptable: int,
+    safety_margin: float = 0.85,
 ) -> Chunking:
+    """Calculates chunk size with safety margin for token density variation.
+
+    Args:
+        raw_text: The text to be chunked.
+        actual_tokens_from_text: Token count of the text.
+        max_tokens_acceptable: Maximum tokens per chunk.
+        safety_margin: Multiplier to account for token density variation (0.85 = 15% buffer).
+
+    Returns:
+        Chunking configuration.
+    """
     raw_text_len = len(raw_text)
-    N_tokenized_chunks = math.ceil(actual_tokens_from_text / max_tokens_acceptable)
+    # Apply safety margin to account for variable token density
+    effective_max_tokens = int(max_tokens_acceptable * safety_margin)
+    N_tokenized_chunks = math.ceil(actual_tokens_from_text / effective_max_tokens)
+
     if max_tokens_acceptable > actual_tokens_from_text:
         return Chunking(
             chunk_size=0,
@@ -87,9 +104,11 @@ def calculate_overall_chunk_size(
             tokens_from_raw_text=actual_tokens_from_text,
             tokenized_chunks=N_tokenized_chunks,
         )
-    chunk_size = raw_text_len / N_tokenized_chunks
+
+    chunk_size = int(raw_text_len / N_tokenized_chunks)
     logger.info(
-        f"Chunk size: {chunk_size}, Number of chunks: {N_tokenized_chunks}, Raw text length: {raw_text_len}"
+        f"Chunk size: {chunk_size} chars, Number of chunks: {N_tokenized_chunks}, "
+        f"Raw text length: {raw_text_len}, Effective max tokens: {effective_max_tokens}"
     )
     return Chunking(
         chunk_size=chunk_size,

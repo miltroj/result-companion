@@ -1,5 +1,5 @@
 import asyncio
-from typing import Tuple
+from typing import Callable, Tuple
 
 from langchain.prompts import PromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -38,6 +38,8 @@ async def accumulate_llm_results_for_summarizaton_chain(
     chunking_strategy: Chunking,
     llm: MODELS,
     chunk_concurrency: int = 1,
+    tokenizer: Callable[[str], int] | None = None,
+    max_content_tokens: int = 50000,
 ) -> Tuple[str, str, list]:
     chunks = split_text_into_chunks_using_text_splitter(
         str(test_case), chunking_strategy.chunk_size, chunking_strategy.chunk_size // 10
@@ -49,6 +51,84 @@ async def accumulate_llm_results_for_summarizaton_chain(
         chunk_analysis_prompt,
         final_synthesis_prompt,
         chunk_concurrency,
+        tokenizer,
+        max_content_tokens,
+    )
+
+
+CONDENSE_PROMPT = """Condense these chunk summaries into a single concise summary.
+Keep ONLY: error messages, failing keyword names, root causes.
+Remove duplicates and "CLEAN" chunks.
+
+{text}"""
+
+
+async def condense_summaries_if_needed(
+    summaries: list[str],
+    final_synthesis_prompt: str,
+    tokenizer: Callable[[str], int],
+    max_tokens: int,
+    llm: MODELS,
+    depth: int = 0,
+) -> str:
+    """Recursively condenses summaries if they exceed token limit.
+
+    Args:
+        summaries: List of chunk summaries.
+        final_synthesis_prompt: Template for final synthesis.
+        tokenizer: Function to count tokens.
+        max_tokens: Maximum allowed tokens.
+        llm: Language model for condensing.
+        depth: Current recursion depth (max 3).
+
+    Returns:
+        Aggregated summary that fits within limit.
+    """
+    aggregated = "\n\n---\n\n".join(
+        [f"### Chunk {i+1}/{len(summaries)}\n{s}" for i, s in enumerate(summaries)]
+    )
+
+    prompt_tokens = tokenizer(final_synthesis_prompt)
+    available_tokens = max_tokens - prompt_tokens - 500
+
+    # Guard: return early if limits don't make sense or max depth reached
+    if available_tokens <= 0 or depth >= 3 or len(summaries) <= 1:
+        return aggregated
+
+    summary_tokens = tokenizer(aggregated)
+    if summary_tokens <= available_tokens:
+        return aggregated
+
+    logger.warning(
+        f"Summaries exceed limit ({summary_tokens} > {available_tokens}). "
+        f"Condensing {len(summaries)} summaries (depth={depth})..."
+    )
+
+    avg_summary_tokens = max(1, summary_tokens // len(summaries))
+    summaries_per_group = max(2, available_tokens // avg_summary_tokens)
+
+    # Guard: if grouping won't reduce count, return as-is
+    if summaries_per_group >= len(summaries):
+        return aggregated
+
+    groups = [
+        summaries[i : i + summaries_per_group]
+        for i in range(0, len(summaries), summaries_per_group)
+    ]
+
+    logger.info(f"Condensing into {len(groups)} groups (depth={depth})")
+
+    condense_prompt = PromptTemplate(input_variables=["text"], template=CONDENSE_PROMPT)
+    condense_chain = build_sumarization_chain(condense_prompt, llm)
+
+    condensed = []
+    for i, group in enumerate(groups):
+        group_text = "\n\n".join(group)
+        result = await condense_chain.ainvoke({"text": group_text})
+        condensed.append(f"[Group {i+1}] {result}")
+
+    return await condense_summaries_if_needed(
+        condensed, final_synthesis_prompt, tokenizer, max_tokens, llm, depth + 1
     )
 
 
@@ -59,6 +139,8 @@ async def summarize_test_case(
     chunk_analysis_prompt: str,
     final_synthesis_prompt: str,
     chunk_concurrency: int = 1,
+    tokenizer: Callable[[str], int] | None = None,
+    max_content_tokens: int = 50000,
 ) -> Tuple[str, str, list]:
     """Summarizes large test case by analyzing chunks and synthesizing results.
 
@@ -69,6 +151,8 @@ async def summarize_test_case(
         chunk_analysis_prompt: Template for analyzing chunks.
         final_synthesis_prompt: Template for final synthesis.
         chunk_concurrency: Chunks to process concurrently.
+        tokenizer: Function to count tokens (for limit checking).
+        max_content_tokens: Maximum tokens for final synthesis.
 
     Returns:
         Tuple of (final_analysis, test_name, chunks).
@@ -95,12 +179,15 @@ async def summarize_test_case(
     chunk_tasks = [process_with_limit(chunk, i) for i, chunk in enumerate(chunks)]
     summaries = await asyncio.gather(*chunk_tasks)
 
-    aggregated_summary = "\n\n---\n\n".join(
-        [
-            f"### Chunk {i+1}/{total_chunks}\n{summary}"
-            for i, summary in enumerate(summaries)
-        ]
-    )
+    # Condense summaries if they exceed token limit (recursive, preserves info)
+    if tokenizer is not None:
+        aggregated_summary = await condense_summaries_if_needed(
+            summaries, final_synthesis_prompt, tokenizer, max_content_tokens, llm
+        )
+    else:
+        aggregated_summary = "\n\n---\n\n".join(
+            [f"### Chunk {i+1}/{total_chunks}\n{s}" for i, s in enumerate(summaries)]
+        )
 
     final_prompt = PromptTemplate(
         input_variables=["summary"],
