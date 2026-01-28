@@ -42,6 +42,7 @@ class ChatCopilot(BaseChatModel):
     model: str = "gpt-4.1"
     cli_path: Optional[str] = None
     cli_url: Optional[str] = None
+    timeout: int = 300  # 5 minutes for large chunks
 
     _client: Any = None
     _session: Any = None
@@ -90,7 +91,9 @@ class ChatCopilot(BaseChatModel):
         """
         await self._ensure_started()
         prompt = messages_to_prompt(messages)
-        response = await self._session.send_and_wait({"prompt": prompt})
+        response = await self._session.send_and_wait(
+            {"prompt": prompt}, timeout=self.timeout
+        )
         content = response.data.content if response and response.data else ""
         return ChatResult(
             generations=[ChatGeneration(message=AIMessage(content=content))]
