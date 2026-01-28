@@ -6,7 +6,8 @@ llm_factory:
   model_type: "ChatCopilot"
   parameters:
     model: "gpt-4.1"  # Options: gpt-4.1, claude-haiku-4.5, gpt-5-mini
+    timeout: 300  # 5 minutes per request (large chunks need more time)
 
 tokenizer:
   tokenizer: openai_tokenizer
-  max_content_tokens: 58000
+  max_content_tokens: 50000  # Conservative limit with buffer for prompts
