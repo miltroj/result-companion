@@ -35,6 +35,7 @@ async def accumulate_llm_results_for_summarizaton_chain(
     test_case: dict,
     chunk_analysis_prompt: str,
     final_synthesis_prompt: str,
+    condense_prompt: str,
     chunking_strategy: Chunking,
     llm: MODELS,
     chunk_concurrency: int = 1,
@@ -50,22 +51,17 @@ async def accumulate_llm_results_for_summarizaton_chain(
         llm,
         chunk_analysis_prompt,
         final_synthesis_prompt,
+        condense_prompt,
         chunk_concurrency,
         tokenizer,
         max_content_tokens,
     )
 
 
-CONDENSE_PROMPT = """Condense these chunk summaries into a single concise summary.
-Keep ONLY: error messages, failing keyword names, root causes.
-Remove duplicates and "CLEAN" chunks.
-
-{text}"""
-
-
 async def condense_summaries_if_needed(
     summaries: list[str],
     final_synthesis_prompt: str,
+    condense_prompt: str,
     tokenizer: Callable[[str], int],
     max_tokens: int,
     llm: MODELS,
@@ -76,6 +72,7 @@ async def condense_summaries_if_needed(
     Args:
         summaries: List of chunk summaries.
         final_synthesis_prompt: Template for final synthesis.
+        condense_prompt: Template for condensing grouped summaries.
         tokenizer: Function to count tokens.
         max_tokens: Maximum allowed tokens.
         llm: Language model for condensing.
@@ -118,8 +115,8 @@ async def condense_summaries_if_needed(
 
     logger.info(f"Condensing into {len(groups)} groups (depth={depth})")
 
-    condense_prompt = PromptTemplate(input_variables=["text"], template=CONDENSE_PROMPT)
-    condense_chain = build_sumarization_chain(condense_prompt, llm)
+    prompt_template = PromptTemplate(input_variables=["text"], template=condense_prompt)
+    condense_chain = build_sumarization_chain(prompt_template, llm)
 
     condensed = []
     for i, group in enumerate(groups):
@@ -128,7 +125,13 @@ async def condense_summaries_if_needed(
         condensed.append(f"[Group {i+1}] {result}")
 
     return await condense_summaries_if_needed(
-        condensed, final_synthesis_prompt, tokenizer, max_tokens, llm, depth + 1
+        condensed,
+        final_synthesis_prompt,
+        condense_prompt,
+        tokenizer,
+        max_tokens,
+        llm,
+        depth + 1,
     )
 
 
@@ -138,6 +141,7 @@ async def summarize_test_case(
     llm: MODELS,
     chunk_analysis_prompt: str,
     final_synthesis_prompt: str,
+    condense_prompt: str,
     chunk_concurrency: int = 1,
     tokenizer: Callable[[str], int] | None = None,
     max_content_tokens: int = 50000,
@@ -150,6 +154,7 @@ async def summarize_test_case(
         llm: Language model instance.
         chunk_analysis_prompt: Template for analyzing chunks.
         final_synthesis_prompt: Template for final synthesis.
+        condense_prompt: Template for condensing summaries when exceeding limit.
         chunk_concurrency: Chunks to process concurrently.
         tokenizer: Function to count tokens (for limit checking).
         max_content_tokens: Maximum tokens for final synthesis.
@@ -182,7 +187,12 @@ async def summarize_test_case(
     # Condense summaries if they exceed token limit (recursive, preserves info)
     if tokenizer is not None:
         aggregated_summary = await condense_summaries_if_needed(
-            summaries, final_synthesis_prompt, tokenizer, max_content_tokens, llm
+            summaries,
+            final_synthesis_prompt,
+            condense_prompt,
+            tokenizer,
+            max_content_tokens,
+            llm,
         )
     else:
         aggregated_summary = "\n\n---\n\n".join(

@@ -64,6 +64,7 @@ async def execute_llm_and_get_results(
     chunk_concurrency = config.concurrency.chunk
     chunk_analysis_prompt = config.llm_config.chunking.chunk_analysis_prompt
     final_synthesis_prompt = config.llm_config.chunking.final_synthesis_prompt
+    condense_prompt = config.llm_config.chunking.condense_prompt
 
     llm_results = dict()
     corutines = []
@@ -97,6 +98,7 @@ async def execute_llm_and_get_results(
                     test_case=test_case,
                     chunk_analysis_prompt=chunk_analysis_prompt,
                     final_synthesis_prompt=final_synthesis_prompt,
+                    condense_prompt=condense_prompt,
                     chunking_strategy=chunk,
                     llm=model,
                     chunk_concurrency=chunk_concurrency,
