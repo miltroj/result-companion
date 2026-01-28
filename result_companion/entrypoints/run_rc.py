@@ -14,6 +14,7 @@ from pydantic import ValidationError
 from result_companion.core.analizers.factory_common import execute_llm_and_get_results
 from result_companion.core.analizers.local.ollama_runner import ollama_on_init_strategy
 from result_companion.core.analizers.models import MODELS
+from result_companion.core.analizers.remote.copilot import ChatCopilot
 from result_companion.core.html.html_creator import create_llm_html_log
 from result_companion.core.parsers.config import LLMFactoryModel, load_config
 from result_companion.core.parsers.result_parser import (
@@ -36,6 +37,7 @@ def init_llm_with_strategy_factory(
         "ChatGoogleGenerativeAI": (ChatGoogleGenerativeAI, None),
         "ChatOpenAI": (ChatOpenAI, None),
         "ChatAnthropic": (ChatAnthropic, None),
+        "ChatCopilot": (ChatCopilot, None),
     }
 
     if model_type not in model_classes:

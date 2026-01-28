@@ -37,6 +37,7 @@ langchain-text-splitters = "^0.3.4"
 langchain-google-genai = "^2.1.6"
 langchain-anthropic = "^0.3.7"
 tqdm = "^4.67.1"
+github-copilot-sdk = "^0.1.0"
 
 [tool.poetry.scripts]
 result-companion = "result_companion.entrypoints.cli.cli_app:app"
@@ -52,6 +53,12 @@ pytest-mock = "^3.14.0"
 pytest-cov = "^6.0.0"
 pytest-asyncio = "^0.24.0"
 pre-commit = "^4.1.0"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+markers = [
+    "e2e: end-to-end tests requiring real Copilot CLI connection",
+]
 
 [build-system]
 requires = ["poetry-core"]
