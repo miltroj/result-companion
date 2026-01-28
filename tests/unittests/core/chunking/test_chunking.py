@@ -9,6 +9,7 @@ from langchain_core.output_parsers import StrOutputParser
 from result_companion.core.chunking.chunking import (
     accumulate_llm_results_for_summarizaton_chain,
     build_sumarization_chain,
+    condense_summaries_if_needed,
     split_text_into_chunks_using_text_splitter,
     summarize_test_case,
 )
@@ -82,8 +83,9 @@ async def test_executing_summarization_chain(mock_building_chain) -> None:
 
     chunks = ["text chunk1", "text chunk2"]
 
+    condense_prompt = "Condense: {text}"
     result = await summarize_test_case(
-        test_case, chunks, fake_llm, chunk_prompt, final_prompt
+        test_case, chunks, fake_llm, chunk_prompt, final_prompt, condense_prompt
     )
     assert result == ("final summary", "test_case_name", ["text chunk1", "text chunk2"])
 
@@ -111,8 +113,14 @@ async def test_splitting_into_chunks_and_accumulatiing_summary_results() -> None
     test_case_len = len(str(test_case))
     assert test_case_len == 60
 
+    condense_prompt = "Condense: {text}"
     result = await accumulate_llm_results_for_summarizaton_chain(
-        test_case, chunk_prompt, final_prompt, chunking_strategy, fake_llm
+        test_case,
+        chunk_prompt,
+        final_prompt,
+        condense_prompt,
+        chunking_strategy,
+        fake_llm,
     )
     expected_chunks = [
         "{'nam",
@@ -166,6 +174,7 @@ async def test_summarize_test_case_respects_chunk_concurrency():
             mock_chain,
             "Analyze: {text}",
             "Synthesize: {summary}",
+            "Condense: {text}",
             chunk_concurrency=2,
         )
 
@@ -186,10 +195,63 @@ async def test_summarize_uses_config_prompts():
         model="fake",
     )
 
+    condense_prompt = "Condense: {text}"
     result, name, returned_chunks = await summarize_test_case(
-        test_case, chunks, fake_llm, chunk_prompt, final_prompt
+        test_case, chunks, fake_llm, chunk_prompt, final_prompt, condense_prompt
     )
 
     assert result == "final_result"
     assert name == "config_test"
     assert returned_chunks == ["chunk1", "chunk2"]
+
+
+@pytest.mark.asyncio
+async def test_condense_summaries_returns_aggregated_when_fits_in_limit():
+    """Test that summaries are returned as-is when they fit within token limit."""
+    summaries = ["Summary 1", "Summary 2"]
+    final_prompt = "Final: {summary}"
+    condense_prompt = "Condense: {text}"
+
+    def fake_tokenizer(text: str) -> int:
+        return len(text) // 4
+
+    fake_llm = FakeListLLM(responses=["condensed"], model="fake")
+
+    result = await condense_summaries_if_needed(
+        summaries,
+        final_prompt,
+        condense_prompt,
+        fake_tokenizer,
+        max_tokens=1000,
+        llm=fake_llm,
+    )
+
+    assert "Summary 1" in result
+    assert "Summary 2" in result
+
+
+@pytest.mark.asyncio
+async def test_condense_summaries_respects_max_depth():
+    """Test that recursion stops at max depth and returns aggregated summary."""
+    summaries = ["S1", "S2"]
+    final_prompt = "F"
+    condense_prompt = "C: {text}"
+
+    def tiny_tokenizer(text: str) -> int:
+        return len(text)  # 1 char = 1 token
+
+    fake_llm = FakeListLLM(responses=["condensed"], model="fake")
+
+    # With depth=3 (max), should return immediately without condensing
+    result = await condense_summaries_if_needed(
+        summaries,
+        final_prompt,
+        condense_prompt,
+        tiny_tokenizer,
+        max_tokens=5,
+        llm=fake_llm,
+        depth=3,
+    )
+
+    assert "S1" in result
+    assert "S2" in result

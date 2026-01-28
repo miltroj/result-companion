@@ -63,6 +63,13 @@ llm_config:
 
       {summary}
 
+    condense_prompt: |
+      Condense these chunk summaries into a single concise summary.
+      Keep ONLY: error messages, failing keyword names, root causes.
+      Remove duplicates and "CLEAN" chunks.
+
+      {text}
+
   prompt_template: |
     Question: {question}
 

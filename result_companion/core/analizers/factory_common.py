@@ -12,7 +12,10 @@ from langchain_openai import AzureChatOpenAI, ChatOpenAI
 from result_companion.core.chunking.chunking import (
     accumulate_llm_results_for_summarizaton_chain,
 )
-from result_companion.core.chunking.utils import calculate_chunk_size
+from result_companion.core.chunking.utils import (
+    calculate_chunk_size,
+    tokenizer_mappings,
+)
 from result_companion.core.parsers.config import DefaultConfigModel
 from result_companion.core.utils.logging_config import get_progress_logger
 from result_companion.core.utils.progress import run_tasks_with_progress
@@ -61,6 +64,7 @@ async def execute_llm_and_get_results(
     chunk_concurrency = config.concurrency.chunk
     chunk_analysis_prompt = config.llm_config.chunking.chunk_analysis_prompt
     final_synthesis_prompt = config.llm_config.chunking.final_synthesis_prompt
+    condense_prompt = config.llm_config.chunking.condense_prompt
 
     llm_results = dict()
     corutines = []
@@ -70,26 +74,36 @@ async def execute_llm_and_get_results(
 
     for test_case in test_cases:
         raw_test_case_text = str(test_case)
-        chunk = calculate_chunk_size(
+
+        # First check if test fits in context with question_prompt (no chunking needed)
+        chunk_check = calculate_chunk_size(
             raw_test_case_text, question_from_config_file, tokenizer
         )
 
-        # TODO: zero chunk size seems magical
-        if chunk.chunk_size == 0:
+        if chunk_check.chunk_size == 0:
+            # Test fits in context - no chunking needed
             corutines.append(
                 accumulate_llm_results_without_streaming(
                     test_case, question_from_config_file, prompt, model
                 )
             )
         else:
+            # Chunking needed - recalculate using chunk_analysis_prompt
+            chunk = calculate_chunk_size(
+                raw_test_case_text, chunk_analysis_prompt, tokenizer
+            )
+            tokenizer_func = tokenizer_mappings.get(tokenizer.tokenizer)
             corutines.append(
                 accumulate_llm_results_for_summarizaton_chain(
                     test_case=test_case,
                     chunk_analysis_prompt=chunk_analysis_prompt,
                     final_synthesis_prompt=final_synthesis_prompt,
+                    condense_prompt=condense_prompt,
                     chunking_strategy=chunk,
                     llm=model,
                     chunk_concurrency=chunk_concurrency,
+                    tokenizer=tokenizer_func,
+                    max_content_tokens=tokenizer.max_content_tokens,
                 )
             )
 
