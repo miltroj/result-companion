@@ -81,6 +81,7 @@ async def condense_summaries_if_needed(
     Returns:
         Aggregated summary that fits within limit.
     """
+    logger.debug(f"### Condensing summaries: {len(summaries)=}")
     aggregated = "\n\n---\n\n".join(
         [f"### Chunk {i+1}/{len(summaries)}\n{s}" for i, s in enumerate(summaries)]
     )
@@ -90,10 +91,16 @@ async def condense_summaries_if_needed(
 
     # Guard: return early if limits don't make sense or max depth reached
     if available_tokens <= 0 or depth >= 3 or len(summaries) <= 1:
+        logger.debug(
+            f"### Returning early: {available_tokens=}, {depth=}, {len(summaries)=}"
+        )
         return aggregated
 
     summary_tokens = tokenizer(aggregated)
     if summary_tokens <= available_tokens:
+        logger.debug(
+            f"### Returning early: {summary_tokens=} <= {available_tokens=}, {depth=}, {len(summaries)=}"
+        )
         return aggregated
 
     logger.warning(
@@ -106,6 +113,9 @@ async def condense_summaries_if_needed(
 
     # Guard: if grouping won't reduce count, return as-is
     if summaries_per_group >= len(summaries):
+        logger.debug(
+            f"### Returning early: {summaries_per_group=} >= {len(summaries)=}, {depth=}, {len(summaries)=}"
+        )
         return aggregated
 
     groups = [
