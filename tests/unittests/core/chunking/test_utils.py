@@ -12,11 +12,12 @@ from result_companion.core.parsers.config import TokenizerModel, TokenizerTypes
 
 
 def test_calculating_overall_chunk_size() -> None:
+    # With safety_margin=0.85: effective_max=8, chunks=ceil(20/8)=3, size=100/3=33
     chunk = calculate_overall_chunk_size(
         actual_tokens_from_text=20, max_tokens_acceptable=10, raw_text="a" * 100
     )
-    assert chunk.chunk_size == 50
-    assert chunk.number_of_chunks == 2
+    assert chunk.chunk_size == 33
+    assert chunk.number_of_chunks == 3
     assert chunk.raw_text_len == 100
 
 
@@ -36,35 +37,38 @@ def test_calculating_final_chunk_size() -> None:
 
     chunk = calculate_chunk_size(test_case, system_prompt, tokenizer)
 
+    # 1000 chars = 250 tokens, effective_max=85, chunks=ceil(250/85)=3, size=1000/3=333
     assert chunk.raw_text_len == 1000
-    assert chunk.tokens_from_raw_text == 1000 // 4
+    assert chunk.tokens_from_raw_text == 250
     assert chunk.tokenized_chunks == 3
-    assert chunk.chunk_size == 333.3333333333333
+    assert chunk.chunk_size == 333
 
 
 def test_chunk_correctly_even_distributed_tokens() -> None:
     one_thousand_characters = "1" * 1000
+    # With safety_margin=0.85: effective_max=425, chunks=ceil(1000/425)=3, size=333
     chunk = calculate_overall_chunk_size(
         actual_tokens_from_text=1000,
         max_tokens_acceptable=500,
         raw_text=one_thousand_characters,
     )
-    assert chunk.chunk_size == 500
-    assert chunk.number_of_chunks == 2
+    assert chunk.chunk_size == 333
+    assert chunk.number_of_chunks == 3
     assert chunk.raw_text_len == 1000
     assert chunk.tokens_from_raw_text == 1000
 
 
 def test_chunking_not_even_distribution() -> None:
     raw_text = "1" * 11
+    # With safety_margin=0.85: effective_max=1, chunks=ceil(7/1)=7, size=11/7=1
     chunk = calculate_overall_chunk_size(
         actual_tokens_from_text=7, max_tokens_acceptable=2, raw_text=raw_text
     )
 
     assert chunk.raw_text_len == 11
     assert chunk.tokens_from_raw_text == 7
-    assert chunk.tokenized_chunks == 4
-    assert chunk.chunk_size == 2.75
+    assert chunk.tokenized_chunks == 7
+    assert chunk.chunk_size == 1
 
 
 @patch("tiktoken.get_encoding")

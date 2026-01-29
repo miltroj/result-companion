@@ -9,6 +9,7 @@ from langchain_core.output_parsers import StrOutputParser
 from result_companion.core.chunking.chunking import (
     accumulate_llm_results_for_summarizaton_chain,
     build_sumarization_chain,
+    condense_summaries_if_needed,
     split_text_into_chunks_using_text_splitter,
     summarize_test_case,
 )
@@ -82,8 +83,9 @@ async def test_executing_summarization_chain(mock_building_chain) -> None:
 
     chunks = ["text chunk1", "text chunk2"]
 
+    condense_prompt = "Condense: {text}"
     result = await summarize_test_case(
-        test_case, chunks, fake_llm, chunk_prompt, final_prompt
+        test_case, chunks, fake_llm, chunk_prompt, final_prompt, condense_prompt
     )
     assert result == ("final summary", "test_case_name", ["text chunk1", "text chunk2"])
 
@@ -111,8 +113,14 @@ async def test_splitting_into_chunks_and_accumulatiing_summary_results() -> None
     test_case_len = len(str(test_case))
     assert test_case_len == 60
 
+    condense_prompt = "Condense: {text}"
     result = await accumulate_llm_results_for_summarizaton_chain(
-        test_case, chunk_prompt, final_prompt, chunking_strategy, fake_llm
+        test_case,
+        chunk_prompt,
+        final_prompt,
+        condense_prompt,
+        chunking_strategy,
+        fake_llm,
     )
     expected_chunks = [
         "{'nam",
@@ -166,6 +174,7 @@ async def test_summarize_test_case_respects_chunk_concurrency():
             mock_chain,
             "Analyze: {text}",
             "Synthesize: {summary}",
+            "Condense: {text}",
             chunk_concurrency=2,
         )
 
@@ -186,10 +195,185 @@ async def test_summarize_uses_config_prompts():
         model="fake",
     )
 
+    condense_prompt = "Condense: {text}"
     result, name, returned_chunks = await summarize_test_case(
-        test_case, chunks, fake_llm, chunk_prompt, final_prompt
+        test_case, chunks, fake_llm, chunk_prompt, final_prompt, condense_prompt
     )
 
     assert result == "final_result"
     assert name == "config_test"
     assert returned_chunks == ["chunk1", "chunk2"]
+
+
+@pytest.mark.asyncio
+async def test_condense_summaries_returns_aggregated_when_fits_in_limit():
+    """Test that summaries are returned as-is when they fit within token limit."""
+    summaries = ["Summary 1", "Summary 2"]
+    final_synthesis_prompt = "Final: {summary}"
+    condense_prompt = "Condense: {text}"
+    token_counter = lambda text: len(text) // 4  # noqa: E731
+
+    fake_llm = FakeListLLM(responses=["condensed"], model="fake")
+
+    result = await condense_summaries_if_needed(
+        summaries,
+        final_synthesis_prompt,
+        condense_prompt,
+        tokenizer=token_counter,
+        max_tokens=1000,
+        llm=fake_llm,
+    )
+
+    assert "Summary 1" in result
+    assert "Summary 2" in result
+
+
+@pytest.mark.asyncio
+async def test_condense_summaries_returns_early_at_max_depth():
+    """Guard: depth=3 returns immediately without LLM condensation."""
+    # Large summaries that would normally trigger condensation
+    summaries = ["X" * 200 for _ in range(4)]
+    final_synthesis_prompt = "P" * 10
+    condense_prompt = "C: {text}"
+    token_counter = lambda t: len(t)  # noqa: E731
+
+    fake_llm = FakeListLLM(responses=["should_not_appear"], model="fake")
+
+    # High token limit ensures only depth check triggers early return
+    result = await condense_summaries_if_needed(
+        summaries,
+        final_synthesis_prompt,
+        condense_prompt,
+        tokenizer=token_counter,
+        max_tokens=1000,
+        llm=fake_llm,
+        depth=3,
+    )
+
+    # LLM was NOT called - original content preserved, no "should_not_appear"
+    assert "should_not_appear" not in result
+    assert "Chunk 1/4" in result
+
+
+@pytest.mark.asyncio
+async def test_condense_summaries_returns_early_when_available_tokens_non_positive():
+    """Guard: available_tokens <= 0 returns immediately without LLM call."""
+    summaries = ["X" * 200 for _ in range(4)]
+    final_synthesis_prompt = "X" * 400
+    condense_prompt = "C: {text}"
+    token_counter = lambda t: len(t)  # noqa: E731
+
+    fake_llm = FakeListLLM(responses=["should_not_appear"], model="fake")
+
+    # Tokenizer: 1 char = 1 token. Prompt=400, max=50 -> available = 50-400-500 = -850
+    result = await condense_summaries_if_needed(
+        summaries,
+        final_synthesis_prompt,
+        condense_prompt,
+        tokenizer=token_counter,
+        max_tokens=50,
+        llm=fake_llm,
+    )
+
+    assert "should_not_appear" not in result
+    assert "Chunk 1/4" in result
+
+
+@pytest.mark.asyncio
+async def test_condense_summaries_returns_early_for_single_summary():
+    """Guard: single summary returns immediately without processing."""
+    summaries = ["Only one summary here"]
+    final_synthesis_prompt = "F"
+    condense_prompt = "C: {text}"
+    token_counter = lambda t: len(t)  # noqa: E731
+
+    fake_llm = FakeListLLM(responses=["llm should not be called"], model="fake")
+
+    result = await condense_summaries_if_needed(
+        summaries,
+        final_synthesis_prompt,
+        condense_prompt,
+        tokenizer=token_counter,
+        max_tokens=5,
+        llm=fake_llm,
+    )
+
+    assert "Only one summary here" in result
+    assert "Chunk 1/1" in result
+    assert "llm should not be called" not in result
+
+
+@pytest.mark.asyncio
+async def test_condense_summaries_returns_early_for_empty_list():
+    """Guard: empty list returns empty aggregated string."""
+    summaries = []
+    final_synthesis_prompt = "F"
+    condense_prompt = "C: {text}"
+    token_counter = lambda t: len(t)  # noqa: E731
+
+    fake_llm = FakeListLLM(responses=["should not be called"], model="fake")
+
+    result = await condense_summaries_if_needed(
+        summaries,
+        final_synthesis_prompt,
+        condense_prompt,
+        tokenizer=token_counter,
+        max_tokens=100,
+        llm=fake_llm,
+    )
+
+    assert result == ""
+    assert "should not be called" not in result
+
+
+@pytest.mark.asyncio
+async def test_condense_summaries_returns_when_grouping_would_not_reduce():
+    """Guard: if all summaries fit in one group, returns without condensing."""
+    summaries = ["A", "B"]
+    final_synthesis_prompt = "F"
+    condense_prompt = "C: {text}"
+    token_counter = lambda t: len(t)  # noqa: E731
+
+    fake_llm = FakeListLLM(responses=["summarize should not be called"], model="fake")
+
+    # available_tokens very high -> all summaries fit in one group
+    result = await condense_summaries_if_needed(
+        summaries,
+        final_synthesis_prompt,
+        condense_prompt,
+        tokenizer=token_counter,
+        max_tokens=10000,
+        llm=fake_llm,
+    )
+
+    assert "A" in result and "B" in result
+    assert "summarize should not be called" not in result
+
+
+@pytest.mark.asyncio
+async def test_condense_summaries_calls_llm_to_condense_when_exceeding_limit():
+    """Condensation path: groups summaries and calls LLM when limit exceeded."""
+    # 4 long summaries that exceed the available token budget
+    summaries = ["X" * 200 for _ in range(4)]
+    fake_llm = FakeListLLM(
+        responses=["condensed_1", "condensed_2", "final"], model="fake"
+    )
+
+    # 1 char = 1 token; prompt=10, buffer=500 -> available=490; aggregated ~800+ tokens
+    final_synthesis_prompt = "P" * 10
+    condense_prompt = "Condense: {text}"
+    token_counter = lambda t: len(t)  # noqa: E731
+
+    result = await condense_summaries_if_needed(
+        summaries,
+        final_synthesis_prompt,
+        condense_prompt,
+        tokenizer=token_counter,
+        max_tokens=1000,
+        llm=fake_llm,
+    )
+
+    assert "condensed" in result or "Group" in result
+    assert "condensed_1" in result or "condensed_2" in result
+    assert "final" not in result  # groups = [[sum1, sum2], [sum3, sum4]]
+    # 2 groups ["[Group 1] condensed_1", "[Group 2] condensed_2"]

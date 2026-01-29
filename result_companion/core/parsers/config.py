@@ -42,6 +42,11 @@ class ChunkingPromptsModel(BaseModel):
     final_synthesis_prompt: str = Field(
         min_length=5, description="Prompt for synthesizing chunk summaries."
     )
+    condense_prompt: str = Field(
+        default="Condense these summaries. Keep: errors, failures, root causes.\n\n{text}",
+        min_length=5,
+        description="Prompt for condensing summaries when they exceed token limit.",
+    )
 
 
 class LLMConfigModel(BaseModel):
