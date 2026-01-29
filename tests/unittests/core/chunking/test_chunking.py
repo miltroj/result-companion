@@ -231,27 +231,106 @@ async def test_condense_summaries_returns_aggregated_when_fits_in_limit():
 
 
 @pytest.mark.asyncio
-async def test_condense_summaries_respects_max_depth():
-    """Test that recursion stops at max depth and returns aggregated summary."""
-    summaries = ["S1", "S2"]
-    final_prompt = "F"
-    condense_prompt = "C: {text}"
+async def test_condense_summaries_returns_early_at_max_depth():
+    """Guard: depth=3 returns immediately without LLM condensation."""
+    # Large summaries that would normally trigger condensation
+    summaries = ["X" * 200 for _ in range(4)]
+    fake_llm = FakeListLLM(responses=["should_not_appear"], model="fake")
 
-    def tiny_tokenizer(text: str) -> int:
-        return len(text)  # 1 char = 1 token
-
-    fake_llm = FakeListLLM(responses=["condensed"], model="fake")
-
-    # With depth=3 (max), should return immediately without condensing
+    # High token limit ensures only depth check triggers early return
     result = await condense_summaries_if_needed(
         summaries,
-        final_prompt,
-        condense_prompt,
-        tiny_tokenizer,
-        max_tokens=5,
+        "P" * 10,
+        "C: {text}",
+        lambda t: len(t),
+        max_tokens=1000,
         llm=fake_llm,
         depth=3,
     )
 
-    assert "S1" in result
-    assert "S2" in result
+    # LLM was NOT called - original content preserved, no "should_not_appear"
+    assert "should_not_appear" not in result
+    assert "Chunk 1/4" in result
+
+
+@pytest.mark.asyncio
+async def test_condense_summaries_returns_early_when_available_tokens_non_positive():
+    """Guard: available_tokens <= 0 returns immediately without LLM call."""
+    summaries = ["X" * 200 for _ in range(4)]
+    fake_llm = FakeListLLM(responses=["should_not_appear"], model="fake")
+
+    # Tokenizer: 1 char = 1 token. Prompt=400, max=50 -> available = 50-400-500 = -850
+    result = await condense_summaries_if_needed(
+        summaries, "X" * 400, "C: {text}", lambda t: len(t), max_tokens=50, llm=fake_llm
+    )
+
+    assert "should_not_appear" not in result
+    assert "Chunk 1/4" in result
+
+
+@pytest.mark.asyncio
+async def test_condense_summaries_returns_early_for_single_summary():
+    """Guard: single summary returns immediately without processing."""
+    summaries = ["Only one summary here"]
+    fake_llm = FakeListLLM(responses=["llm should not be called"], model="fake")
+
+    result = await condense_summaries_if_needed(
+        summaries, "F", "C: {text}", lambda t: len(t), max_tokens=5, llm=fake_llm
+    )
+
+    assert "Only one summary here" in result
+    assert "Chunk 1/1" in result
+    assert "llm should not be called" not in result
+
+
+@pytest.mark.asyncio
+async def test_condense_summaries_returns_early_for_empty_list():
+    """Guard: empty list returns empty aggregated string."""
+    fake_llm = FakeListLLM(responses=["should not be called"], model="fake")
+
+    result = await condense_summaries_if_needed(
+        [], "F", "C: {text}", lambda t: len(t), max_tokens=100, llm=fake_llm
+    )
+
+    assert result == ""
+    assert "should not be called" not in result
+
+
+@pytest.mark.asyncio
+async def test_condense_summaries_returns_when_grouping_would_not_reduce():
+    """Guard: if all summaries fit in one group, returns without condensing."""
+    summaries = ["A", "B"]
+    fake_llm = FakeListLLM(responses=["summarize should not be called"], model="fake")
+
+    # available_tokens very high -> all summaries fit in one group
+    result = await condense_summaries_if_needed(
+        summaries, "F", "C: {text}", lambda t: len(t), max_tokens=10000, llm=fake_llm
+    )
+
+    assert "A" in result and "B" in result
+    assert "summarize should not be called" not in result
+
+
+@pytest.mark.asyncio
+async def test_condense_summaries_calls_llm_to_condense_when_exceeding_limit():
+    """Condensation path: groups summaries and calls LLM when limit exceeded."""
+    # 4 long summaries that exceed the available token budget
+    summaries = ["X" * 200 for _ in range(4)]
+    fake_llm = FakeListLLM(
+        responses=["condensed_1", "condensed_2", "final"], model="fake"
+    )
+
+    # 1 char = 1 token; prompt=10, buffer=500 -> available=490; aggregated ~800+ tokens
+    result = await condense_summaries_if_needed(
+        summaries,
+        "P" * 10,
+        "Condense: {text}",
+        lambda t: len(t),
+        max_tokens=1000,
+        llm=fake_llm,
+    )
+
+    assert "condensed" in result or "Group" in result
+    assert "condensed_1" in result or "condensed_2" in result
+    assert "final" not in result  # groups = [[sum1, sum2], [sum3, sum4]]
+    # 2 groups ["[Group 1] condensed_1", "[Group 2] condensed_2"]
