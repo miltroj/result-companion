@@ -110,4 +110,4 @@ async def summarize_test_case(
     final_analysis_chain = build_sumarization_chain(final_prompt, llm)
     final_result = await final_analysis_chain.ainvoke({"summary": aggregated_summary})
 
-    return final_result, test_case["name"], chunks
+    return final_result, test_case["id"], chunks

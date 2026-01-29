@@ -16,7 +16,7 @@ async def accumulate_llm_results(
     ):
         result.append(chunk)
         print(chunk, end="", flush=True)
-    return "".join(result), test_case["name"]
+    return "".join(result), test_case["id"]
 
 
 async def run_llm_based_analysis_and_stream_results(
@@ -25,7 +25,7 @@ async def run_llm_based_analysis_and_stream_results(
 
     llm_results = dict()
     for test_case in test_cases:
-        llm_results[test_case["name"]], _ = await accumulate_llm_results(
+        llm_results[test_case["id"]], _ = await accumulate_llm_results(
             test_case, question_from_config_file, chain
         )
 
