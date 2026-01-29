@@ -114,6 +114,7 @@ async def condense_summaries_if_needed(
     ]
 
     logger.info(f"Condensing into {len(groups)} groups (depth={depth})")
+    logger.debug(f"### Groups: {groups}")
 
     prompt_template = PromptTemplate(input_variables=["text"], template=condense_prompt)
     condense_chain = build_sumarization_chain(prompt_template, llm)
@@ -198,7 +199,7 @@ async def summarize_test_case(
         aggregated_summary = "\n\n---\n\n".join(
             [f"### Chunk {i+1}/{total_chunks}\n{s}" for i, s in enumerate(summaries)]
         )
-
+    logger.debug(f"### Aggregated summary: {aggregated_summary}")
     final_prompt = PromptTemplate(
         input_variables=["summary"],
         template=final_synthesis_prompt,
