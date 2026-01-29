@@ -99,4 +99,12 @@ def get_robot_results_from_file_as_dict(
     all_results = result.suite.to_dict()
     all_results = search_for_test_cases(all_results)
     all_results = remove_redundant_fields(all_results)
+    
+    # Debug: Log test IDs to verify they're present
+    if all_results:
+        logger.debug(f"First test case keys: {list(all_results[0].keys())}")
+        logger.debug(f"First test case has 'id': {'id' in all_results[0]}")
+        if 'id' in all_results[0]:
+            logger.debug(f"First test ID: {all_results[0]['id']}, name: {all_results[0].get('name', 'N/A')}")
+    
     return all_results
