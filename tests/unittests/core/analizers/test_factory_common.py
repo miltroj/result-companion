@@ -3,7 +3,7 @@ from langchain_community.llms.fake import FakeListLLM
 from langchain_core.prompts import ChatPromptTemplate
 
 from result_companion.core.analizers.factory_common import (
-    _dryrun_result,
+    _stats_header,
     accumulate_llm_results_without_streaming,
     execute_llm_and_get_results,
 )
@@ -48,7 +48,11 @@ async def test_gather_llm_runs_and_get_results() -> None:
         prompt=prompt,
         model=mocked_model,
     )
-    assert result == {"test2_failing": "llm generated result"}
+    # Result now includes stats header + LLM output
+    assert "test2_failing" in result
+    assert "llm generated result" in result["test2_failing"]
+    assert "### test2_failing" in result["test2_failing"]
+    assert "Status: FAIL" in result["test2_failing"]
 
 
 @pytest.mark.asyncio
@@ -69,23 +73,36 @@ async def test_accumulate_llm_results_without_streaming():
     assert chunks == []
 
 
-@pytest.mark.asyncio
-async def test_dryrun_result_returns_debug_metadata():
-    """Test dryrun returns test metadata without calling LLM."""
-    test_case = {"name": "My Test Case", "status": "FAIL"}
+def test_stats_header_returns_formatted_metadata():
+    """Test stats header contains test info and stats."""
     chunk = Chunking(
-        chunk_size=0,
-        number_of_chunks=2,
+        chunk_size=100,
+        number_of_chunks=3,
         raw_text_len=5000,
         tokens_from_raw_text=1250,
-        tokenized_chunks=2,
+        tokenized_chunks=3,
     )
 
-    result, name, chunks = await _dryrun_result(test_case, chunk)
+    header = _stats_header("My Test Case", "FAIL", chunk, dryrun=False)
 
-    assert name == "My Test Case"
-    assert "[DRYRUN]" in result
-    assert "**Status**: FAIL" in result
-    assert "**Chunks**: 2" in result
-    assert "**Tokens**: 1250" in result
-    assert chunks == []
+    assert "My Test Case" in header
+    assert "FAIL" in header
+    assert "Chunks: 3" in header
+    assert "Tokens: ~1250" in header
+    assert "[DRYRUN]" not in header
+
+
+def test_stats_header_dryrun_mode():
+    """Test stats header shows DRYRUN prefix when enabled."""
+    chunk = Chunking(
+        chunk_size=0,
+        number_of_chunks=0,
+        raw_text_len=1000,
+        tokens_from_raw_text=250,
+        tokenized_chunks=0,
+    )
+
+    header = _stats_header("Test Name", "PASS", chunk, dryrun=True)
+
+    assert "[DRYRUN]" in header
+    assert "Chunks: 0" in header

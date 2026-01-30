@@ -30,17 +30,23 @@ MODELS = Tuple[
 ]
 
 
-async def _dryrun_result(test_case: dict, chunk: Chunking) -> Tuple[str, str, list]:
-    """Returns debug metadata without calling LLM."""
-    name = test_case["name"]
-    status = test_case.get("status", "N/A")
-    result = f"""## [DRYRUN] {name}
-- **Status**: {status}
-- **Chunks**: {chunk.number_of_chunks}
-- **Tokens**: {chunk.tokens_from_raw_text}
-- **Raw length**: {chunk.raw_text_len}
+def _stats_header(name: str, status: str, chunk: Chunking, dryrun: bool = False) -> str:
+    """Returns markdown header with test info and analysis stats."""
+    chunks = chunk.number_of_chunks if chunk.requires_chunking else 0
+    prefix = "[DRYRUN] " if dryrun else ""
+    return f"""### {prefix}{name}\nStatus: {status} | Chunks: {chunks} | Tokens: ~{chunk.tokens_from_raw_text} | Raw length: {chunk.raw_text_len}
+
+---
+
 """
-    return (result, name, [])
+
+
+async def _dryrun_result(test_case: dict) -> Tuple[str, str, list]:
+    """Returns placeholder without calling LLM."""
+    logger.info(
+        f"### Test Case: {test_case['name']}, content length: {len(str(test_case))}"
+    )
+    return ("*No LLM analysis in dryrun mode.*", test_case["name"], [])
 
 
 async def accumulate_llm_results_without_streaming(
@@ -78,6 +84,7 @@ async def execute_llm_and_get_results(
 
     llm_results = dict()
     corutines = []
+    test_case_stats = {}  # name -> (chunk, status) for adding headers later
     logger.info(
         f"Executing chain, {len(test_cases)=}, {test_case_concurrency=}, {chunk_concurrency=}"
     )
@@ -87,9 +94,10 @@ async def execute_llm_and_get_results(
         chunk = calculate_chunk_size(
             raw_test_case_text, question_from_config_file, tokenizer
         )
+        test_case_stats[test_case["name"]] = (chunk, test_case.get("status", "N/A"))
 
         if dryrun:
-            corutines.append(_dryrun_result(test_case, chunk))
+            corutines.append(_dryrun_result(test_case))
         elif not chunk.requires_chunking:
             corutines.append(
                 accumulate_llm_results_without_streaming(
@@ -114,6 +122,8 @@ async def execute_llm_and_get_results(
     results = await run_tasks_with_progress(corutines, semaphore=semaphore, desc=desc)
 
     for result, name, chunks in results:
-        llm_results[name] = result
+        chunk, status = test_case_stats[name]
+        header = _stats_header(name, status, chunk, dryrun)
+        llm_results[name] = header + result
 
     return llm_results
