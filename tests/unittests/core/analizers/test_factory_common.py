@@ -3,6 +3,7 @@ from langchain_community.llms.fake import FakeListLLM
 from langchain_core.prompts import ChatPromptTemplate
 
 from result_companion.core.analizers.factory_common import (
+    _dryrun_result,
     _stats_header,
     accumulate_llm_results_without_streaming,
     execute_llm_and_get_results,
@@ -104,3 +105,15 @@ def test_stats_header_dryrun_mode():
 
     assert "[DRYRUN]" in header
     assert "Chunks: 0" in header
+
+
+@pytest.mark.asyncio
+async def test_dryrun_result_returns_placeholder():
+    """Test dryrun returns placeholder message and test name."""
+    test_case = {"name": "My Test", "status": "FAIL"}
+
+    result, name, chunks = await _dryrun_result(test_case)
+
+    assert name == "My Test"
+    assert "No LLM analysis" in result
+    assert chunks == []
