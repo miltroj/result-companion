@@ -274,6 +274,7 @@ def test_main_e2e_execution(
         ),
         ChatPromptTemplate.from_template("my_template {question}"),
         mocked_azure_model(),
+        dryrun=False,
     )
     mocked_html_creation.assert_called_once_with(
         input_result_path=Path("output.xml"),
@@ -302,6 +303,7 @@ def test_succesfully_run_rc():
             chunk_concurrency=None,
             include_tags=None,
             exclude_tags=None,
+            dryrun=False,
         )
         mocked_main.assert_called_once_with(
             output=Path("output.xml"),
@@ -313,6 +315,7 @@ def test_succesfully_run_rc():
             chunk_concurrency=None,
             include_tags=None,
             exclude_tags=None,
+            dryrun=False,
         )
         assert result == "RESULT"
 

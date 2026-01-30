@@ -113,6 +113,11 @@ def analyze(
         "--chunk-concurrency",
         help="Chunks per test case in parallel (overrides config)",
     ),
+    dryrun: bool = typer.Option(
+        False,
+        "--dryrun",
+        help="Skip LLM calls, generate HTML with debug metadata",
+    ),
 ):
     """Analyze Robot Framework test results with LLM assistance."""
     typer.echo(f"Output: {output}")
@@ -147,6 +152,7 @@ def analyze(
         chunk_concurrency,
         include_tag_list,
         exclude_tag_list,
+        dryrun,
     )
 
 

@@ -15,6 +15,11 @@ class Chunking:
     tokens_from_raw_text: int
     tokenized_chunks: int
 
+    @property
+    def requires_chunking(self) -> bool:
+        """Returns True if text needs to be split into chunks."""
+        return self.chunk_size > 0
+
 
 def azure_openai_tokenizer(text: str) -> int:
     """Tokenizer for Azure OpenAI models using tiktoken."""

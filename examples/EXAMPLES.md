@@ -17,6 +17,7 @@ Quick-start configurations for different LLM providers and use cases.
     - [CLI Examples](#cli-examples)
     - [Config File](#config-file)
     - [Filter Logic](#filter-logic)
+  - [Dryrun Mode](#dryrun-mode)
   - [Custom Analysis](#custom-analysis)
     - [Find Performance Issues](#find-performance-issues)
     - [Security Audit](#security-audit)
@@ -218,6 +219,24 @@ result-companion -o output.xml -c tag_filtering_config.yaml
 | Both | Include "smoke" AND exclude "wip" |
 
 **Note**: Exclude patterns override include patterns.
+
+## Dryrun Mode
+
+Validate parsing and configuration without calling LLMs:
+
+```bash
+result-companion analyze -o output.xml --dryrun
+```
+
+Generates `rc_log.html` with debug metadata per test:
+- Test name and status
+- Chunk count and token usage
+- Raw content length
+
+**Use cases:**
+- Debug XML parsing issues
+- Verify tag filtering works correctly
+- Check chunking behavior before real runs
 
 ## Custom Analysis
 

@@ -12,7 +12,7 @@ from langchain_openai import AzureChatOpenAI, ChatOpenAI
 from result_companion.core.chunking.chunking import (
     accumulate_llm_results_for_summarizaton_chain,
 )
-from result_companion.core.chunking.utils import calculate_chunk_size
+from result_companion.core.chunking.utils import Chunking, calculate_chunk_size
 from result_companion.core.parsers.config import DefaultConfigModel
 from result_companion.core.utils.logging_config import get_progress_logger
 from result_companion.core.utils.progress import run_tasks_with_progress
@@ -28,6 +28,29 @@ MODELS = Tuple[
     | ChatAnthropic,
     Callable,
 ]
+
+
+def _stats_header(
+    status: str, chunk: Chunking, dryrun: bool = False, name: str = ""
+) -> str:
+    """Returns markdown stats line for analysis."""
+    chunks = chunk.number_of_chunks if chunk.requires_chunking else 0
+    prefix = "**[DRYRUN]** " if dryrun else ""
+    return f"""## {prefix} {name}
+
+#### Status: {status} · Chunks: {chunks} · Tokens: ~{chunk.tokens_from_raw_text} · Raw length: {chunk.raw_text_len}
+
+---
+
+"""
+
+
+async def _dryrun_result(test_case: dict) -> Tuple[str, str, list]:
+    """Returns placeholder without calling LLM."""
+    logger.info(
+        f"### Test Case: {test_case['name']}, content length: {len(str(test_case))}"
+    )
+    return ("*No LLM analysis in dryrun mode.*", test_case["name"], [])
 
 
 async def accumulate_llm_results_without_streaming(
@@ -54,6 +77,7 @@ async def execute_llm_and_get_results(
     config: DefaultConfigModel,
     prompt: ChatPromptTemplate,
     model: MODELS,
+    dryrun: bool = False,
 ) -> dict:
     question_from_config_file = config.llm_config.question_prompt
     tokenizer = config.tokenizer
@@ -64,6 +88,7 @@ async def execute_llm_and_get_results(
 
     llm_results = dict()
     corutines = []
+    test_case_stats = {}  # name -> (chunk, status) for adding headers later
     logger.info(
         f"Executing chain, {len(test_cases)=}, {test_case_concurrency=}, {chunk_concurrency=}"
     )
@@ -73,9 +98,11 @@ async def execute_llm_and_get_results(
         chunk = calculate_chunk_size(
             raw_test_case_text, question_from_config_file, tokenizer
         )
+        test_case_stats[test_case["name"]] = (chunk, test_case.get("status", "N/A"))
 
-        # TODO: zero chunk size seems magical
-        if chunk.chunk_size == 0:
+        if dryrun:
+            corutines.append(_dryrun_result(test_case))
+        elif not chunk.requires_chunking:
             corutines.append(
                 accumulate_llm_results_without_streaming(
                     test_case, question_from_config_file, prompt, model
@@ -99,6 +126,8 @@ async def execute_llm_and_get_results(
     results = await run_tasks_with_progress(corutines, semaphore=semaphore, desc=desc)
 
     for result, name, chunks in results:
-        llm_results[name] = result
+        chunk, status = test_case_stats[name]
+        header = _stats_header(status, chunk, dryrun, name)
+        llm_results[name] = header + result
 
     return llm_results
