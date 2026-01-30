@@ -12,7 +12,7 @@ from langchain_openai import AzureChatOpenAI, ChatOpenAI
 from result_companion.core.chunking.chunking import (
     accumulate_llm_results_for_summarizaton_chain,
 )
-from result_companion.core.chunking.utils import calculate_chunk_size
+from result_companion.core.chunking.utils import Chunking, calculate_chunk_size
 from result_companion.core.parsers.config import DefaultConfigModel
 from result_companion.core.utils.logging_config import get_progress_logger
 from result_companion.core.utils.progress import run_tasks_with_progress
@@ -28,6 +28,19 @@ MODELS = Tuple[
     | ChatAnthropic,
     Callable,
 ]
+
+
+async def _dryrun_result(test_case: dict, chunk: Chunking) -> Tuple[str, str, list]:
+    """Returns debug metadata without calling LLM."""
+    name = test_case["name"]
+    status = test_case.get("status", "N/A")
+    result = f"""## [DRYRUN] {name}
+- **Status**: {status}
+- **Chunks**: {chunk.number_of_chunks}
+- **Tokens**: {chunk.tokens_from_raw_text}
+- **Raw length**: {chunk.raw_text_len}
+"""
+    return (result, name, [])
 
 
 async def accumulate_llm_results_without_streaming(
@@ -54,6 +67,7 @@ async def execute_llm_and_get_results(
     config: DefaultConfigModel,
     prompt: ChatPromptTemplate,
     model: MODELS,
+    dryrun: bool = False,
 ) -> dict:
     question_from_config_file = config.llm_config.question_prompt
     tokenizer = config.tokenizer
@@ -74,8 +88,9 @@ async def execute_llm_and_get_results(
             raw_test_case_text, question_from_config_file, tokenizer
         )
 
-        # TODO: zero chunk size seems magical
-        if chunk.chunk_size == 0:
+        if dryrun:
+            corutines.append(_dryrun_result(test_case, chunk))
+        elif not chunk.requires_chunking:
             corutines.append(
                 accumulate_llm_results_without_streaming(
                     test_case, question_from_config_file, prompt, model

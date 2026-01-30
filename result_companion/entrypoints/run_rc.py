@@ -62,6 +62,7 @@ async def _main(
     chunk_concurrency: Optional[int] = None,
     include_tags: Optional[list[str]] = None,
     exclude_tags: Optional[list[str]] = None,
+    dryrun: bool = False,
 ) -> bool:
     set_global_log_level(str(log_level))
 
@@ -118,6 +119,7 @@ async def _main(
         parsed_config,
         prompt_template,
         model,
+        dryrun=dryrun,
     )
 
     report_path = report if report else "rc_log.html"
@@ -150,6 +152,7 @@ def run_rc(
     chunk_concurrency: Optional[int] = None,
     include_tags: Optional[list[str]] = None,
     exclude_tags: Optional[list[str]] = None,
+    dryrun: bool = False,
 ) -> bool:
     try:
         return asyncio.run(
@@ -163,6 +166,7 @@ def run_rc(
                 chunk_concurrency=chunk_concurrency,
                 include_tags=include_tags,
                 exclude_tags=exclude_tags,
+                dryrun=dryrun,
             )
         )
     except Exception:

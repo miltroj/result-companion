@@ -3,9 +3,11 @@ from langchain_community.llms.fake import FakeListLLM
 from langchain_core.prompts import ChatPromptTemplate
 
 from result_companion.core.analizers.factory_common import (
+    _dryrun_result,
     accumulate_llm_results_without_streaming,
     execute_llm_and_get_results,
 )
+from result_companion.core.chunking.utils import Chunking
 from result_companion.core.parsers.config import (
     ChunkingPromptsModel,
     DefaultConfigModel,
@@ -64,4 +66,26 @@ async def test_accumulate_llm_results_without_streaming():
 
     assert result == "Analysis result"
     assert name == "test_case_name"
+    assert chunks == []
+
+
+@pytest.mark.asyncio
+async def test_dryrun_result_returns_debug_metadata():
+    """Test dryrun returns test metadata without calling LLM."""
+    test_case = {"name": "My Test Case", "status": "FAIL"}
+    chunk = Chunking(
+        chunk_size=0,
+        number_of_chunks=2,
+        raw_text_len=5000,
+        tokens_from_raw_text=1250,
+        tokenized_chunks=2,
+    )
+
+    result, name, chunks = await _dryrun_result(test_case, chunk)
+
+    assert name == "My Test Case"
+    assert "[DRYRUN]" in result
+    assert "**Status**: FAIL" in result
+    assert "**Chunks**: 2" in result
+    assert "**Tokens**: 1250" in result
     assert chunks == []
