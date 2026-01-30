@@ -94,11 +94,6 @@ async def execute_llm_and_get_results(
     )
 
     for test_case in test_cases:
-        # Debug: Log the test case ID
-        test_id = test_case.get("id", "NO_ID")
-        test_name = test_case.get("name", "NO_NAME")
-        logger.debug(f"Processing test - ID: {test_id}, Name: {test_name}")
-        
         raw_test_case_text = str(test_case)
         chunk = calculate_chunk_size(
             raw_test_case_text, question_from_config_file, tokenizer
@@ -130,7 +125,6 @@ async def execute_llm_and_get_results(
     desc = f"Analyzing {len(test_cases)} test cases"
     results = await run_tasks_with_progress(corutines, semaphore=semaphore, desc=desc)
 
-    logger.debug(f"LLM results keys being stored: {list(results)}")
     for result, name, chunks in results:
         chunk, status = test_case_stats[name]
         header = _stats_header(status, chunk, dryrun, name)
