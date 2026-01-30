@@ -30,11 +30,15 @@ MODELS = Tuple[
 ]
 
 
-def _stats_header(name: str, status: str, chunk: Chunking, dryrun: bool = False) -> str:
-    """Returns markdown header with test info and analysis stats."""
+def _stats_header(
+    status: str, chunk: Chunking, dryrun: bool = False, name: str = ""
+) -> str:
+    """Returns markdown stats line for analysis."""
     chunks = chunk.number_of_chunks if chunk.requires_chunking else 0
-    prefix = "[DRYRUN] " if dryrun else ""
-    return f"""### {prefix}{name}\nStatus: {status} | Chunks: {chunks} | Tokens: ~{chunk.tokens_from_raw_text} | Raw length: {chunk.raw_text_len}
+    prefix = "**[DRYRUN]** " if dryrun else ""
+    return f"""## {prefix} {name}
+
+#### Status: {status} · Chunks: {chunks} · Tokens: ~{chunk.tokens_from_raw_text} · Raw length: {chunk.raw_text_len}
 
 ---
 
@@ -123,7 +127,7 @@ async def execute_llm_and_get_results(
 
     for result, name, chunks in results:
         chunk, status = test_case_stats[name]
-        header = _stats_header(name, status, chunk, dryrun)
+        header = _stats_header(status, chunk, dryrun, name)
         llm_results[name] = header + result
 
     return llm_results

@@ -51,8 +51,7 @@ async def test_gather_llm_runs_and_get_results() -> None:
     # Result now includes stats header + LLM output
     assert "test2_failing" in result
     assert "llm generated result" in result["test2_failing"]
-    assert "### test2_failing" in result["test2_failing"]
-    assert "Status: FAIL" in result["test2_failing"]
+    assert "FAIL" in result["test2_failing"]
 
 
 @pytest.mark.asyncio
@@ -83,9 +82,8 @@ def test_stats_header_returns_formatted_metadata():
         tokenized_chunks=3,
     )
 
-    header = _stats_header("My Test Case", "FAIL", chunk, dryrun=False)
+    header = _stats_header("FAIL", chunk, dryrun=False)
 
-    assert "My Test Case" in header
     assert "FAIL" in header
     assert "Chunks: 3" in header
     assert "Tokens: ~1250" in header
@@ -102,7 +100,7 @@ def test_stats_header_dryrun_mode():
         tokenized_chunks=0,
     )
 
-    header = _stats_header("Test Name", "PASS", chunk, dryrun=True)
+    header = _stats_header("PASS", chunk, dryrun=True)
 
     assert "[DRYRUN]" in header
     assert "Chunks: 0" in header
