@@ -36,7 +36,6 @@ def remove_redundant_fields(data: list[dict]) -> list[dict]:
         "level",
         "timestamp",
     ]
-    # Note: 'id' is NOT removed - it's essential for matching LLM results to tests
 
     if isinstance(data, dict):
         # Remove fields from the current dictionary

@@ -89,8 +89,9 @@ $(function() {
         var id = test.attr('id');
         if (!id || processed.has(id) || !llmData) return;
 
-        // Use test ID to lookup LLM results (test IDs are stable across renames)
-        if (llmData[id]) {
+        var name = test.find('.element-header .name').first().text().trim();
+
+        if (llmData[name]) {
             processed.add(id);
             var modelBadge = modelInfo ? '<span class="llm-model">' + modelInfo.model + '</span>' : '';
             var html = '<div class="llm-section">' +
@@ -100,7 +101,7 @@ $(function() {
                 '</div>' +
                 '<div class="llm-content">' +
                     '<button class="llm-copy">Copy</button>' +
-                    marked.parse(llmData[id]) +
+                    marked.parse(llmData[name]) +
                 '</div></div>';
             test.find('.children').first().append(html);
 
@@ -116,7 +117,7 @@ $(function() {
             test.find('.llm-copy').click(function(e) {
                 e.stopPropagation();
                 var btn = $(this);
-                navigator.clipboard.writeText(llmData[id]);
+                navigator.clipboard.writeText(llmData[name]);
                 btn.text('✓ Copied').addClass('copied');
                 setTimeout(function() {
                     btn.text('Copy').removeClass('copied');

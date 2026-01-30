@@ -67,7 +67,7 @@ async def accumulate_llm_results_without_streaming(
         await chain.ainvoke(
             {"context": test_case, "question": question_from_config_file}, verbose=True
         ),
-        test_case["id"],
+        test_case["name"],
         [],
     )
 
