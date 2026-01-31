@@ -26,7 +26,8 @@ from result_companion.core.utils.logging_config import logger, set_global_log_le
 
 def init_llm_with_strategy_factory(
     config: LLMFactoryModel,
-    concurrency: int = 1,
+    test_case_concurrency: int = 1,
+    chunk_concurrency: int = 1,
 ) -> MODELS:
     """Creates LLM model with optional init strategy."""
     model_type = config.model_type
@@ -42,9 +43,9 @@ def init_llm_with_strategy_factory(
         "ChatCopilot": (ChatCopilot, None),
     }
 
-    # Runtime overrides: model needs concurrency-derived params
+    # Runtime overrides: ChatCopilot needs pool_size = max concurrent requests
     runtime_overrides = {
-        "ChatCopilot": {"pool_size": concurrency},
+        "ChatCopilot": {"pool_size": test_case_concurrency * chunk_concurrency},
     }
 
     if model_type not in model_classes:
@@ -114,7 +115,8 @@ async def _main(
     template = parsed_config.llm_config.prompt_template
     model, model_init_strategy = init_llm_with_strategy_factory(
         parsed_config.llm_factory,
-        concurrency=parsed_config.concurrency.test_case,
+        test_case_concurrency=parsed_config.concurrency.test_case,
+        chunk_concurrency=parsed_config.concurrency.chunk,
     )
 
     if model_init_strategy:

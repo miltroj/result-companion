@@ -369,12 +369,15 @@ llm_config:
 Control how many test cases and chunks are processed in parallel:
 
 ```yaml
+# Max concurrent API requests = test_case × chunk
 concurrency:
-  test_case: 2  # Process 2 tests in parallel
-  chunk: 1      # Sequential chunk processing
+  test_case: 2  # Parallel test case analyses
+  chunk: 1      # Parallel chunks per large test (for chunked tests only)
 ```
 
-**Maximum concurrent requests = test_case × chunk**
+**Maximum concurrent API requests = test_case × chunk**
+
+For ChatCopilot, this automatically sets the session pool size.
 
 | test_case | chunk | Max Concurrent |
 |-----------|-------|----------------|
