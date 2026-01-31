@@ -1,7 +1,5 @@
 import asyncio
-import json
-from pathlib import Path
-from typing import Any, Callable, Tuple
+from typing import Callable, Tuple
 
 from langchain_anthropic import ChatAnthropic
 from langchain_aws import BedrockLLM
@@ -30,22 +28,6 @@ MODELS = Tuple[
     | ChatAnthropic,
     Callable,
 ]
-
-
-def _append_debug_json(filename: str, key: str, value: Any) -> None:
-    """Appends debug data to a JSON lines file.
-
-    Args:
-        filename: Path to the output file (will be created if doesn't exist).
-        key: Identifier for this debug entry.
-        value: Data to store (will be JSON serialized).
-    """
-    filepath = Path(filename)
-    filepath.parent.mkdir(parents=True, exist_ok=True)
-
-    debug_entry = json.dumps({"key": key, "value": value})
-    with open(filepath, "a") as f:
-        f.write(debug_entry + "\n")
 
 
 def _stats_header(
@@ -147,15 +129,5 @@ async def execute_llm_and_get_results(
         chunk, status = test_case_stats[name]
         header = _stats_header(status, chunk, dryrun, name)
         llm_results[name] = header + result
-        _append_debug_json(
-            "llm_results_debug.jsonl",
-            name,
-            {
-                "llm_result": result,
-                "header": header,
-                "full_content": llm_results[name],
-            },
-        )
-        logger.debug(f"Stored result for key: {name}")
 
     return llm_results
