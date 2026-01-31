@@ -26,9 +26,11 @@ from result_companion.core.utils.logging_config import logger, set_global_log_le
 
 def init_llm_with_strategy_factory(
     config: LLMFactoryModel,
+    concurrency: int = 1,
 ) -> MODELS:
+    """Creates LLM model with optional init strategy."""
     model_type = config.model_type
-    parameters = config.parameters
+    parameters = dict(config.parameters)
 
     model_classes = {
         "OllamaLLM": (OllamaLLM, ollama_on_init_strategy),
@@ -40,10 +42,18 @@ def init_llm_with_strategy_factory(
         "ChatCopilot": (ChatCopilot, None),
     }
 
+    # Runtime overrides: model needs concurrency-derived params
+    runtime_overrides = {
+        "ChatCopilot": {"pool_size": concurrency},
+    }
+
     if model_type not in model_classes:
         raise ValueError(
             f"Unsupported model type: {model_type} not in {model_classes.keys()}"
         )
+
+    if model_type in runtime_overrides:
+        parameters.update(runtime_overrides[model_type])
 
     model_class, strategy = model_classes[model_type]
     try:
@@ -103,7 +113,8 @@ async def _main(
     question_from_config_file = parsed_config.llm_config.question_prompt
     template = parsed_config.llm_config.prompt_template
     model, model_init_strategy = init_llm_with_strategy_factory(
-        parsed_config.llm_factory
+        parsed_config.llm_factory,
+        concurrency=parsed_config.concurrency.test_case,
     )
 
     if model_init_strategy:
