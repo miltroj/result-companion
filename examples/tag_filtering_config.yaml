@@ -55,6 +55,7 @@ tokenizer:
   tokenizer: ollama_tokenizer
   max_content_tokens: 140000
 
+# Max concurrent API requests = test_case × chunk (e.g., 3×2=6 parallel calls)
 concurrency:
-  test_case: 1
-  chunk: 1
+  test_case: 1  # Parallel test case analyses
+  chunk: 1      # Parallel chunks per large test

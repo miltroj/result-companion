@@ -6,12 +6,15 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_ollama.llms import OllamaLLM
 from langchain_openai import AzureChatOpenAI, ChatOpenAI
 
+from result_companion.core.analizers.remote.copilot import ChatCopilot
+
 MODELS = Tuple[
     OllamaLLM
     | AzureChatOpenAI
     | BedrockLLM
     | ChatGoogleGenerativeAI
     | ChatOpenAI
-    | ChatAnthropic,
+    | ChatAnthropic
+    | ChatCopilot,
     Callable,
 ]

@@ -11,14 +11,20 @@ from tqdm import tqdm
 class JsonFormatter(logging.Formatter):
     """Formats log records as JSON."""
 
+    STANDARD_ATTRS = frozenset(logging.LogRecord("", 0, "", 0, "", (), None).__dict__)
+
     def format(self, record: logging.LogRecord) -> str:
-        """Formats a log record as JSON."""
+        """Formats a log record as JSON, including extra fields."""
         log_data = {
             "timestamp": self.formatTime(record),
             "logger": record.name,
             "level": record.levelname,
             "message": record.getMessage(),
         }
+
+        for key, value in record.__dict__.items():
+            if key not in self.STANDARD_ATTRS:
+                log_data[key] = value
 
         if record.exc_info:
             log_data["exception"] = self.formatException(record.exc_info)
