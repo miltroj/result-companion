@@ -90,7 +90,12 @@ async def summarize_test_case(
             logger.debug(
                 f"[{test_name}] Processing chunk {chunk_idx + 1}/{total_chunks}, length {len(chunk)}"
             )
-            return await summarization_chain.ainvoke({"text": chunk})
+            result = await summarization_chain.ainvoke({"text": chunk})
+            logger.debug(
+                f"[{test_name}] Chunk {chunk_idx + 1}/{total_chunks} completed",
+                extra={"summary": result},
+            )
+            return result
 
     chunk_tasks = [process_with_limit(chunk, i) for i, chunk in enumerate(chunks)]
     summaries = await asyncio.gather(*chunk_tasks)
