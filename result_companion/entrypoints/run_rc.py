@@ -108,6 +108,11 @@ async def _main(
 
     stop = time.time()
     logger.debug(f"Execution time: {stop - start}")
+
+    # Allow aiohttp SSL connections to cleanup before event loop closes
+    # This prevents "Event loop is closed" errors from liteLLM's internal aiohttp client
+    await asyncio.sleep(0.25)
+
     return True
 
 
