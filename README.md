@@ -46,7 +46,7 @@ result-companion setup model deepseek-r1:1.5b
 result-companion analyze -o output.xml
 ```
 
-### Option 2: Cloud AI ([OpenAI](https://github.com/miltroj/result-companion/blob/main/examples/EXAMPLES.md#openai), Azure, Google)
+### Option 2: Cloud AI ([OpenAI](https://github.com/miltroj/result-companion/blob/main/examples/EXAMPLES.md#openai), Azure, Google, Anthropic)
 
 ```bash
 pip install result-companion
@@ -55,6 +55,8 @@ pip install result-companion
 export OPENAI_API_KEY="your-key"
 result-companion analyze -o output.xml -c examples/openai_config.yaml
 ```
+
+Supports 100+ LLM providers via [LiteLLM](https://docs.litellm.ai/docs/providers).
 
 ## Real Example
 

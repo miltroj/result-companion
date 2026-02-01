@@ -1,58 +1,68 @@
+"""Common utilities for LLM analysis.
+
+This module contains shared utilities for LLM-based analysis.
+The main analysis logic is in factory_common.py.
+"""
+
 import asyncio
-from typing import Tuple
+from typing import Any
 
-from langchain_core.runnables import RunnableSerializable
-
-
-async def accumulate_llm_results(
-    test_case: list, question_from_config_file: str, chain: RunnableSerializable
-) -> Tuple[str, str]:
-    print(
-        f"\n### Test Case: {test_case['name']}, content length: {len(str(test_case))}"
-    )
-    result = []
-    async for chunk in chain.astream(
-        {"context": test_case, "question": question_from_config_file}, verbose=True
-    ):
-        result.append(chunk)
-        print(chunk, end="", flush=True)
-    return "".join(result), test_case["name"]
+from litellm import acompletion
 
 
-async def run_llm_based_analysis_and_stream_results(
-    test_cases: list, question_from_config_file: str, chain: RunnableSerializable
-) -> dict:
+async def run_with_semaphore(semaphore: asyncio.Semaphore, coroutine: Any) -> Any:
+    """Runs a coroutine with semaphore-based concurrency control.
 
-    llm_results = dict()
-    for test_case in test_cases:
-        llm_results[test_case["name"]], _ = await accumulate_llm_results(
-            test_case, question_from_config_file, chain
-        )
+    Args:
+        semaphore: Semaphore for limiting concurrency.
+        coroutine: Coroutine to run.
 
-    return llm_results
-
-
-async def run_with_semaphore(semaphore: asyncio.Semaphore, coroutine: any) -> any:
+    Returns:
+        Result of the coroutine.
+    """
     async with semaphore:
         return await coroutine
 
 
-async def run_llm_api_calls_based_analysis_and_stream_results(
-    test_cases: list, question_from_config_file: str, chain: RunnableSerializable
-) -> dict:
-    llm_results = dict()
-    corutines = []
+async def simple_llm_call(
+    prompt: str,
+    llm_params: dict[str, Any],
+) -> str:
+    """Makes a simple LLM call with the given prompt.
 
-    for test_case in test_cases:
-        corutines.append(
-            accumulate_llm_results(test_case, question_from_config_file, chain)
-        )
+    Args:
+        prompt: The prompt to send to the LLM.
+        llm_params: Parameters for LiteLLM acompletion (model, api_key, etc).
 
-    semaphore = asyncio.Semaphore(1)  # Limit concurrency
+    Returns:
+        The LLM response content.
+    """
+    messages = [{"role": "user", "content": prompt}]
+    response = await acompletion(messages=messages, **llm_params)
+    return response.choices[0].message.content
 
-    tasks = [run_with_semaphore(semaphore, coroutine) for coroutine in corutines]
 
-    for result, name in await asyncio.gather(*tasks):
-        llm_results[name] = result
+async def streaming_llm_call(
+    prompt: str,
+    llm_params: dict[str, Any],
+) -> str:
+    """Makes a streaming LLM call and returns the full response.
 
-    return llm_results
+    Args:
+        prompt: The prompt to send to the LLM.
+        llm_params: Parameters for LiteLLM acompletion.
+
+    Returns:
+        The complete LLM response content.
+    """
+    messages = [{"role": "user", "content": prompt}]
+    params = {**llm_params, "stream": True}
+
+    result_chunks = []
+    response = await acompletion(messages=messages, **params)
+
+    async for chunk in response:
+        if chunk.choices[0].delta.content:
+            result_chunks.append(chunk.choices[0].delta.content)
+
+    return "".join(result_chunks)

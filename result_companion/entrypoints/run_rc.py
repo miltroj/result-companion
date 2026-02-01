@@ -3,19 +3,10 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from langchain_anthropic import ChatAnthropic
-from langchain_aws import BedrockLLM
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_ollama.llms import OllamaLLM
-from langchain_openai import AzureChatOpenAI, ChatOpenAI
-from pydantic import ValidationError
-
 from result_companion.core.analizers.factory_common import execute_llm_and_get_results
 from result_companion.core.analizers.local.ollama_runner import ollama_on_init_strategy
-from result_companion.core.analizers.models import MODELS
 from result_companion.core.html.html_creator import create_llm_html_log
-from result_companion.core.parsers.config import LLMFactoryModel, load_config
+from result_companion.core.parsers.config import load_config
 from result_companion.core.parsers.result_parser import (
     get_robot_results_from_file_as_dict,
 )
@@ -23,33 +14,28 @@ from result_companion.core.utils.log_levels import LogLevels
 from result_companion.core.utils.logging_config import logger, set_global_log_level
 
 
-def init_llm_with_strategy_factory(
-    config: LLMFactoryModel,
-) -> MODELS:
-    model_type = config.model_type
-    parameters = config.parameters
+def _run_ollama_init_strategy(model_name: str, strategy_params: dict) -> None:
+    """Runs Ollama initialization strategy if model is Ollama.
 
-    model_classes = {
-        "OllamaLLM": (OllamaLLM, ollama_on_init_strategy),
-        "AzureChatOpenAI": (AzureChatOpenAI, None),
-        "BedrockLLM": (BedrockLLM, None),
-        "ChatGoogleGenerativeAI": (ChatGoogleGenerativeAI, None),
-        "ChatOpenAI": (ChatOpenAI, None),
-        "ChatAnthropic": (ChatAnthropic, None),
-    }
+    Args:
+        model_name: LiteLLM model identifier (e.g., ollama_chat/llama2).
+        strategy_params: Parameters for the init strategy.
+    """
+    if not model_name.startswith("ollama"):
+        return
 
-    if model_type not in model_classes:
-        raise ValueError(
-            f"Unsupported model type: {model_type} not in {model_classes.keys()}"
-        )
+    # Extract short model name for Ollama server check
+    # e.g., "ollama_chat/deepseek-r1:1.5b" -> "deepseek-r1"
+    model_short = strategy_params.get("model_name")
+    if not model_short:
+        parts = model_name.split("/")
+        if len(parts) > 1:
+            model_short = parts[1].split(":")[0]
+        else:
+            model_short = model_name.split(":")[0]
 
-    model_class, strategy = model_classes[model_type]
-    try:
-        return model_class(**parameters), strategy
-    except (TypeError, ValidationError) as e:
-        raise ValueError(
-            f"Invalid parameters for {model_type}: {parameters}, while available parameters are: {model_class.__init__.__annotations__}"
-        ) from e
+    logger.debug(f"Running Ollama init strategy for model: {model_short}")
+    ollama_on_init_strategy(model_name=model_short)
 
 
 async def _main(
@@ -68,7 +54,6 @@ async def _main(
 
     logger.info("Starting Result Companion!")
     start = time.time()
-    # TODO: move to testable method
     parsed_config = load_config(config)
 
     if test_case_concurrency is not None:
@@ -80,8 +65,6 @@ async def _main(
     final_include = include_tags or parsed_config.test_filter.include_tags or None
     final_exclude = exclude_tags or parsed_config.test_filter.exclude_tags or None
 
-    # Use RF's native filtering (same as rebot --include/--exclude)
-    # TODO: set output log level from config or cli
     test_cases = get_robot_results_from_file_as_dict(
         file_path=output,
         log_level=LogLevels.DEBUG,
@@ -98,37 +81,23 @@ async def _main(
 
     logger.info(f"Filtered to {len(test_cases)} test cases")
 
-    question_from_config_file = parsed_config.llm_config.question_prompt
-    template = parsed_config.llm_config.prompt_template
-    model, model_init_strategy = init_llm_with_strategy_factory(
-        parsed_config.llm_factory
+    # Run Ollama init strategy if needed
+    _run_ollama_init_strategy(
+        model_name=parsed_config.llm_factory.model,
+        strategy_params=parsed_config.llm_factory.strategy.parameters,
     )
 
-    if model_init_strategy:
-        logger.debug(
-            f"Using init strategy: {model_init_strategy} with parameters: {parsed_config.llm_factory.strategy.parameters}"
-        )
-        model_init_strategy(**parsed_config.llm_factory.strategy.parameters)
-
-    logger.debug(f"Prompt template: {template}")
-    logger.debug(f"Question loaded {question_from_config_file=}")
-    prompt_template = ChatPromptTemplate.from_template(template)
+    logger.debug(f"Using model: {parsed_config.llm_factory.model}")
 
     llm_results = await execute_llm_and_get_results(
-        test_cases,
-        parsed_config,
-        prompt_template,
-        model,
+        test_cases=test_cases,
+        config=parsed_config,
         dryrun=dryrun,
     )
 
     report_path = report if report else "rc_log.html"
     if llm_results:
-        model_info = {
-            "model": parsed_config.llm_factory.parameters.get(
-                "model", parsed_config.llm_factory.model_type
-            )
-        }
+        model_info = {"model": parsed_config.llm_factory.model}
         create_llm_html_log(
             input_result_path=output,
             llm_output_path=report_path,
@@ -154,6 +123,23 @@ def run_rc(
     exclude_tags: Optional[list[str]] = None,
     dryrun: bool = False,
 ) -> bool:
+    """Runs the Result Companion analysis.
+
+    Args:
+        output: Path to Robot Framework output.xml file.
+        log_level: Logging verbosity level.
+        config: Optional path to user config file.
+        report: Optional output report path.
+        include_passing: Whether to include passing tests.
+        test_case_concurrency: Number of test cases to process in parallel.
+        chunk_concurrency: Number of chunks to process in parallel.
+        include_tags: RF tag patterns to include.
+        exclude_tags: RF tag patterns to exclude.
+        dryrun: If True, skip LLM calls.
+
+    Returns:
+        True if analysis completed successfully.
+    """
     try:
         return asyncio.run(
             _main(
@@ -170,6 +156,5 @@ def run_rc(
             )
         )
     except Exception:
-        # logging unhandled exceptions to file from asyncio.run
         logger.critical("Unhandled exception", exc_info=True)
         raise
