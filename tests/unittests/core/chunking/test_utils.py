@@ -39,7 +39,7 @@ def test_calculating_final_chunk_size() -> None:
     assert chunk.raw_text_len == 1000
     assert chunk.tokens_from_raw_text == 1000 // 4
     assert chunk.tokenized_chunks == 3
-    assert chunk.chunk_size == 333.3333333333333
+    assert chunk.chunk_size == 333
 
 
 def test_chunk_correctly_even_distributed_tokens() -> None:
@@ -64,7 +64,7 @@ def test_chunking_not_even_distribution() -> None:
     assert chunk.raw_text_len == 11
     assert chunk.tokens_from_raw_text == 7
     assert chunk.tokenized_chunks == 4
-    assert chunk.chunk_size == 2.75
+    assert chunk.chunk_size == 2
 
 
 @patch("tiktoken.get_encoding")

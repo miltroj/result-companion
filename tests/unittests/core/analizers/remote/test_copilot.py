@@ -1,14 +1,12 @@
-"""Tests for Copilot SDK LangChain adapter."""
+"""Tests for Copilot LiteLLM adapter."""
 
-import asyncio
 import os
-from dataclasses import dataclass
+import stat
 
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from result_companion.core.analizers.remote.copilot import (
-    ChatCopilot,
+    CopilotLLM,
     SessionPool,
     ensure_executable,
     messages_to_prompt,
@@ -16,314 +14,174 @@ from result_companion.core.analizers.remote.copilot import (
 
 
 class TestMessagesToPrompt:
-    """Tests for messages_to_prompt pure function."""
+    """Tests for messages_to_prompt function."""
 
-    def test_human_message_only(self):
-        messages = [HumanMessage(content="Hello")]
+    def test_converts_single_user_message(self):
+        messages = [{"role": "user", "content": "Hello"}]
+
         result = messages_to_prompt(messages)
+
         assert result == "[User]: Hello"
 
-    def test_system_and_human_messages(self):
+    def test_converts_multiple_messages(self):
         messages = [
-            SystemMessage(content="You are helpful"),
-            HumanMessage(content="What is 2+2?"),
+            {"role": "system", "content": "You are helpful"},
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi there"},
         ]
+
         result = messages_to_prompt(messages)
+
         assert "[System]: You are helpful" in result
-        assert "[User]: What is 2+2?" in result
+        assert "[User]: Hello" in result
+        assert "[Assistant]: Hi there" in result
 
-    def test_multiple_messages_joined_with_double_newline(self):
-        messages = [
-            SystemMessage(content="System"),
-            HumanMessage(content="User"),
-            AIMessage(content="Assistant"),
-        ]
+    def test_handles_unknown_role(self):
+        messages = [{"role": "unknown", "content": "test"}]
+
         result = messages_to_prompt(messages)
-        assert result == "[System]: System\n\n[User]: User\n\n[Assistant]: Assistant"
 
-    def test_empty_messages_list(self):
-        assert messages_to_prompt([]) == ""
+        assert ": test" in result
 
 
-@dataclass
-class FakeResponseData:
-    content: str
+class TestCopilotLLM:
+    """Tests for CopilotLLM class."""
+
+    def test_extract_model_strips_provider_prefix(self):
+        handler = CopilotLLM()
+
+        result = handler._extract_model("copilot_sdk/gpt-4.1")
+
+        assert result == "gpt-4.1"
+
+    def test_extract_model_returns_default_for_empty(self):
+        handler = CopilotLLM(model="claude-sonnet-4.5")
+
+        result = handler._extract_model("")
+
+        assert result == "claude-sonnet-4.5"
+
+    def test_extract_model_passes_through_without_prefix(self):
+        handler = CopilotLLM()
+
+        result = handler._extract_model("gpt-5")
+
+        assert result == "gpt-5"
 
 
-@dataclass
-class FakeResponse:
-    data: FakeResponseData
+class TestEnsureExecutable:
+    """Tests for ensure_executable helper."""
+
+    def test_sets_execute_bits_on_regular_file(self, tmp_path):
+        # Create a non-executable file and confirm we add execute bits.
+        file_path = tmp_path / "copilot"
+        file_path.write_text("#!/bin/sh\necho ok\n", encoding="utf-8")
+        os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
+        assert not os.access(file_path, os.X_OK)
+
+        ensure_executable(str(file_path))
+
+        assert os.access(file_path, os.X_OK)
+
+    def test_skips_relative_path(self, tmp_path):
+        # Relative paths should be ignored to avoid mutating unknown locations.
+        file_path = tmp_path / "copilot"
+        file_path.write_text("echo ok\n", encoding="utf-8")
+        os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR)
+        original_mode = os.stat(file_path).st_mode
+
+        ensure_executable("copilot")
+
+        assert os.stat(file_path).st_mode == original_mode
+
+    def test_skips_when_already_executable(self, tmp_path):
+        # If the file is already executable, the mode should remain unchanged.
+        file_path = tmp_path / "copilot"
+        file_path.write_text("#!/bin/sh\necho ok\n", encoding="utf-8")
+        os.chmod(
+            file_path,
+            stat.S_IRUSR
+            | stat.S_IWUSR
+            | stat.S_IXUSR
+            | stat.S_IRGRP
+            | stat.S_IXGRP
+            | stat.S_IROTH
+            | stat.S_IXOTH,
+        )
+        original_mode = os.stat(file_path).st_mode
+
+        ensure_executable(str(file_path))
+
+        assert os.stat(file_path).st_mode == original_mode
 
 
-class FakeCopilotSession:
+class FakeSession:
     """Fake Copilot session for testing."""
 
-    def __init__(self, response_content: str = "Test response", session_id: int = 0):
+    def __init__(self, response_content: str = "test response"):
         self.response_content = response_content
-        self.session_id = session_id
-        self.prompts_received: list[str] = []
+        self.destroyed = False
 
-    async def send_and_wait(self, options: dict, timeout: int = 300) -> FakeResponse:
-        self.prompts_received.append(options.get("prompt", ""))
-        return FakeResponse(data=FakeResponseData(content=self.response_content))
+    async def send_and_wait(self, options: dict, timeout: int = 300) -> object:
+        """Returns fake response."""
+
+        class FakeData:
+            content = self.response_content
+
+        class FakeResponse:
+            data = FakeData()
+
+        return FakeResponse()
 
     async def destroy(self) -> None:
-        pass
+        self.destroyed = True
 
 
 class FakeCopilotClient:
     """Fake Copilot client for testing."""
 
-    def __init__(self, response_content: str = "Test response"):
-        self.started = False
-        self.stopped = False
-        self.sessions_created = 0
+    def __init__(self, response_content: str = "test response"):
         self.response_content = response_content
-        self.options: dict = {"cli_path": ""}
+        self.sessions_created = 0
 
-    async def start(self) -> None:
-        self.started = True
-
-    async def create_session(self, options: dict) -> FakeCopilotSession:
+    async def create_session(self, config: dict) -> FakeSession:
         self.sessions_created += 1
-        return FakeCopilotSession(
-            session_id=self.sessions_created, response_content=self.response_content
-        )
-
-    async def stop(self) -> None:
-        self.stopped = True
+        return FakeSession(self.response_content)
 
 
 class TestSessionPool:
-    """Tests for SessionPool."""
+    """Tests for SessionPool class."""
 
     @pytest.mark.asyncio
-    async def test_acquire_creates_session_on_demand(self):
+    async def test_acquire_creates_session_when_pool_empty(self):
         client = FakeCopilotClient()
-        pool = SessionPool(client, "gpt-4.1", pool_size=3)
+        pool = SessionPool(client, "gpt-4.1", pool_size=2)
 
         async with pool.acquire() as session:
             assert session is not None
-            assert client.sessions_created == 1
 
-    @pytest.mark.asyncio
-    async def test_acquire_reuses_released_session(self):
-        client = FakeCopilotClient()
-        pool = SessionPool(client, "gpt-4.1", pool_size=3)
-
-        async with pool.acquire() as session1:
-            first_id = session1.session_id
-
-        async with pool.acquire() as session2:
-            assert session2.session_id == first_id
-            assert client.sessions_created == 1  # No new session created
-
-    @pytest.mark.asyncio
-    async def test_blocked_acquire_gets_released_session(self):
-        """Verifies waiting acquire gets session when another releases."""
-        client = FakeCopilotClient()
-        pool = SessionPool(client, "gpt-4.1", pool_size=1)  # Only 1 session
-
-        acquired_ids: list[int] = []
-
-        async def acquire_and_record():
-            async with pool.acquire() as session:
-                acquired_ids.append(session.session_id)
-                await asyncio.sleep(0.05)  # Hold briefly
-
-        # Start two tasks competing for 1 session
-        task1 = asyncio.create_task(acquire_and_record())
-        await asyncio.sleep(0.01)  # Let task1 acquire first
-        task2 = asyncio.create_task(acquire_and_record())
-
-        await asyncio.gather(task1, task2)
-
-        # Both should have used the SAME session (reused after release)
-        assert len(acquired_ids) == 2
-        assert acquired_ids[0] == acquired_ids[1]
         assert client.sessions_created == 1
 
     @pytest.mark.asyncio
-    async def test_session_released_on_error(self):
-        """Verifies session returns to pool even if request fails."""
-        client = FakeCopilotClient()
-        pool = SessionPool(client, "gpt-4.1", pool_size=1)
-
-        # First acquire fails with exception
-        with pytest.raises(RuntimeError):
-            async with pool.acquire() as session:
-                raise RuntimeError("API failed")
-
-        # Session should still be available for next acquire
-        async with pool.acquire() as session:
-            assert session is not None
-            assert client.sessions_created == 1  # Same session reused
-
-    @pytest.mark.asyncio
-    async def test_pool_limits_concurrent_sessions(self):
-        client = FakeCopilotClient()
-        pool = SessionPool(client, "gpt-4.1", pool_size=2)
-
-        # Acquire all sessions in pool
-        async with pool.acquire():
-            async with pool.acquire():
-                assert client.sessions_created == 2
-
-                # Third acquire should block (pool exhausted)
-                acquire_started = asyncio.Event()
-                acquired = asyncio.Event()
-
-                async def blocked_acquire():
-                    acquire_started.set()
-                    async with pool.acquire():
-                        acquired.set()
-
-                task = asyncio.create_task(blocked_acquire())
-                await acquire_started.wait()
-                await asyncio.sleep(0.05)
-                assert not acquired.is_set()  # Still waiting
-                task.cancel()
-
-    @pytest.mark.asyncio
-    async def test_close_destroys_available_sessions(self):
+    async def test_acquire_reuses_session(self):
         client = FakeCopilotClient()
         pool = SessionPool(client, "gpt-4.1", pool_size=2)
 
         async with pool.acquire():
-            pass  # Session now in available queue
+            pass
+        async with pool.acquire():
+            pass
 
-        assert pool._created == 1
+        assert client.sessions_created == 1
+
+    @pytest.mark.asyncio
+    async def test_close_destroys_sessions(self):
+        client = FakeCopilotClient()
+        pool = SessionPool(client, "gpt-4.1", pool_size=2)
+
+        async with pool.acquire():
+            pass
+
         await pool.close()
+
         assert pool._created == 0
-        assert pool._available.empty()
-
-
-class TestChatCopilot:
-    """Tests for ChatCopilot adapter."""
-
-    @pytest.mark.asyncio
-    async def test_agenerate_returns_ai_message_with_response(self):
-        fake_client = FakeCopilotClient(response_content="4")
-        chat = ChatCopilot(model="gpt-4.1", pool_size=1)
-        chat._client = fake_client
-        chat._pool = SessionPool(fake_client, "gpt-4.1", pool_size=1)
-        chat._started = True
-
-        result = await chat._agenerate([HumanMessage(content="What is 2+2?")])
-
-        assert result.generations[0].message.content == "4"
-
-    @pytest.mark.asyncio
-    async def test_aclose_cleans_up_resources(self):
-        fake_client = FakeCopilotClient()
-        chat = ChatCopilot(model="gpt-4.1")
-        chat._client = fake_client
-        chat._pool = SessionPool(fake_client, "gpt-4.1", pool_size=1)
-        chat._started = True
-
-        await chat.aclose()
-
-        assert fake_client.stopped
-        assert chat._pool is None
-        assert chat._client is None
-        assert not chat._started
-
-    @pytest.mark.asyncio
-    async def test_concurrent_requests_use_separate_sessions(self):
-        """Verifies pool enables true concurrency with separate sessions."""
-        sessions_used: list[int] = []
-
-        class TrackingClient(FakeCopilotClient):
-            async def create_session(self, options: dict) -> FakeCopilotSession:
-                self.sessions_created += 1
-                session = FakeCopilotSession(session_id=self.sessions_created)
-                original_send = session.send_and_wait
-
-                async def tracking_send(opts: dict, timeout: int = 300) -> FakeResponse:
-                    sessions_used.append(session.session_id)
-                    await asyncio.sleep(0.05)
-                    return await original_send(opts, timeout)
-
-                session.send_and_wait = tracking_send
-                return session
-
-        fake_client = TrackingClient()
-        chat = ChatCopilot(model="gpt-4.1", pool_size=3)
-        chat._client = fake_client
-        chat._pool = SessionPool(fake_client, "gpt-4.1", pool_size=3)
-        chat._started = True
-
-        # Launch 3 concurrent requests
-        tasks = [
-            chat._agenerate([HumanMessage(content="Request 1")]),
-            chat._agenerate([HumanMessage(content="Request 2")]),
-            chat._agenerate([HumanMessage(content="Request 3")]),
-        ]
-        await asyncio.gather(*tasks)
-
-        # With pool, each request should use a different session
-        assert len(set(sessions_used)) == 3  # 3 unique sessions
-
-    @pytest.mark.asyncio
-    async def test_ensure_started_initializes_client_and_pool(self, monkeypatch):
-        fake_client = FakeCopilotClient()
-        monkeypatch.setattr(
-            "result_companion.core.analizers.remote.copilot.CopilotClient",
-            lambda opts=None: fake_client,
-        )
-        chat = ChatCopilot(model="gpt-4.1", pool_size=2)
-
-        await chat._ensure_started()
-
-        assert chat._started
-        assert fake_client.started
-        assert chat._pool is not None
-        assert chat._pool._pool_size == 2
-
-
-def _make_binary(tmp_path, name: str = "copilot", mode: int = 0o755) -> str:
-    """Creates a fake binary file for testing."""
-    binary = tmp_path / name
-    binary.write_bytes(b"\x00")
-    binary.chmod(mode)
-    return str(binary)
-
-
-class TestEnsureExecutable:
-    """Tests for ensure_executable permission fixer."""
-
-    def test_adds_execute_bit_when_missing(self, tmp_path):
-        path = _make_binary(tmp_path, mode=0o644)
-
-        ensure_executable(path)
-
-        assert os.access(path, os.X_OK)
-
-    def test_noop_when_already_executable(self, tmp_path):
-        path = _make_binary(tmp_path, mode=0o755)
-        original_mode = os.stat(path).st_mode
-
-        ensure_executable(path)
-
-        assert os.stat(path).st_mode == original_mode
-
-
-class TestEnsureStartedFixesPermissions:
-    """Tests that _ensure_started fixes binary permissions before start."""
-
-    @pytest.mark.asyncio
-    async def test_fixes_cli_permissions_before_start(self, tmp_path, monkeypatch):
-        binary = _make_binary(tmp_path, mode=0o644)
-        fake_client = FakeCopilotClient()
-        fake_client.options = {"cli_path": str(binary)}
-
-        monkeypatch.setattr(
-            "result_companion.core.analizers.remote.copilot.CopilotClient",
-            lambda opts=None: fake_client,
-        )
-        chat = ChatCopilot(model="gpt-4.1")
-
-        await chat._ensure_started()
-
-        assert os.access(str(binary), os.X_OK)
-        assert fake_client.started

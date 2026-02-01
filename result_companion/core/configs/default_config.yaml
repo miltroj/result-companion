@@ -69,9 +69,10 @@ llm_config:
     Answer the question based on the following context: {context}
 
 llm_factory:
-  model_type: "OllamaLLM" # AzureChatOpenAI OllamaLLM BedrockLLM
-  parameters:
-    model: "deepseek-r1:1.5b"
+  # LiteLLM model format: provider/model-name
+  # Examples: ollama_chat/llama2, openai/gpt-4o, anthropic/claude-3-sonnet
+  model: "ollama_chat/deepseek-r1:1.5b"
+  api_base: "http://localhost:11434"  # Required for Ollama
   strategy:
     parameters:
       model_name: "deepseek-r1"

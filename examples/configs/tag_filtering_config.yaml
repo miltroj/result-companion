@@ -44,9 +44,8 @@ llm_config:
     Answer based on: {context}
 
 llm_factory:
-  model_type: "OllamaLLM"
-  parameters:
-    model: "deepseek-r1:1.5b"
+  model: "ollama_chat/deepseek-r1:1.5b"
+  api_base: "http://localhost:11434"
   strategy:
     parameters:
       model_name: "deepseek-r1"

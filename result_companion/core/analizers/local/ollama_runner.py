@@ -100,9 +100,10 @@ def ollama_on_init_strategy(
 
 if __name__ == "__main__":
     # TODO: Transfer to integration tests
+    import asyncio
     import logging
 
-    from langchain_ollama.llms import OllamaLLM
+    from litellm import acompletion
 
     logging.basicConfig(level=logging.INFO)
     test_model = "deepseek-r1"  # Change to a model you might have/not have
@@ -111,14 +112,21 @@ if __name__ == "__main__":
         print(f"Successfully verified Ollama setup for model: {test_model}")
     except (OllamaNotInstalled, OllamaServerNotRunning, OllamaModelNotAvailable) as e:
         print(f"Error: {e}")
+        exit(1)
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
+        exit(1)
 
-    # Initialize the model with your local server endpoint
-    model = OllamaLLM(
-        model="deepseek-r1:1.5b",
-    )
+    async def test_ollama():
+        response = await acompletion(
+            model="ollama_chat/deepseek-r1:1.5b",
+            messages=[
+                {"role": "user", "content": "Come up with a concise interesting fact"}
+            ],
+            api_base="http://localhost:11434",
+        )
+        return response.choices[0].message.content
 
-    result = model.invoke("Come up with consise interesting fact")
+    result = asyncio.run(test_ollama())
     server_mnger.cleanup()
     print(result)

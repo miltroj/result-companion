@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **BREAKING**: Migrated from LangChain to LiteLLM for LLM integrations
+  - Replaced 7 LangChain packages with single `litellm` package
+  - Config format changed: `model_type` replaced with `model` using LiteLLM naming (e.g., `ollama_chat/llama2`, `openai/gpt-4o`)
+  - Simplified configuration: `api_key` and `api_base` now top-level in `llm_factory`
+- Supports 100+ LLM providers via LiteLLM unified interface
+- Reduced package dependencies significantly
+
+### Migration Guide
+Old config format:
+```yaml
+llm_factory:
+  model_type: "ChatOpenAI"
+  parameters:
+    model: "gpt-4"
+    api_key: "${OPENAI_API_KEY}"
+```
+
+New config format:
+```yaml
+llm_factory:
+  model: "openai/gpt-4"
+  api_key: "${OPENAI_API_KEY}"
+```
+
+See [EXAMPLES.md](examples/EXAMPLES.md) for all provider configurations.
+
 ## [0.0.2] - 2026-01-25
 
 ### Fixed

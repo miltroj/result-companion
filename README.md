@@ -73,6 +73,8 @@ export OPENAI_API_KEY="your-key"
 result-companion analyze -o output.xml -c examples/configs/openai_config.yaml
 ```
 
+Supports 100+ LLM providers via [LiteLLM](https://docs.litellm.ai/docs/providers).
+
 ## Real Example
 
 **Your test fails with:**
