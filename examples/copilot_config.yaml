@@ -1,0 +1,17 @@
+# Copilot SDK Configuration
+# Requires: GitHub Copilot CLI installed and authenticated
+# Uses 'copilot_sdk' prefix (not 'copilot') to use official SDK
+
+llm_factory:
+  model: "copilot_sdk/gpt-4.1"
+  # Alternative models:
+  # model: "copilot_sdk/claude-sonnet-4.5"
+  # model: "copilot_sdk/gpt-5"
+
+tokenizer:
+  tokenizer: openai_tokenizer
+  max_content_tokens: 50000
+
+concurrency:
+  test_case: 3
+  chunk: 2

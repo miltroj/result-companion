@@ -52,10 +52,8 @@ The default uses Ollama with `deepseek-r1:1.5b` model.
 ```yaml
 # openai_config.yaml
 llm_factory:
-  model_type: "ChatOpenAI"
-  parameters:
-    model: "gpt-5-nano"
-    api_key: "${OPENAI_API_KEY}"
+  model: "openai/gpt-4o"
+  api_key: "${OPENAI_API_KEY}"
 
 tokenizer:
   tokenizer: openai_tokenizer
@@ -73,11 +71,10 @@ result-companion -o output.xml -c openai_config.yaml
 ```yaml
 # azure_config.yaml
 llm_factory:
-  model_type: "AzureChatOpenAI"
+  model: "azure/${AZURE_DEPLOYMENT_NAME}"
+  api_key: "${AZURE_API_KEY}"
+  api_base: "${AZURE_API_BASE}"
   parameters:
-    deployment_name: "${AZURE_DEPLOYMENT_NAME}"
-    api_key: "${AZURE_API_KEY}"
-    api_base: "${AZURE_API_BASE}"
     api_version: "2023-05-15"
 
 tokenizer:
@@ -98,10 +95,9 @@ result-companion -o output.xml -c azure_config.yaml
 ```yaml
 # gemini_config.yaml
 llm_factory:
-  model_type: "ChatGoogleGenerativeAI"
+  model: "gemini/gemini-2.0-flash"
+  api_key: "${GOOGLE_API_KEY}"
   parameters:
-    model: "gemini-2.5-flash"
-    google_api_key: "${GOOGLE_API_KEY}"
     temperature: 0
 
 tokenizer:
@@ -120,10 +116,9 @@ result-companion -o output.xml -c gemini_config.yaml
 ```yaml
 # bedrock_config.yaml
 llm_factory:
-  model_type: "BedrockLLM"
+  model: "bedrock/${AWS_BEDROCK_MODEL_ID}"
   parameters:
-    model_id: "${AWS_BEDROCK_MODEL_ID}"
-    region_name: "${AWS_REGION}"
+    aws_region_name: "${AWS_REGION}"
     aws_access_key_id: "${AWS_ACCESS_KEY_ID}"
     aws_secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
 
@@ -139,11 +134,9 @@ For Databricks, self-hosted, or other OpenAI-compatible APIs:
 ```yaml
 # custom_config.yaml
 llm_factory:
-  model_type: "ChatOpenAI"
-  parameters:
-    model: "${OPENAI_MODEL}"
-    api_key: "${OPENAI_API_KEY}"
-    base_url: "${OPENAI_BASE_URL}"
+  model: "openai/${OPENAI_MODEL}"
+  api_key: "${OPENAI_API_KEY}"
+  api_base: "${OPENAI_BASE_URL}"
 
 tokenizer:
   tokenizer: openai_tokenizer
@@ -153,25 +146,58 @@ tokenizer:
 ### Anthropic with Claude Models
 
 ```yaml
-# user_config.yaml
+# anthropic_config.yaml
 version: 1.0
 
 llm_factory:
-  model_type: "ChatAnthropic"
+  model: "anthropic/claude-3-5-haiku-latest"
+  api_key: "${ANTHROPIC_API_KEY}"
   parameters:
-    model: "claude-haiku-4-5"
-    api_key: "${ANTHROPIC_API_KEY}"
     temperature: 0
 
 tokenizer:
   tokenizer: anthropic_tokenizer
-  max_content_tokens: 200000  # Claude 4.5 supports 200K context window
+  max_content_tokens: 200000  # Claude supports 200K context window
 ```
 
-**Note:** Set up the `ANTHROPIC_API_KEY` environment variable. Anthropic offers multiple Claude 4.5 models:
-- `claude-haiku-4-5`: Lightweight, 3x cheaper, 2x faster (recommended for most cases)
-- `claude-sonnet-4-5`: Balanced performance and cost
-- `claude-opus-4-5`: Best reasoning capabilities
+**Note:** Set up the `ANTHROPIC_API_KEY` environment variable. Anthropic offers multiple Claude models:
+- `claude-3-5-haiku-latest`: Lightweight, cheaper, faster (recommended for most cases)
+- `claude-3-5-sonnet-latest`: Balanced performance and cost
+- `claude-3-opus-latest`: Best reasoning capabilities
+
+### GitHub Copilot (via Official SDK)
+
+Uses the official GitHub Copilot SDK. Requires Copilot CLI installed and authenticated.
+
+**Note:** Uses `copilot_sdk/` prefix (not `copilot/`) to use the official SDK instead of the blocked direct API.
+
+```yaml
+# copilot_config.yaml
+llm_factory:
+  model: "copilot_sdk/gpt-4.1"
+  # Alternative models:
+  # model: "copilot_sdk/claude-sonnet-4.5"
+  # model: "copilot_sdk/gpt-5"
+
+tokenizer:
+  tokenizer: openai_tokenizer
+  max_content_tokens: 128000
+
+concurrency:
+  test_case: 3
+  chunk: 2
+```
+
+**Prerequisites:**
+1. Install Copilot CLI: `npm install -g @github/copilot-cli`
+2. Authenticate: `copilot auth login`
+
+Run with:
+```bash
+result-companion -o output.xml -c examples/copilot_config.yaml
+```
+
+**Available models:** `gpt-4.1`, `gpt-5`, `claude-sonnet-4.5`, and others supported by Copilot.
 
 ## Test Filtering
 
@@ -323,11 +349,11 @@ result-companion -o output.xml --test-concurrency 2 --chunk-concurrency 1
 | Ollama | phi-3-mini | 4K | - | `max_content_tokens: 4000` |
 | Ollama | deepseek-r1:1.5b | 8K | - | `max_content_tokens: 8000` |
 | Ollama | mistral:7b | 8K | - | `max_content_tokens: 8000` |
-| OpenAI | gpt-5-nano | 400K | 128K | `max_content_tokens: 390000` |
+| OpenAI | gpt-4o | 128K | 16K | `max_content_tokens: 120000` |
 | Azure | gpt-4 | 8K | - | `max_content_tokens: 7000` |
-| Google | gemini-2.5-flash | 1,048K | 65K | `max_content_tokens: 1000000` |
+| Google | gemini-2.0-flash | 1,048K | 65K | `max_content_tokens: 1000000` |
 
-**Note**: Set input slightly below actual limit to account for prompt overhead. Gemini 2.5 Flash is ideal for large test suites.
+**Note**: Set input slightly below actual limit to account for prompt overhead. Gemini 2.0 Flash is ideal for large test suites.
 
 **Local models (Ollama)**: Models run faster with GPU/NPU acceleration (Apple Silicon, NVIDIA CUDA, AMD ROCm). CPU-only is slower but works.
 
@@ -361,10 +387,8 @@ llm_config:
 # Create custom config
 cat > my_config.yaml << 'EOF'
 llm_factory:
-  model_type: "ChatOpenAI"
-  parameters:
-    model: "gpt-5-nano"
-    api_key: "${OPENAI_API_KEY}"
+  model: "openai/gpt-4o"
+  api_key: "${OPENAI_API_KEY}"
 
 llm_config:
   question_prompt: |
@@ -396,6 +420,9 @@ export AZURE_API_KEY="..."
 # Google
 export GOOGLE_API_KEY="..."
 
+# Anthropic
+export ANTHROPIC_API_KEY="..."
+
 # AWS Bedrock
 export AWS_BEDROCK_MODEL_ID="anthropic.claude-v2"
 export AWS_REGION="us-west-2"
@@ -405,13 +432,15 @@ export AWS_SECRET_ACCESS_KEY="..."
 
 ## Additional Resources
 
-LangChain documentation for each model type:
+LiteLLM documentation for supported providers:
 
-- [OllamaLLM](https://python.langchain.com/docs/integrations/llms/ollama/)
-- [AzureChatOpenAI](https://python.langchain.com/docs/integrations/chat/azure_chat_openai/)
-- [BedrockLLM](https://python.langchain.com/api_reference/aws/llms/langchain_aws.llms.bedrock.BedrockLLM.html)
-- [ChatGoogleGenerativeAI](https://python.langchain.com/docs/integrations/chat/google_generative_ai)
-- [ChatOpenAI](https://python.langchain.com/docs/integrations/chat/openai/)
+- [LiteLLM Providers Overview](https://docs.litellm.ai/docs/providers)
+- [Ollama](https://docs.litellm.ai/docs/providers/ollama)
+- [OpenAI](https://docs.litellm.ai/docs/providers/openai)
+- [Azure OpenAI](https://docs.litellm.ai/docs/providers/azure/)
+- [Google Gemini](https://docs.litellm.ai/docs/providers/gemini)
+- [Anthropic](https://docs.litellm.ai/docs/providers/anthropic)
+- [AWS Bedrock](https://docs.litellm.ai/docs/providers/bedrock)
 
 ---
 
