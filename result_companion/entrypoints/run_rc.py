@@ -5,9 +5,6 @@ from typing import Optional
 
 from result_companion.core.analizers.factory_common import execute_llm_and_get_results
 from result_companion.core.analizers.local.ollama_runner import ollama_on_init_strategy
-from result_companion.core.analizers.remote.copilot_runner import (
-    copilot_on_init_strategy,
-)
 from result_companion.core.html.html_creator import create_llm_html_log
 from result_companion.core.parsers.config import load_config
 from result_companion.core.parsers.result_parser import (
@@ -17,26 +14,16 @@ from result_companion.core.utils.log_levels import LogLevels
 from result_companion.core.utils.logging_config import logger, set_global_log_level
 
 
-def _run_provider_init_strategy(model_name: str, strategy_params: dict) -> None:
-    """Runs provider-specific initialization strategy.
-
-    Args:
-        model_name: LiteLLM model identifier.
-        strategy_params: Parameters for the init strategy.
-    """
-    if model_name.startswith("ollama"):
-        _run_ollama_init(model_name, strategy_params)
-    elif model_name.startswith("github_copilot"):
-        copilot_on_init_strategy()
-
-
-def _run_ollama_init(model_name: str, strategy_params: dict) -> None:
-    """Runs Ollama initialization strategy.
+def _run_ollama_init_strategy(model_name: str, strategy_params: dict) -> None:
+    """Runs Ollama initialization strategy if model is Ollama.
 
     Args:
         model_name: LiteLLM model identifier (e.g., ollama_chat/llama2).
         strategy_params: Parameters for the init strategy.
     """
+    if not model_name.startswith("ollama"):
+        return
+
     # Extract short model name for Ollama server check
     # e.g., "ollama_chat/deepseek-r1:1.5b" -> "deepseek-r1"
     model_short = strategy_params.get("model_name")
@@ -94,8 +81,8 @@ async def _main(
 
     logger.info(f"Filtered to {len(test_cases)} test cases")
 
-    # Run provider-specific init strategy if needed
-    _run_provider_init_strategy(
+    # Run Ollama init strategy if needed
+    _run_ollama_init_strategy(
         model_name=parsed_config.llm_factory.model,
         strategy_params=parsed_config.llm_factory.strategy.parameters,
     )
