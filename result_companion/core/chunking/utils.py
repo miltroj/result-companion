@@ -76,6 +76,7 @@ tokenizer_mappings = {
     "google_tokenizer": google_tokenizer,
     "openai_tokenizer": azure_openai_tokenizer,  # Same tokenization as Azure
     "anthropic_tokenizer": anthropic_tokenizer,
+    "github_copilot_tokenizer": azure_openai_tokenizer,  # Copilot uses GPT models
 }
 
 

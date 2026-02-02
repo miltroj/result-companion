@@ -13,6 +13,7 @@ Quick-start configurations for different LLM providers and use cases.
     - [AWS Bedrock](#aws-bedrock)
     - [Custom OpenAI-Compatible Endpoint](#custom-openai-compatible-endpoint)
     - [Anthropic with Claude Models](#anthropic-with-claude-models)
+    - [GitHub Copilot](#github-copilot)
   - [Test Filtering](#test-filtering)
     - [CLI Examples](#cli-examples)
     - [Config File](#config-file)
@@ -164,6 +165,29 @@ tokenizer:
 - `claude-3-5-haiku-latest`: Lightweight, cheaper, faster (recommended for most cases)
 - `claude-3-5-sonnet-latest`: Balanced performance and cost
 - `claude-3-opus-latest`: Best reasoning capabilities
+
+### GitHub Copilot
+
+```yaml
+# copilot_config.yaml
+llm_factory:
+  model: "github_copilot/gpt-4"
+
+tokenizer:
+  tokenizer: github_copilot_tokenizer
+  max_content_tokens: 120000
+```
+
+Run with:
+```bash
+result-companion -o output.xml -c copilot_config.yaml
+```
+
+**Note:** Requires an active GitHub Copilot subscription. On first run, LiteLLM will prompt you to authenticate via GitHub using OAuth device flow. Your credentials are stored locally at `~/.config/litellm/github_copilot/`.
+
+Available Copilot models:
+- `github_copilot/gpt-4`: Standard GPT-4
+- `github_copilot/gpt-5.1-codex`: Code-optimized model (uses responses API)
 
 ## Test Filtering
 
@@ -407,6 +431,7 @@ LiteLLM documentation for supported providers:
 - [Google Gemini](https://docs.litellm.ai/docs/providers/gemini)
 - [Anthropic](https://docs.litellm.ai/docs/providers/anthropic)
 - [AWS Bedrock](https://docs.litellm.ai/docs/providers/bedrock)
+- [GitHub Copilot](https://docs.litellm.ai/docs/providers/github_copilot)
 
 ---
 

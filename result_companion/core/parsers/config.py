@@ -16,6 +16,7 @@ class TokenizerTypes(str, Enum):
     GOOGLE = "google_tokenizer"
     OPENAI = "openai_tokenizer"
     ANTHROPIC = "anthropic_tokenizer"
+    GITHUB_COPILOT = "github_copilot_tokenizer"
 
 
 class ChunkingPromptsModel(BaseModel):
@@ -49,6 +50,7 @@ class LLMFactoryModel(BaseModel):
     - Anthropic: anthropic/claude-3-sonnet
     - Google: gemini/gemini-2.0-flash
     - Bedrock: bedrock/anthropic.claude-v2
+    - GitHub Copilot: github_copilot/gpt-4 (requires Copilot subscription)
     """
 
     model: str = Field(

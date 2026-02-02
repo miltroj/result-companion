@@ -1,0 +1,7 @@
+# copilot_config.yaml
+llm_factory:
+  model: "github_copilot/gpt-4"
+
+tokenizer:
+  tokenizer: github_copilot_tokenizer
+  max_content_tokens: 50000
