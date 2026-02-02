@@ -29,6 +29,7 @@ ollama = "^0.4.0"
 python-dotenv = "^1.0.1"
 pyyaml = "^6.0.2"
 litellm = "^1.59"
+github-copilot-sdk = "^0.1.20"
 tiktoken = "^0.8.0"
 tqdm = "^4.67.1"
 

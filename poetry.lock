@@ -778,6 +778,26 @@ test-full = ["adlfs", "aiohttp (!=4.0.0a0,!=4.0.0a1)", "backports-zstd ; python_
 tqdm = ["tqdm"]
 
 [[package]]
+name = "github-copilot-sdk"
+version = "0.1.20"
+description = "Python SDK for GitHub Copilot CLI"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "github_copilot_sdk-0.1.20-py3-none-any.whl", hash = "sha256:e7fa1bb843e2494930126551b80f3a035f36c47a05f9173ad0cdfb4151ad9346"},
+    {file = "github_copilot_sdk-0.1.20.tar.gz", hash = "sha256:9e89cd46577fd18dd808d7113b7e20e021c4f944121a0a4891945460fb26c53c"},
+]
+
+[package.dependencies]
+pydantic = ">=2.0"
+python-dateutil = ">=2.9.0.post0"
+typing-extensions = ">=4.0.0"
+
+[package.extras]
+dev = ["httpx (>=0.24.0)", "pytest (>=7.0.0)", "pytest-asyncio (>=0.21.0)", "ruff (>=0.1.0)", "ty (>=0.0.2)", "typing-extensions (>=4.0.0)"]
+
+[[package]]
 name = "h11"
 version = "0.14.0"
 description = "A pure-Python, bring-your-own-I/O implementation of HTTP/1.1"
@@ -2006,6 +2026,21 @@ pytest = ">=6.2.5"
 dev = ["pre-commit", "pytest-asyncio", "tox"]
 
 [[package]]
+name = "python-dateutil"
+version = "2.9.0.post0"
+description = "Extensions to the standard Python datetime module"
+optional = false
+python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
+groups = ["main"]
+files = [
+    {file = "python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3"},
+    {file = "python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427"},
+]
+
+[package.dependencies]
+six = ">=1.5"
+
+[[package]]
 name = "python-dotenv"
 version = "1.0.1"
 description = "Read key-value pairs from a .env file and set them as environment variables"
@@ -2396,6 +2431,18 @@ files = [
 ]
 
 [[package]]
+name = "six"
+version = "1.17.0"
+description = "Python 2 and 3 compatibility utilities"
+optional = false
+python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
+groups = ["main"]
+files = [
+    {file = "six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274"},
+    {file = "six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81"},
+]
+
+[[package]]
 name = "sniffio"
 version = "1.3.1"
 description = "Sniff out which async library your code is running under"
@@ -2770,4 +2817,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "1613a6501ff6ebf9cb25b1f4e1e85d6d9ff5336cc2ecdcba8f006b962fd70070"
+content-hash = "0a240cd4a57b23eec493152654a7484e0a7b8d93aec8fc7399817496e948e7f7"

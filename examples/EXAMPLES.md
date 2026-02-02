@@ -165,6 +165,40 @@ tokenizer:
 - `claude-3-5-sonnet-latest`: Balanced performance and cost
 - `claude-3-opus-latest`: Best reasoning capabilities
 
+### GitHub Copilot (via Official SDK)
+
+Uses the official GitHub Copilot SDK. Requires Copilot CLI installed and authenticated.
+
+**Note:** Uses `copilot_sdk/` prefix (not `copilot/`) to use the official SDK instead of the blocked direct API.
+
+```yaml
+# copilot_config.yaml
+llm_factory:
+  model: "copilot_sdk/gpt-4.1"
+  # Alternative models:
+  # model: "copilot_sdk/claude-sonnet-4.5"
+  # model: "copilot_sdk/gpt-5"
+
+tokenizer:
+  tokenizer: openai_tokenizer
+  max_content_tokens: 128000
+
+concurrency:
+  test_case: 3
+  chunk: 2
+```
+
+**Prerequisites:**
+1. Install Copilot CLI: `npm install -g @github/copilot-cli`
+2. Authenticate: `copilot auth login`
+
+Run with:
+```bash
+result-companion -o output.xml -c examples/copilot_config.yaml
+```
+
+**Available models:** `gpt-4.1`, `gpt-5`, `claude-sonnet-4.5`, and others supported by Copilot.
+
 ## Test Filtering
 
 Focus analysis on specific tests using Robot Framework tag patterns.
