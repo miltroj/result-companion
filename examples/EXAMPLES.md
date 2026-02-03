@@ -5,6 +5,11 @@ Quick-start configurations for different LLM providers and use cases.
 ## Table of Contents
 - [Examples \& Configuration](#examples--configuration)
   - [Table of Contents](#table-of-contents)
+  - [GitHub Copilot (Recommended for Users With Copilot)](#github-copilot-recommended-for-users-with-copilot)
+    - [Setup](#setup)
+    - [Configuration](#configuration)
+    - [Available Models](#available-models)
+    - [Troubleshooting](#troubleshooting)
   - [Quick Configs](#quick-configs)
     - [Local (Ollama) - Default](#local-ollama---default)
     - [OpenAI](#openai)
@@ -29,6 +34,75 @@ Quick-start configurations for different LLM providers and use cases.
   - [Complete Example](#complete-example)
   - [Environment Variables Reference](#environment-variables-reference)
   - [Additional Resources](#additional-resources)
+
+## GitHub Copilot (Recommended for Users With Copilot)
+
+If you have GitHub Copilot (Business, Enterprise, or Pro+), it's the easiest way to get started—no API keys needed.
+
+### Setup
+
+**1. Install Copilot CLI**
+
+```bash
+# macOS/Linux (Homebrew)
+brew install copilot-cli
+
+# Or via npm (requires Node v22+)
+npm install -g @github/copilot
+```
+
+**2. Authenticate**
+
+```bash
+copilot /login
+```
+
+Follow the prompts to log in with your GitHub account. Type `/exit` when done.
+
+**3. Verify Setup**
+
+```bash
+copilot -p "/models" --allow-all -s
+```
+
+You should see available models (e.g., `gpt-4.1`, `claude-haiku-4.5`).
+
+### Configuration
+
+```yaml
+# copilot_config.yaml
+llm_factory:
+  model_type: "ChatCopilot"
+  parameters:
+    model: "gpt-4.1"  # or: claude-haiku-4.5, gpt-5-mini
+
+tokenizer:
+  tokenizer: openai_tokenizer
+  max_content_tokens: 60000
+```
+
+Run with:
+```bash
+result-companion analyze -o output.xml -c copilot_config.yaml
+```
+
+### Available Models
+
+| Model | Best For |
+|-------|----------|
+| `gpt-4.1` | General analysis (default) |
+| `claude-haiku-4.5` | Fast, cost-effective |
+| `gpt-5-mini` | Complex reasoning |
+
+### Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| "Connection error" | Run `copilot` to re-authenticate |
+| "Failed to list models" | Check network access to `*.githubcopilot.com` |
+| CLI not found | Verify installation: `which copilot` |
+
+---
 
 ## Quick Configs
 
@@ -295,12 +369,15 @@ llm_config:
 Control how many test cases and chunks are processed in parallel:
 
 ```yaml
+# Max concurrent API requests = test_case × chunk
 concurrency:
-  test_case: 2  # Process 2 tests in parallel
-  chunk: 1      # Sequential chunk processing
+  test_case: 2  # Parallel test case analyses
+  chunk: 1      # Parallel chunks per large test (for chunked tests only)
 ```
 
-**Maximum concurrent requests = test_case × chunk**
+**Maximum concurrent API requests = test_case × chunk**
+
+For ChatCopilot, this automatically sets the session pool size.
 
 | test_case | chunk | Max Concurrent |
 |-----------|-------|----------------|
@@ -320,6 +397,9 @@ result-companion -o output.xml --test-concurrency 2 --chunk-concurrency 1
 
 | Provider | Model | Input Tokens | Output Tokens | Config Setting |
 |----------|-------|--------------|---------------|----------------|
+| Copilot | gpt-4.1 | 64K | 16K | `max_content_tokens: 60000` |
+| Copilot | claude-haiku-4.5 | 128K | 16K | `max_content_tokens: 120000` |
+| Copilot | gpt-5-mini | 128K | 64K | `max_content_tokens: 120000` |
 | Ollama | phi-3-mini | 4K | - | `max_content_tokens: 4000` |
 | Ollama | deepseek-r1:1.5b | 8K | - | `max_content_tokens: 8000` |
 | Ollama | mistral:7b | 8K | - | `max_content_tokens: 8000` |
@@ -385,6 +465,8 @@ open log_with_ai_analysis.html
 ## Environment Variables Reference
 
 ```bash
+# GitHub Copilot - No env vars needed! Uses CLI authentication.
+
 # OpenAI
 export OPENAI_API_KEY="sk-..."
 
@@ -407,6 +489,7 @@ export AWS_SECRET_ACCESS_KEY="..."
 
 LangChain documentation for each model type:
 
+- **ChatCopilot** - Built-in adapter using [GitHub Copilot SDK](https://github.com/github/copilot-sdk)
 - [OllamaLLM](https://python.langchain.com/docs/integrations/llms/ollama/)
 - [AzureChatOpenAI](https://python.langchain.com/docs/integrations/chat/azure_chat_openai/)
 - [BedrockLLM](https://python.langchain.com/api_reference/aws/llms/langchain_aws.llms.bedrock.BedrockLLM.html)

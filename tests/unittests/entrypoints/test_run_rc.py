@@ -101,6 +101,34 @@ def test_init_llm_model_for_chatanthropic():
     assert strategy is None
 
 
+def test_init_chatcopilot_pool_size_is_test_case_times_chunk():
+    """ChatCopilot pool_size = test_case_concurrency × chunk_concurrency."""
+    config = LLMFactoryModel(
+        model_type="ChatCopilot",
+        parameters={"model": "gpt-4.1"},
+    )
+
+    model, _ = init_llm_with_strategy_factory(
+        config, test_case_concurrency=3, chunk_concurrency=2
+    )
+
+    assert model.pool_size == 6
+
+
+def test_init_chatcopilot_concurrency_overrides_config_pool_size():
+    """Runtime concurrency takes precedence over config pool_size."""
+    config = LLMFactoryModel(
+        model_type="ChatCopilot",
+        parameters={"model": "gpt-4.1", "pool_size": 3},  # Config says 3
+    )
+
+    model, _ = init_llm_with_strategy_factory(
+        config, test_case_concurrency=5, chunk_concurrency=2
+    )
+
+    assert model.pool_size == 10  # 5×2=10 wins
+
+
 def test_fail_llm_init_on_unsupported_llm_parameters():
     config = LLMFactoryModel(
         **{

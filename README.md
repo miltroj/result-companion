@@ -33,7 +33,24 @@ Your enhanced `log.html` now includes:
 
 ## Quick Start
 
-### Option 1: Local AI (Free, Private)
+### Option 1: GitHub Copilot (Easiest for Users With Copilot)
+
+Already have GitHub Copilot? Use it directly—no API keys needed.
+
+```bash
+pip install result-companion
+
+# One-time setup
+brew install copilot-cli   # or: npm install -g @github/copilot
+copilot /login             # Login when prompted, then /exit
+
+# Analyze your tests
+result-companion analyze -o output.xml -c examples/copilot_config.yaml
+```
+
+See [Copilot setup guide](https://github.com/miltroj/result-companion/blob/main/examples/EXAMPLES.md#github-copilot).
+
+### Option 2: Local AI (Free, Private)
 
 ```bash
 pip install result-companion
@@ -46,7 +63,7 @@ result-companion setup model deepseek-r1:1.5b
 result-companion analyze -o output.xml
 ```
 
-### Option 2: Cloud AI ([OpenAI](https://github.com/miltroj/result-companion/blob/main/examples/EXAMPLES.md#openai), Azure, Google)
+### Option 3: Cloud AI ([OpenAI](https://github.com/miltroj/result-companion/blob/main/examples/EXAMPLES.md#openai), Azure, Google)
 
 ```bash
 pip install result-companion
@@ -109,6 +126,7 @@ See [examples/EXAMPLES.md](https://github.com/miltroj/result-companion/blob/main
 ## Configuration Examples
 
 Check [`examples/`](https://github.com/miltroj/result-companion/tree/main/examples) for ready-to-use configs:
+- **GitHub Copilot** (easiest for users with copilot)
 - Local Ollama setup (default)
 - OpenAI, Azure, Google Cloud
 - Custom endpoints (Databricks, self-hosted)
