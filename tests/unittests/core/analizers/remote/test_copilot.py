@@ -181,6 +181,19 @@ class TestSessionPool:
                 assert not acquired.is_set()  # Still waiting
                 task.cancel()
 
+    @pytest.mark.asyncio
+    async def test_close_destroys_available_sessions(self):
+        client = FakeCopilotClient()
+        pool = SessionPool(client, "gpt-4.1", pool_size=2)
+
+        async with pool.acquire():
+            pass  # Session now in available queue
+
+        assert pool._created == 1
+        await pool.close()
+        assert pool._created == 0
+        assert pool._available.empty()
+
 
 class TestChatCopilot:
     """Tests for ChatCopilot adapter."""
