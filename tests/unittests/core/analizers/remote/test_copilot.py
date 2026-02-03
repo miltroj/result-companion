@@ -260,3 +260,19 @@ class TestChatCopilot:
 
         # With pool, each request should use a different session
         assert len(set(sessions_used)) == 3  # 3 unique sessions
+
+    @pytest.mark.asyncio
+    async def test_ensure_started_initializes_client_and_pool(self, monkeypatch):
+        fake_client = FakeCopilotClient()
+        monkeypatch.setattr(
+            "result_companion.core.analizers.remote.copilot.CopilotClient",
+            lambda opts=None: fake_client,
+        )
+        chat = ChatCopilot(model="gpt-4.1", pool_size=2)
+
+        await chat._ensure_started()
+
+        assert chat._started
+        assert fake_client.started
+        assert chat._pool is not None
+        assert chat._pool._pool_size == 2
