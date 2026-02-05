@@ -110,7 +110,7 @@ result-companion analyze -o output.xml -c copilot_config.yaml
 
 No config needed! Just run:
 ```bash
-result-companion -o output.xml
+result-companion analyze -o output.xml
 ```
 
 The default uses Ollama with `deepseek-r1:1.5b` model.
@@ -139,7 +139,7 @@ tokenizer:
 Run with:
 ```bash
 export OPENAI_API_KEY="sk-..."
-result-companion -o output.xml -c openai_config.yaml
+result-companion analyze -o output.xml -c openai_config.yaml
 ```
 
 ### Azure OpenAI
@@ -164,7 +164,7 @@ Run with:
 export AZURE_DEPLOYMENT_NAME="gpt-4"
 export AZURE_API_BASE="https://myresource.openai.azure.com/"
 export AZURE_API_KEY="..."
-result-companion -o output.xml -c azure_config.yaml
+result-companion analyze -o output.xml -c azure_config.yaml
 ```
 
 ### Google Gemini
@@ -186,7 +186,7 @@ tokenizer:
 Run with:
 ```bash
 export GOOGLE_API_KEY="..."
-result-companion -o output.xml -c gemini_config.yaml
+result-companion analyze -o output.xml -c gemini_config.yaml
 ```
 
 ### AWS Bedrock
@@ -255,16 +255,16 @@ Focus analysis on specific tests using Robot Framework tag patterns.
 
 ```bash
 # Analyze only smoke tests (failures only)
-result-companion -o output.xml --include "smoke*"
+result-companion analyze -o output.xml --include "smoke*"
 
 # Analyze critical tests including passes
-result-companion -o output.xml --include "critical*" -i
+result-companion analyze -o output.xml --include "critical*" -i
 
 # Exclude WIP and known bugs
-result-companion -o output.xml --exclude "wip,bug-*"
+result-companion analyze -o output.xml --exclude "wip,bug-*"
 
 # Combine filters
-result-companion -o output.xml --include "api,smoke" --exclude "flaky"
+result-companion analyze -o output.xml --include "api,smoke" --exclude "flaky"
 ```
 
 ### Config File
@@ -279,7 +279,7 @@ test_filter:
 
 Run with:
 ```bash
-result-companion -o output.xml -c tag_filtering_config.yaml
+result-companion analyze -o output.xml -c tag_filtering_config.yaml
 ```
 
 ### Filter Logic
@@ -388,7 +388,7 @@ For ChatCopilot, this automatically sets the session pool size.
 
 CLI override:
 ```bash
-result-companion -o output.xml --test-concurrency 2 --chunk-concurrency 1
+result-companion analyze -o output.xml --test-concurrency 2 --chunk-concurrency 1
 ```
 
 **Note**: Useful for cloud APIs to avoid rate limits. Local models (Ollama) don't benefit from concurrency.
@@ -456,7 +456,7 @@ EOF
 export OPENAI_API_KEY="sk-..."
 
 # Run analysis
-result-companion -o output.xml -c my_config.yaml
+result-companion analyze -o output.xml -c my_config.yaml
 
 # View results
 open log_with_ai_analysis.html
