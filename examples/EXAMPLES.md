@@ -206,6 +206,15 @@ tokenizer:
   max_content_tokens: 100000
 ```
 
+Run with:
+```bash
+export AWS_BEDROCK_MODEL_ID="anthropic.claude-v2"
+export AWS_REGION="us-west-2"
+export AWS_ACCESS_KEY_ID="..."
+export AWS_SECRET_ACCESS_KEY="..."
+result-companion analyze -o output.xml -c configs/bedrock_config.yaml
+```
+
 ### Custom OpenAI-Compatible Endpoint
 
 For Databricks, self-hosted, or other OpenAI-compatible APIs:
@@ -224,6 +233,14 @@ tokenizer:
   max_content_tokens: 16000
 ```
 
+Run with:
+```bash
+export OPENAI_MODEL="your-model"
+export OPENAI_API_KEY="..."
+export OPENAI_BASE_URL="https://your-endpoint.com/v1"
+result-companion analyze -o output.xml -c configs/custom_endpoint_config.yaml
+```
+
 ### Anthropic with Claude Models
 
 ```yaml
@@ -240,7 +257,13 @@ tokenizer:
   max_content_tokens: 200000  # Claude 4.5 supports 200K context window
 ```
 
-**Note:** Set up the `ANTHROPIC_API_KEY` environment variable. Anthropic offers multiple Claude 4.5 models:
+Run with:
+```bash
+export ANTHROPIC_API_KEY="..."
+result-companion analyze -o output.xml -c configs/anthropic_config.yaml
+```
+
+Anthropic offers multiple Claude 4.5 models:
 - `claude-haiku-4-5`: Lightweight, 3x cheaper, 2x faster (recommended for most cases)
 - `claude-sonnet-4-5`: Balanced performance and cost
 - `claude-opus-4-5`: Best reasoning capabilities
