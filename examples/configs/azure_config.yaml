@@ -1,0 +1,14 @@
+# Azure OpenAI Configuration
+# Requires: AZURE_DEPLOYMENT_NAME, AZURE_API_BASE, AZURE_API_KEY environment variables
+
+llm_factory:
+  model_type: "AzureChatOpenAI"
+  parameters:
+    deployment_name: "${AZURE_DEPLOYMENT_NAME}"
+    api_key: "${AZURE_API_KEY}"
+    api_base: "${AZURE_API_BASE}"
+    api_version: "2023-05-15"
+
+tokenizer:
+  tokenizer: azure_openai_tokenizer
+  max_content_tokens: 16000

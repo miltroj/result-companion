@@ -70,7 +70,7 @@ You should see available models (e.g., `gpt-4.1`, `claude-haiku-4.5`).
 ### Configuration
 
 ```yaml
-# copilot_config.yaml
+# configs/copilot_config.yaml
 llm_factory:
   model_type: "ChatCopilot"
   parameters:
@@ -83,7 +83,7 @@ tokenizer:
 
 Run with:
 ```bash
-result-companion analyze -o output.xml -c copilot_config.yaml
+result-companion analyze -o output.xml -c configs/copilot_config.yaml
 ```
 
 ### Available Models
@@ -124,7 +124,7 @@ The default uses Ollama with `deepseek-r1:1.5b` model.
 ### OpenAI
 
 ```yaml
-# openai_config.yaml
+# configs/openai_config.yaml
 llm_factory:
   model_type: "ChatOpenAI"
   parameters:
@@ -139,13 +139,13 @@ tokenizer:
 Run with:
 ```bash
 export OPENAI_API_KEY="sk-..."
-result-companion analyze -o output.xml -c openai_config.yaml
+result-companion analyze -o output.xml -c configs/openai_config.yaml
 ```
 
 ### Azure OpenAI
 
 ```yaml
-# azure_config.yaml
+# configs/azure_config.yaml
 llm_factory:
   model_type: "AzureChatOpenAI"
   parameters:
@@ -164,13 +164,13 @@ Run with:
 export AZURE_DEPLOYMENT_NAME="gpt-4"
 export AZURE_API_BASE="https://myresource.openai.azure.com/"
 export AZURE_API_KEY="..."
-result-companion analyze -o output.xml -c azure_config.yaml
+result-companion analyze -o output.xml -c configs/azure_config.yaml
 ```
 
 ### Google Gemini
 
 ```yaml
-# gemini_config.yaml
+# configs/gemini_config.yaml
 llm_factory:
   model_type: "ChatGoogleGenerativeAI"
   parameters:
@@ -186,13 +186,13 @@ tokenizer:
 Run with:
 ```bash
 export GOOGLE_API_KEY="..."
-result-companion analyze -o output.xml -c gemini_config.yaml
+result-companion analyze -o output.xml -c configs/gemini_config.yaml
 ```
 
 ### AWS Bedrock
 
 ```yaml
-# bedrock_config.yaml
+# configs/bedrock_config.yaml
 llm_factory:
   model_type: "BedrockLLM"
   parameters:
@@ -211,7 +211,7 @@ tokenizer:
 For Databricks, self-hosted, or other OpenAI-compatible APIs:
 
 ```yaml
-# custom_config.yaml
+# configs/custom_endpoint_config.yaml
 llm_factory:
   model_type: "ChatOpenAI"
   parameters:
@@ -227,9 +227,7 @@ tokenizer:
 ### Anthropic with Claude Models
 
 ```yaml
-# user_config.yaml
-version: 1.0
-
+# configs/anthropic_config.yaml
 llm_factory:
   model_type: "ChatAnthropic"
   parameters:
@@ -270,7 +268,7 @@ result-companion analyze -o output.xml --include "api,smoke" --exclude "flaky"
 ### Config File
 
 ```yaml
-# tag_filtering_config.yaml
+# configs/tag_filtering_config.yaml
 test_filter:
   include_tags: ["smoke*", "critical"]  # Wildcards supported
   exclude_tags: ["wip", "bug-*"]        # Exclude takes precedence
@@ -279,7 +277,7 @@ test_filter:
 
 Run with:
 ```bash
-result-companion analyze -o output.xml -c tag_filtering_config.yaml
+result-companion analyze -o output.xml -c configs/tag_filtering_config.yaml
 ```
 
 ### Filter Logic
@@ -504,4 +502,4 @@ LangChain documentation for each model type:
 
 ---
 
-**Default Configuration**: See [`result_companion/core/configs/default_config.yaml`](../result_companion/core/configs/default_config.yaml) for all available options.
+**Default Configuration**: See [`default_config.yaml`](../result_companion/core/configs/default_config.yaml) for all available options.

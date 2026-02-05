@@ -1,0 +1,14 @@
+# Anthropic Claude Configuration
+# Requires: ANTHROPIC_API_KEY environment variable
+# Models: claude-haiku-4-5 (fast), claude-sonnet-4-5 (balanced), claude-opus-4-5 (best reasoning)
+
+llm_factory:
+  model_type: "ChatAnthropic"
+  parameters:
+    model: "claude-haiku-4-5"
+    api_key: "${ANTHROPIC_API_KEY}"
+    temperature: 0
+
+tokenizer:
+  tokenizer: anthropic_tokenizer
+  max_content_tokens: 200000

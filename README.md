@@ -45,7 +45,7 @@ brew install copilot-cli   # or: npm install -g @github/copilot
 copilot /login             # Login when prompted, then /exit
 
 # Analyze your tests
-result-companion analyze -o output.xml -c examples/copilot_config.yaml
+result-companion analyze -o output.xml -c examples/configs/copilot_config.yaml
 ```
 
 See [Copilot setup guide](https://github.com/miltroj/result-companion/blob/main/examples/EXAMPLES.md#github-copilot).
@@ -70,7 +70,7 @@ pip install result-companion
 
 # Configure and run
 export OPENAI_API_KEY="your-key"
-result-companion analyze -o output.xml -c examples/openai_config.yaml
+result-companion analyze -o output.xml -c examples/configs/openai_config.yaml
 ```
 
 ## Real Example
@@ -125,7 +125,7 @@ See [Custom Analysis examples](https://github.com/miltroj/result-companion/blob/
 
 ## Configuration Examples
 
-Check [`examples/`](https://github.com/miltroj/result-companion/tree/main/examples) for ready-to-use configs:
+Check [`examples/configs/`](https://github.com/miltroj/result-companion/tree/main/examples/configs) for ready-to-use configs:
 - **GitHub Copilot** (easiest for users with copilot)
 - Local Ollama setup (default)
 - OpenAI, Azure, Google Cloud
@@ -155,7 +155,7 @@ test_filter:
   include_passing: false  # Analyze failures only
 ```
 
-See [examples/tag_filtering_config.yaml](https://github.com/miltroj/result-companion/blob/main/examples/tag_filtering_config.yaml) for details.
+See [tag_filtering_config.yaml](https://github.com/miltroj/result-companion/blob/main/examples/configs/tag_filtering_config.yaml) for details.
 
 ## Limitations
 

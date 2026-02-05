@@ -1,0 +1,13 @@
+# Google Gemini Configuration
+# Requires: GOOGLE_API_KEY environment variable
+
+llm_factory:
+  model_type: "ChatGoogleGenerativeAI"
+  parameters:
+    model: "gemini-2.5-flash"
+    google_api_key: "${GOOGLE_API_KEY}"
+    temperature: 0
+
+tokenizer:
+  tokenizer: google_tokenizer
+  max_content_tokens: 1000000

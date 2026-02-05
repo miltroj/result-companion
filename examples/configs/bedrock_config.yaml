@@ -1,0 +1,14 @@
+# AWS Bedrock Configuration
+# Requires: AWS_BEDROCK_MODEL_ID, AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+
+llm_factory:
+  model_type: "BedrockLLM"
+  parameters:
+    model_id: "${AWS_BEDROCK_MODEL_ID}"
+    region_name: "${AWS_REGION}"
+    aws_access_key_id: "${AWS_ACCESS_KEY_ID}"
+    aws_secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+
+tokenizer:
+  tokenizer: bedrock_tokenizer
+  max_content_tokens: 100000
