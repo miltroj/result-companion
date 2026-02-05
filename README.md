@@ -48,7 +48,7 @@ copilot /login             # Login when prompted, then /exit
 result-companion analyze -o output.xml -c examples/configs/copilot_config.yaml
 ```
 
-See [Copilot setup guide](https://github.com/miltroj/result-companion/blob/main/examples/EXAMPLES.md#github-copilot).
+See [Copilot setup guide](https://github.com/miltroj/result-companion/blob/main/examples/EXAMPLES.md#github-copilot-recommended-for-users-with-copilot).
 
 ### Option 2: Local AI (Free, Private)
 
