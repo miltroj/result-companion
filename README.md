@@ -179,8 +179,7 @@ poetry install --with=dev
 poetry run pre-commit install
 
 # Run tests
-poetry run inv unittests
-poetry run inv test_coverage
+make test
 ```
 
 ## License
