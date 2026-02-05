@@ -70,7 +70,7 @@ You should see available models (e.g., `gpt-4.1`, `claude-haiku-4.5`).
 ### Configuration
 
 ```yaml
-# copilot_config.yaml
+# configs/copilot_config.yaml
 llm_factory:
   model_type: "ChatCopilot"
   parameters:
@@ -83,7 +83,7 @@ tokenizer:
 
 Run with:
 ```bash
-result-companion analyze -o output.xml -c copilot_config.yaml
+result-companion analyze -o output.xml -c configs/copilot_config.yaml
 ```
 
 ### Available Models
@@ -110,7 +110,7 @@ result-companion analyze -o output.xml -c copilot_config.yaml
 
 No config needed! Just run:
 ```bash
-result-companion -o output.xml
+result-companion analyze -o output.xml
 ```
 
 The default uses Ollama with `deepseek-r1:1.5b` model.
@@ -124,7 +124,7 @@ The default uses Ollama with `deepseek-r1:1.5b` model.
 ### OpenAI
 
 ```yaml
-# openai_config.yaml
+# configs/openai_config.yaml
 llm_factory:
   model_type: "ChatOpenAI"
   parameters:
@@ -139,13 +139,13 @@ tokenizer:
 Run with:
 ```bash
 export OPENAI_API_KEY="sk-..."
-result-companion -o output.xml -c openai_config.yaml
+result-companion analyze -o output.xml -c configs/openai_config.yaml
 ```
 
 ### Azure OpenAI
 
 ```yaml
-# azure_config.yaml
+# configs/azure_config.yaml
 llm_factory:
   model_type: "AzureChatOpenAI"
   parameters:
@@ -164,13 +164,13 @@ Run with:
 export AZURE_DEPLOYMENT_NAME="gpt-4"
 export AZURE_API_BASE="https://myresource.openai.azure.com/"
 export AZURE_API_KEY="..."
-result-companion -o output.xml -c azure_config.yaml
+result-companion analyze -o output.xml -c configs/azure_config.yaml
 ```
 
 ### Google Gemini
 
 ```yaml
-# gemini_config.yaml
+# configs/gemini_config.yaml
 llm_factory:
   model_type: "ChatGoogleGenerativeAI"
   parameters:
@@ -186,13 +186,13 @@ tokenizer:
 Run with:
 ```bash
 export GOOGLE_API_KEY="..."
-result-companion -o output.xml -c gemini_config.yaml
+result-companion analyze -o output.xml -c configs/gemini_config.yaml
 ```
 
 ### AWS Bedrock
 
 ```yaml
-# bedrock_config.yaml
+# configs/bedrock_config.yaml
 llm_factory:
   model_type: "BedrockLLM"
   parameters:
@@ -206,12 +206,21 @@ tokenizer:
   max_content_tokens: 100000
 ```
 
+Run with:
+```bash
+export AWS_BEDROCK_MODEL_ID="anthropic.claude-v2"
+export AWS_REGION="us-west-2"
+export AWS_ACCESS_KEY_ID="..."
+export AWS_SECRET_ACCESS_KEY="..."
+result-companion analyze -o output.xml -c configs/bedrock_config.yaml
+```
+
 ### Custom OpenAI-Compatible Endpoint
 
 For Databricks, self-hosted, or other OpenAI-compatible APIs:
 
 ```yaml
-# custom_config.yaml
+# configs/custom_endpoint_config.yaml
 llm_factory:
   model_type: "ChatOpenAI"
   parameters:
@@ -224,12 +233,18 @@ tokenizer:
   max_content_tokens: 16000
 ```
 
+Run with:
+```bash
+export OPENAI_MODEL="your-model"
+export OPENAI_API_KEY="..."
+export OPENAI_BASE_URL="https://your-endpoint.com/v1"
+result-companion analyze -o output.xml -c configs/custom_endpoint_config.yaml
+```
+
 ### Anthropic with Claude Models
 
 ```yaml
-# user_config.yaml
-version: 1.0
-
+# configs/anthropic_config.yaml
 llm_factory:
   model_type: "ChatAnthropic"
   parameters:
@@ -242,7 +257,13 @@ tokenizer:
   max_content_tokens: 200000  # Claude 4.5 supports 200K context window
 ```
 
-**Note:** Set up the `ANTHROPIC_API_KEY` environment variable. Anthropic offers multiple Claude 4.5 models:
+Run with:
+```bash
+export ANTHROPIC_API_KEY="..."
+result-companion analyze -o output.xml -c configs/anthropic_config.yaml
+```
+
+Anthropic offers multiple Claude 4.5 models:
 - `claude-haiku-4-5`: Lightweight, 3x cheaper, 2x faster (recommended for most cases)
 - `claude-sonnet-4-5`: Balanced performance and cost
 - `claude-opus-4-5`: Best reasoning capabilities
@@ -255,22 +276,22 @@ Focus analysis on specific tests using Robot Framework tag patterns.
 
 ```bash
 # Analyze only smoke tests (failures only)
-result-companion -o output.xml --include "smoke*"
+result-companion analyze -o output.xml --include "smoke*"
 
 # Analyze critical tests including passes
-result-companion -o output.xml --include "critical*" -i
+result-companion analyze -o output.xml --include "critical*" -i
 
 # Exclude WIP and known bugs
-result-companion -o output.xml --exclude "wip,bug-*"
+result-companion analyze -o output.xml --exclude "wip,bug-*"
 
 # Combine filters
-result-companion -o output.xml --include "api,smoke" --exclude "flaky"
+result-companion analyze -o output.xml --include "api,smoke" --exclude "flaky"
 ```
 
 ### Config File
 
 ```yaml
-# tag_filtering_config.yaml
+# configs/tag_filtering_config.yaml
 test_filter:
   include_tags: ["smoke*", "critical"]  # Wildcards supported
   exclude_tags: ["wip", "bug-*"]        # Exclude takes precedence
@@ -279,7 +300,7 @@ test_filter:
 
 Run with:
 ```bash
-result-companion -o output.xml -c tag_filtering_config.yaml
+result-companion analyze -o output.xml -c configs/tag_filtering_config.yaml
 ```
 
 ### Filter Logic
@@ -314,9 +335,15 @@ Generates `rc_log.html` with debug metadata per test:
 
 ## Custom Analysis
 
-### Find Performance Issues
+Customize prompts via `llm_config`:
 
-Control how many API requests are made in parallel to avoid rate limits (HTTP 429 errors).
+| Option | Purpose |
+|--------|---------|
+| `question_prompt` | Main analysis prompt for each test |
+| `chunking.chunk_analysis_prompt` | Prompt for analyzing individual chunks (large tests) |
+| `chunking.final_synthesis_prompt` | Prompt for combining chunk summaries |
+
+### Find Performance Issues
 
 ```yaml
 # performance_config.yaml
@@ -388,7 +415,7 @@ For ChatCopilot, this automatically sets the session pool size.
 
 CLI override:
 ```bash
-result-companion -o output.xml --test-concurrency 2 --chunk-concurrency 1
+result-companion analyze -o output.xml --test-concurrency 2 --chunk-concurrency 1
 ```
 
 **Note**: Useful for cloud APIs to avoid rate limits. Local models (Ollama) don't benefit from concurrency.
@@ -456,10 +483,10 @@ EOF
 export OPENAI_API_KEY="sk-..."
 
 # Run analysis
-result-companion -o output.xml -c my_config.yaml
+result-companion analyze -o output.xml -c my_config.yaml
 
 # View results
-open log_with_ai_analysis.html
+open rc_log.html
 ```
 
 ## Environment Variables Reference
@@ -498,4 +525,4 @@ LangChain documentation for each model type:
 
 ---
 
-**Default Configuration**: See [`result_companion/core/configs/default_config.yaml`](../result_companion/core/configs/default_config.yaml) for all available options.
+**Default Configuration**: See [`default_config.yaml`](../result_companion/core/configs/default_config.yaml) for all available options.

@@ -1,0 +1,14 @@
+# Custom OpenAI-Compatible Endpoint Configuration
+# For Databricks, self-hosted, or other OpenAI-compatible APIs
+# Requires: OPENAI_MODEL, OPENAI_API_KEY, OPENAI_BASE_URL environment variables
+
+llm_factory:
+  model_type: "ChatOpenAI"
+  parameters:
+    model: "${OPENAI_MODEL}"
+    api_key: "${OPENAI_API_KEY}"
+    base_url: "${OPENAI_BASE_URL}"
+
+tokenizer:
+  tokenizer: openai_tokenizer
+  max_content_tokens: 16000

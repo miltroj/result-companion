@@ -1,0 +1,12 @@
+# OpenAI Configuration
+# Requires: OPENAI_API_KEY environment variable
+
+llm_factory:
+  model_type: "ChatOpenAI"
+  parameters:
+    model: "gpt-5-nano"
+    api_key: "${OPENAI_API_KEY}"
+
+tokenizer:
+  tokenizer: openai_tokenizer
+  max_content_tokens: 390000
