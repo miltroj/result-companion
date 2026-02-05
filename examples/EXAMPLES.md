@@ -486,7 +486,7 @@ export OPENAI_API_KEY="sk-..."
 result-companion analyze -o output.xml -c my_config.yaml
 
 # View results
-open log_with_ai_analysis.html
+open rc_log.html
 ```
 
 ## Environment Variables Reference
