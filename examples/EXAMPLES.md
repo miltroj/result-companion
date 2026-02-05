@@ -314,9 +314,15 @@ Generates `rc_log.html` with debug metadata per test:
 
 ## Custom Analysis
 
-### Find Performance Issues
+Customize prompts via `llm_config`:
 
-Control how many API requests are made in parallel to avoid rate limits (HTTP 429 errors).
+| Option | Purpose |
+|--------|---------|
+| `question_prompt` | Main analysis prompt for each test |
+| `chunking.chunk_analysis_prompt` | Prompt for analyzing individual chunks (large tests) |
+| `chunking.final_synthesis_prompt` | Prompt for combining chunk summaries |
+
+### Find Performance Issues
 
 ```yaml
 # performance_config.yaml

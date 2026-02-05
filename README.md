@@ -121,7 +121,7 @@ llm_config:
     inefficient loops...
 ```
 
-See [examples/EXAMPLES.md](https://github.com/miltroj/result-companion/blob/main/examples/EXAMPLES.md) for more.
+See [Custom Analysis examples](https://github.com/miltroj/result-companion/blob/main/examples/EXAMPLES.md#custom-analysis) for security audits, performance reviews, and more. The `llm_config` section also supports `chunking` prompts for large test suites.
 
 ## Configuration Examples
 
