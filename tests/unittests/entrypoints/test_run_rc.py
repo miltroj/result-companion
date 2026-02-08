@@ -3,15 +3,9 @@ from unittest.mock import patch
 
 import pytest
 
-from result_companion.core.parsers.config import (
-    DefaultConfigModel,
-)
+from result_companion.core.parsers.config import DefaultConfigModel
 from result_companion.core.utils.log_levels import LogLevels
-from result_companion.entrypoints.run_rc import (
-    _main,
-    _run_ollama_init_strategy,
-    run_rc,
-)
+from result_companion.entrypoints.run_rc import _main, _run_ollama_init_strategy, run_rc
 
 
 class TestRunOllamaInitStrategy:

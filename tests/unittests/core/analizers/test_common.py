@@ -4,10 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from result_companion.core.analizers.common import (
-    run_with_semaphore,
-    simple_llm_call,
-)
+from result_companion.core.analizers.common import run_with_semaphore, simple_llm_call
 
 
 @dataclass
