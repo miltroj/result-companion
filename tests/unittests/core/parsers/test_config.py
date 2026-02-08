@@ -206,6 +206,14 @@ def test_llm_factory_model_dump_masks_api_key() -> None:
     assert result["model"] == "openai/gpt-4"
 
 
+def test_llm_factory_model_is_sensitive_detects_sensitive_keys() -> None:
+    factory = LLMFactoryModel(model="openai/gpt-4", parameters={})
+
+    assert factory._is_sensitive("api_key") is True
+    assert factory._is_sensitive("TOKEN") is True
+    assert factory._is_sensitive("user") is False
+
+
 def test_llm_factory_repr_masks_api_key() -> None:
     factory = LLMFactoryModel(
         model="openai/gpt-4",
