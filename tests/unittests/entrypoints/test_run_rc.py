@@ -5,7 +5,12 @@ import pytest
 
 from result_companion.core.parsers.config import DefaultConfigModel
 from result_companion.core.utils.log_levels import LogLevels
-from result_companion.entrypoints.run_rc import _main, _run_ollama_init_strategy, run_rc
+from result_companion.entrypoints.run_rc import (
+    _main,
+    _register_copilot_if_needed,
+    _run_ollama_init_strategy,
+    run_rc,
+)
 
 
 class TestRunOllamaInitStrategy:
@@ -43,6 +48,18 @@ class TestRunOllamaInitStrategy:
                 strategy_params={},
             )
             mock_init.assert_called_once_with(model_name="deepseek-r1")
+
+
+class TestRegisterCopilotIfNeeded:
+    """Tests for _register_copilot_if_needed function."""
+
+    def test_registers_for_copilot_models(self):
+        with patch(
+            "result_companion.entrypoints.run_rc.register_copilot_provider"
+        ) as mocked_register:
+            _register_copilot_if_needed("copilot_sdk/gpt-4.1")
+
+        mocked_register.assert_called_once_with()
 
 
 class TestMainE2E:
