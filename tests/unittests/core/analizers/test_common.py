@@ -1,22 +1,25 @@
 import asyncio
-from dataclasses import dataclass
 from unittest.mock import patch
 
 import pytest
 
-from result_companion.core.analizers.common import run_with_semaphore, simple_llm_call
+from result_companion.core.analizers.common import (
+    run_with_semaphore,
+    simple_llm_call,
+    streaming_llm_call,
+)
 
 
-@dataclass
 class FakeLiteLLMResponse:
     """Fake LiteLLM response for testing."""
 
-    content: str
+    def __init__(self, content: str):
+        self._content = content
 
     @property
     def choices(self):
         """Returns fake choices list."""
-        msg = type("Message", (), {"content": self.content})()
+        msg = type("Message", (), {"content": self._content})()
         choice = type("Choice", (), {"message": msg})()
         return [choice]
 
@@ -61,12 +64,54 @@ class TestRunWithSemaphore:
         assert max_concurrent <= 2
 
 
+class FakeStreamResponse:
+    """Fake streaming response for testing."""
+
+    def __init__(self, chunks: list[str]):
+        self._chunks = chunks
+
+    def __aiter__(self):
+        async def iterator():
+            for chunk in self._chunks:
+                delta = type("Delta", (), {"content": chunk})()
+                choice = type("Choice", (), {"delta": delta})()
+                yield type("Chunk", (), {"choices": [choice]})()
+
+        return iterator()
+
+
+class TestStreamingLLMCall:
+    """Tests for streaming_llm_call function."""
+
+    @pytest.mark.asyncio
+    async def test_returns_joined_stream_content(self):
+        captured_kwargs = {}
+
+        async def capture_acompletion(**kwargs):
+            captured_kwargs.update(kwargs)
+            return FakeStreamResponse(["Hello", " ", "world"])
+
+        with patch(
+            "result_companion.core.analizers.common.acompletion",
+            capture_acompletion,
+        ):
+            result = await streaming_llm_call(
+                prompt="Say hello",
+                llm_params={"model": "test-model"},
+            )
+
+        assert result == "Hello world"
+        assert captured_kwargs["model"] == "test-model"
+        assert captured_kwargs["stream"] is True
+        assert captured_kwargs["messages"][0]["content"] == "Say hello"
+        assert captured_kwargs["messages"][0]["role"] == "user"
+
+
 class TestSimpleLLMCall:
     """Tests for simple_llm_call function."""
 
     @pytest.mark.asyncio
     async def test_calls_acompletion_with_prompt(self):
-        """Test that simple_llm_call formats messages correctly."""
         captured_kwargs = {}
 
         async def capture_acompletion(**kwargs):
@@ -89,7 +134,6 @@ class TestSimpleLLMCall:
 
     @pytest.mark.asyncio
     async def test_passes_llm_params(self):
-        """Test that additional LLM params are passed through."""
         captured_kwargs = {}
 
         async def capture_acompletion(**kwargs):
