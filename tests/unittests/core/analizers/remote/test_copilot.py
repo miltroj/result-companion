@@ -1,6 +1,7 @@
 """Tests for Copilot SDK LangChain adapter."""
 
 import asyncio
+import os
 from dataclasses import dataclass
 
 import pytest
@@ -9,6 +10,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from result_companion.core.analizers.remote.copilot import (
     ChatCopilot,
     SessionPool,
+    ensure_executable,
     messages_to_prompt,
 )
 
@@ -77,6 +79,7 @@ class FakeCopilotClient:
         self.stopped = False
         self.sessions_created = 0
         self.response_content = response_content
+        self.options: dict = {"cli_path": ""}
 
     async def start(self) -> None:
         self.started = True
@@ -276,3 +279,51 @@ class TestChatCopilot:
         assert fake_client.started
         assert chat._pool is not None
         assert chat._pool._pool_size == 2
+
+
+def _make_binary(tmp_path, name: str = "copilot", mode: int = 0o755) -> str:
+    """Creates a fake binary file for testing."""
+    binary = tmp_path / name
+    binary.write_bytes(b"\x00")
+    binary.chmod(mode)
+    return str(binary)
+
+
+class TestEnsureExecutable:
+    """Tests for ensure_executable permission fixer."""
+
+    def test_adds_execute_bit_when_missing(self, tmp_path):
+        path = _make_binary(tmp_path, mode=0o644)
+
+        ensure_executable(path)
+
+        assert os.access(path, os.X_OK)
+
+    def test_noop_when_already_executable(self, tmp_path):
+        path = _make_binary(tmp_path, mode=0o755)
+        original_mode = os.stat(path).st_mode
+
+        ensure_executable(path)
+
+        assert os.stat(path).st_mode == original_mode
+
+
+class TestEnsureStartedFixesPermissions:
+    """Tests that _ensure_started fixes binary permissions before start."""
+
+    @pytest.mark.asyncio
+    async def test_fixes_cli_permissions_before_start(self, tmp_path, monkeypatch):
+        binary = _make_binary(tmp_path, mode=0o644)
+        fake_client = FakeCopilotClient()
+        fake_client.options = {"cli_path": str(binary)}
+
+        monkeypatch.setattr(
+            "result_companion.core.analizers.remote.copilot.CopilotClient",
+            lambda opts=None: fake_client,
+        )
+        chat = ChatCopilot(model="gpt-4.1")
+
+        await chat._ensure_started()
+
+        assert os.access(str(binary), os.X_OK)
+        assert fake_client.started

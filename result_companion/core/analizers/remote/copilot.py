@@ -1,6 +1,9 @@
 """LangChain adapter for GitHub Copilot SDK with session pooling."""
 
 import asyncio
+import logging
+import os
+import stat
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Optional
 
@@ -10,6 +13,23 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from pydantic import ConfigDict
+
+logger = logging.getLogger(__name__)
+
+
+def ensure_executable(path: str) -> None:
+    """Adds execute permission to a binary if missing.
+
+    Pip wheel extraction strips execute bits from bundled binaries.
+    This fixes the permission so subprocess.Popen can run the file.
+
+    Args:
+        path: Absolute path to the binary file.
+    """
+    if os.access(path, os.X_OK):
+        return
+    os.chmod(path, os.stat(path).st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+    logger.info("Fixed execute permission on copilot binary: %s", path)
 
 
 def messages_to_prompt(messages: list[BaseMessage]) -> str:
@@ -116,6 +136,11 @@ class ChatCopilot(BaseChatModel):
                 opts["cli_url"] = self.cli_url
 
             self._client = CopilotClient(opts) if opts else CopilotClient()
+
+            cli_path = self._client.options.get("cli_path", "")
+            if cli_path:
+                ensure_executable(cli_path)
+
             await self._client.start()
             self._pool = SessionPool(self._client, self.model, self.pool_size)
             self._started = True
