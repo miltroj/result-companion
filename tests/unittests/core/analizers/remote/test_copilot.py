@@ -5,6 +5,7 @@ import os
 import stat
 from contextlib import asynccontextmanager
 
+import litellm
 import pytest
 
 from result_companion.core.analizers.remote.copilot import (
@@ -12,6 +13,7 @@ from result_companion.core.analizers.remote.copilot import (
     SessionPool,
     ensure_executable,
     messages_to_prompt,
+    register_copilot_provider,
 )
 
 
@@ -149,6 +151,31 @@ class TestCopilotLLM:
 
         assert result.model == "gpt-4.1"
         assert result.choices[0]["message"]["content"] == "hi"
+
+    def test_register_copilot_provider_sets_custom_provider_map(self, monkeypatch):
+        monkeypatch.setattr(litellm, "custom_provider_map", [])
+
+        handler = register_copilot_provider(model="gpt-4.1", pool_size=1, timeout=10)
+
+        assert isinstance(handler, CopilotLLM)
+        assert litellm.custom_provider_map == [
+            {"provider": "copilot_sdk", "custom_handler": handler}
+        ]
+
+    def test_completion_wraps_async(self, monkeypatch):
+        handler = CopilotLLM()
+        expected = object()
+
+        async def fake_acompletion(
+            model: str, messages: list[dict[str, str]], **kwargs
+        ) -> object:
+            return expected
+
+        monkeypatch.setattr(handler, "acompletion", fake_acompletion)
+
+        result = handler.completion("gpt-4.1", [{"role": "user", "content": "hi"}])
+
+        assert result is expected
 
 
 class TestEnsureExecutable:
