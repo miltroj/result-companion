@@ -1,7 +1,9 @@
 """Tests for Copilot LiteLLM adapter."""
 
+import asyncio
 import os
 import stat
+from contextlib import asynccontextmanager
 
 import pytest
 
@@ -67,6 +69,86 @@ class TestCopilotLLM:
         result = handler._extract_model("gpt-5")
 
         assert result == "gpt-5"
+
+    @pytest.mark.asyncio
+    async def test_ensure_started_initializes_client_and_pool(self, monkeypatch):
+        calls = {"ensure_executable": [], "client_opts": None, "start": 0, "pool": 0}
+
+        class FakeClient:
+            def __init__(self, opts=None):
+                calls["client_opts"] = opts
+                self.options = opts or {"cli_path": ""}
+
+            async def start(self):
+                calls["start"] += 1
+
+        def fake_ensure_executable(path: str) -> None:
+            calls["ensure_executable"].append(path)
+
+        def fake_pool(client, model, pool_size):
+            calls["pool"] += 1
+            return object()
+
+        monkeypatch.setattr(
+            "result_companion.core.analizers.remote.copilot.CopilotClient",
+            FakeClient,
+        )
+        monkeypatch.setattr(
+            "result_companion.core.analizers.remote.copilot.ensure_executable",
+            fake_ensure_executable,
+        )
+        monkeypatch.setattr(
+            "result_companion.core.analizers.remote.copilot.SessionPool",
+            fake_pool,
+        )
+
+        handler = CopilotLLM(
+            model="gpt-4.1", cli_path="/tmp/copilot", cli_url="http://x"
+        )
+
+        await handler._ensure_started("gpt-4.1")
+
+        assert calls["client_opts"] == {
+            "cli_path": "/tmp/copilot",
+            "cli_url": "http://x",
+        }
+        assert calls["ensure_executable"] == ["/tmp/copilot"]
+        assert calls["start"] == 1
+        assert calls["pool"] == 1
+        assert handler._started is True
+
+    @pytest.mark.asyncio
+    async def test_acompletion_returns_model_response(self, monkeypatch):
+        class FakeResponse:
+            def __init__(self, content: str):
+                self.data = type("Data", (), {"content": content})()
+
+        class FakeSession:
+            async def send_and_wait(
+                self, options: dict, timeout: int = 300
+            ) -> FakeResponse:
+                assert options == {"prompt": "[User]: Hello"}
+                assert timeout == 10
+                return FakeResponse("hi")
+
+        class FakePool:
+            @asynccontextmanager
+            async def acquire(self):
+                yield FakeSession()
+
+        handler = CopilotLLM(timeout=10)
+
+        async def fake_ensure_started(model: str) -> None:
+            handler._pool = FakePool()
+
+        monkeypatch.setattr(handler, "_ensure_started", fake_ensure_started)
+
+        result = await handler.acompletion(
+            "copilot_sdk/gpt-4.1", [{"role": "user", "content": "Hello"}]
+        )
+
+        assert result.model == "gpt-4.1"
+        assert result.choices[0]["message"]["content"] == "hi"
 
 
 class TestEnsureExecutable:
@@ -173,6 +255,46 @@ class TestSessionPool:
             pass
 
         assert client.sessions_created == 1
+
+    @pytest.mark.asyncio
+    async def test_acquire_waits_when_demand_exceeds_pool_size(self):
+        client = FakeCopilotClient()
+        pool = SessionPool(client, "gpt-4.1", pool_size=2)
+        first_released = asyncio.Event()
+        second_released = asyncio.Event()
+
+        async def acquire_and_hold(release_event: asyncio.Event) -> None:
+            async with pool.acquire():
+                await release_event.wait()
+
+        task_one = asyncio.create_task(acquire_and_hold(first_released))
+        task_two = asyncio.create_task(acquire_and_hold(second_released))
+
+        await asyncio.sleep(0)
+
+        assert client.sessions_created == 2
+
+        third_done = asyncio.Event()
+
+        async def acquire_third() -> None:
+            async with pool.acquire():
+                third_done.set()
+
+        task_three = asyncio.create_task(acquire_third())
+
+        await asyncio.sleep(0)
+
+        assert third_done.is_set() is False
+        assert client.sessions_created == 2
+
+        first_released.set()
+        await third_done.wait()
+
+        second_released.set()
+
+        await task_one
+        await task_two
+        await task_three
 
     @pytest.mark.asyncio
     async def test_close_destroys_sessions(self):
