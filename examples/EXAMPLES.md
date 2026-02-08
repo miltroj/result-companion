@@ -69,7 +69,7 @@ You should see available models (e.g., `gpt-4.1`, `claude-haiku-4.5`).
 
 ### Configuration
 ```yaml
-# copilot_config.yaml
+# examples/configs/copilot_config.yaml
 llm_factory:
   model: "copilot_sdk/gpt-4.1"
   # Alternative models:
@@ -87,7 +87,7 @@ concurrency:
 
 Run with:
 ```bash
-result-companion analyze -o output.xml -c configs/copilot_config.yaml
+result-companion analyze -o output.xml -c examples/configs/copilot_config.yaml
 ```
 
 ### Available Models
@@ -128,7 +128,7 @@ The default uses Ollama with `deepseek-r1:1.5b` model.
 ### OpenAI
 
 ```yaml
-# configs/openai_config.yaml
+# examples/configs/openai_config.yaml
 llm_factory:
   model: "openai/gpt-4o"
   api_key: "${OPENAI_API_KEY}"
@@ -141,13 +141,13 @@ tokenizer:
 Run with:
 ```bash
 export OPENAI_API_KEY="sk-..."
-result-companion analyze -o output.xml -c configs/openai_config.yaml
+result-companion analyze -o output.xml -c examples/configs/openai_config.yaml
 ```
 
 ### Azure OpenAI
 
 ```yaml
-# configs/azure_config.yaml
+# examples/configs/azure_config.yaml
 llm_factory:
   model: "azure/${AZURE_DEPLOYMENT_NAME}"
   api_key: "${AZURE_API_KEY}"
@@ -165,13 +165,13 @@ Run with:
 export AZURE_DEPLOYMENT_NAME="gpt-4"
 export AZURE_API_BASE="https://myresource.openai.azure.com/"
 export AZURE_API_KEY="..."
-result-companion analyze -o output.xml -c configs/azure_config.yaml
+result-companion analyze -o output.xml -c examples/configs/azure_config.yaml
 ```
 
 ### Google Gemini
 
 ```yaml
-# configs/gemini_config.yaml
+# examples/configs/gemini_config.yaml
 llm_factory:
   model: "gemini/gemini-2.0-flash"
   api_key: "${GOOGLE_API_KEY}"
@@ -186,13 +186,13 @@ tokenizer:
 Run with:
 ```bash
 export GOOGLE_API_KEY="..."
-result-companion analyze -o output.xml -c configs/gemini_config.yaml
+result-companion analyze -o output.xml -c examples/configs/gemini_config.yaml
 ```
 
 ### AWS Bedrock
 
 ```yaml
-# configs/bedrock_config.yaml
+# examples/configs/bedrock_config.yaml
 llm_factory:
   model: "bedrock/${AWS_BEDROCK_MODEL_ID}"
   parameters:
@@ -211,7 +211,7 @@ export AWS_BEDROCK_MODEL_ID="anthropic.claude-v2"
 export AWS_REGION="us-west-2"
 export AWS_ACCESS_KEY_ID="..."
 export AWS_SECRET_ACCESS_KEY="..."
-result-companion analyze -o output.xml -c configs/bedrock_config.yaml
+result-companion analyze -o output.xml -c examples/configs/bedrock_config.yaml
 ```
 
 ### Custom OpenAI-Compatible Endpoint
@@ -219,7 +219,7 @@ result-companion analyze -o output.xml -c configs/bedrock_config.yaml
 For Databricks, self-hosted, or other OpenAI-compatible APIs:
 
 ```yaml
-# configs/custom_endpoint_config.yaml
+# examples/configs/custom_endpoint_config.yaml
 llm_factory:
   model: "openai/${OPENAI_MODEL}"
   api_key: "${OPENAI_API_KEY}"
@@ -235,13 +235,13 @@ Run with:
 export OPENAI_MODEL="your-model"
 export OPENAI_API_KEY="..."
 export OPENAI_BASE_URL="https://your-endpoint.com/v1"
-result-companion analyze -o output.xml -c configs/custom_endpoint_config.yaml
+result-companion analyze -o output.xml -c examples/configs/custom_endpoint_config.yaml
 ```
 
 ### Anthropic with Claude Models
 
 ```yaml
-# configs/anthropic_config.yaml
+# examples/configs/anthropic_config.yaml
 llm_factory:
   model: "anthropic/claude-3-5-haiku-latest"
   api_key: "${ANTHROPIC_API_KEY}"
@@ -282,7 +282,7 @@ result-companion analyze -o output.xml --include "api,smoke" --exclude "flaky"
 ### Config File
 
 ```yaml
-# configs/tag_filtering_config.yaml
+# examples/configs/tag_filtering_config.yaml
 test_filter:
   include_tags: ["smoke*", "critical"]  # Wildcards supported
   exclude_tags: ["wip", "bug-*"]        # Exclude takes precedence
@@ -291,7 +291,7 @@ test_filter:
 
 Run with:
 ```bash
-result-companion analyze -o output.xml -c configs/tag_filtering_config.yaml
+result-companion analyze -o output.xml -c examples/configs/tag_filtering_config.yaml
 ```
 
 ### Filter Logic
