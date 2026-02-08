@@ -1,20 +1,13 @@
 import asyncio
+import importlib
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
-from langchain_anthropic import ChatAnthropic
-from langchain_aws import BedrockLLM
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_ollama.llms import OllamaLLM
-from langchain_openai import AzureChatOpenAI, ChatOpenAI
 from pydantic import ValidationError
 
 from result_companion.core.analizers.factory_common import execute_llm_and_get_results
-from result_companion.core.analizers.local.ollama_runner import ollama_on_init_strategy
-from result_companion.core.analizers.models import MODELS
-from result_companion.core.analizers.remote.copilot import ChatCopilot
 from result_companion.core.html.html_creator import create_llm_html_log
 from result_companion.core.parsers.config import LLMFactoryModel, load_config
 from result_companion.core.parsers.result_parser import (
@@ -23,45 +16,83 @@ from result_companion.core.parsers.result_parser import (
 from result_companion.core.utils.log_levels import LogLevels
 from result_companion.core.utils.logging_config import logger, set_global_log_level
 
+_PROVIDER_IMPORTS: dict[str, tuple[str, str, str]] = {
+    "OllamaLLM": ("langchain_ollama.llms", "OllamaLLM", "ollama"),
+    "AzureChatOpenAI": ("langchain_openai", "AzureChatOpenAI", "openai"),
+    "BedrockLLM": ("langchain_aws", "BedrockLLM", "aws"),
+    "ChatGoogleGenerativeAI": (
+        "langchain_google_genai",
+        "ChatGoogleGenerativeAI",
+        "google",
+    ),
+    "ChatOpenAI": ("langchain_openai", "ChatOpenAI", "openai"),
+    "ChatAnthropic": ("langchain_anthropic", "ChatAnthropic", "anthropic"),
+    "ChatCopilot": (
+        "result_companion.core.analizers.remote.copilot",
+        "ChatCopilot",
+        "copilot",
+    ),
+}
+
+
+def _import_model_class(model_type: str) -> type:
+    """Lazily imports model class for the requested provider.
+
+    Args:
+        model_type: Model class name from config.
+
+    Returns:
+        The model class.
+
+    Raises:
+        ValueError: If model_type is not supported.
+        ImportError: If provider package is not installed.
+    """
+    if model_type not in _PROVIDER_IMPORTS:
+        raise ValueError(
+            f"Unsupported model type: {model_type}. "
+            f"Available: {list(_PROVIDER_IMPORTS)}"
+        )
+
+    module_path, class_name, extra = _PROVIDER_IMPORTS[model_type]
+    try:
+        module = importlib.import_module(module_path)
+        return getattr(module, class_name)
+    except ImportError as e:
+        raise ImportError(
+            f"Provider '{model_type}' requires extra dependencies. "
+            f"Install with: pip install result-companion[{extra}]"
+        ) from e
+
 
 def init_llm_with_strategy_factory(
     config: LLMFactoryModel,
     test_case_concurrency: int = 1,
     chunk_concurrency: int = 1,
-) -> MODELS:
+) -> Any:
     """Creates LLM model with optional init strategy."""
     model_type = config.model_type
     parameters = dict(config.parameters)
 
-    model_classes = {
-        "OllamaLLM": (OllamaLLM, ollama_on_init_strategy),
-        "AzureChatOpenAI": (AzureChatOpenAI, None),
-        "BedrockLLM": (BedrockLLM, None),
-        "ChatGoogleGenerativeAI": (ChatGoogleGenerativeAI, None),
-        "ChatOpenAI": (ChatOpenAI, None),
-        "ChatAnthropic": (ChatAnthropic, None),
-        "ChatCopilot": (ChatCopilot, None),
-    }
+    model_class = _import_model_class(model_type)
 
-    # Runtime overrides: ChatCopilot needs pool_size = max concurrent requests
-    runtime_overrides = {
-        "ChatCopilot": {"pool_size": test_case_concurrency * chunk_concurrency},
-    }
-
-    if model_type not in model_classes:
-        raise ValueError(
-            f"Unsupported model type: {model_type} not in {model_classes.keys()}"
+    strategy = None
+    if model_type == "OllamaLLM":
+        from result_companion.core.analizers.local.ollama_runner import (
+            ollama_on_init_strategy,
         )
 
-    if model_type in runtime_overrides:
-        parameters.update(runtime_overrides[model_type])
+        strategy = ollama_on_init_strategy
 
-    model_class, strategy = model_classes[model_type]
+    if model_type == "ChatCopilot":
+        parameters["pool_size"] = test_case_concurrency * chunk_concurrency
+
     try:
         return model_class(**parameters), strategy
     except (TypeError, ValidationError) as e:
         raise ValueError(
-            f"Invalid parameters for {model_type}: {parameters}, while available parameters are: {model_class.__init__.__annotations__}"
+            f"Invalid parameters for {model_type}: {parameters}, "
+            f"while available parameters are: {model_class.__init__.__annotations__}"
         ) from e
 
 

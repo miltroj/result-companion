@@ -1,20 +1,5 @@
-from typing import Callable, Tuple
+from typing import Any
 
-from langchain_anthropic import ChatAnthropic
-from langchain_aws import BedrockLLM
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_ollama.llms import OllamaLLM
-from langchain_openai import AzureChatOpenAI, ChatOpenAI
-
-from result_companion.core.analizers.remote.copilot import ChatCopilot
-
-MODELS = Tuple[
-    OllamaLLM
-    | AzureChatOpenAI
-    | BedrockLLM
-    | ChatGoogleGenerativeAI
-    | ChatOpenAI
-    | ChatAnthropic
-    | ChatCopilot,
-    Callable,
-]
+# Model type resolved at runtime via provider extras.
+# Install: pip install result-companion[ollama|openai|aws|google|anthropic|copilot]
+MODELS = Any

@@ -7,7 +7,11 @@ import stat
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Optional
 
-from copilot import CopilotClient
+try:
+    from copilot import CopilotClient
+except ImportError:
+    CopilotClient = None
+
 from langchain_core.callbacks import CallbackManagerForLLMRun
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
@@ -128,6 +132,12 @@ class ChatCopilot(BaseChatModel):
         async with self._get_init_lock():
             if self._started:
                 return
+
+            if CopilotClient is None:
+                raise ImportError(
+                    "github-copilot-sdk not installed. "
+                    "Install with: pip install result-companion[copilot]"
+                )
 
             opts = {}
             if self.cli_path:

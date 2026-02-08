@@ -1,10 +1,10 @@
 import asyncio
 from typing import Tuple
 
-from langchain.prompts import PromptTemplate
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnableSerializable
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from result_companion.core.analizers.models import MODELS
 from result_companion.core.chunking.utils import Chunking

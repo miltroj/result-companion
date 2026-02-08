@@ -1,13 +1,8 @@
 import asyncio
-from typing import Callable, Tuple
+from typing import Any, Tuple
 
-from langchain_anthropic import ChatAnthropic
-from langchain_aws import BedrockLLM
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_ollama.llms import OllamaLLM
-from langchain_openai import AzureChatOpenAI, ChatOpenAI
 
 from result_companion.core.chunking.chunking import (
     accumulate_llm_results_for_summarizaton_chain,
@@ -18,16 +13,6 @@ from result_companion.core.utils.logging_config import get_progress_logger
 from result_companion.core.utils.progress import run_tasks_with_progress
 
 logger = get_progress_logger("Analyzer")
-
-MODELS = Tuple[
-    OllamaLLM
-    | AzureChatOpenAI
-    | BedrockLLM
-    | ChatGoogleGenerativeAI
-    | ChatOpenAI
-    | ChatAnthropic,
-    Callable,
-]
 
 
 def _stats_header(
@@ -57,7 +42,7 @@ async def accumulate_llm_results_without_streaming(
     test_case: dict,
     question_from_config_file: str,
     prompt: ChatPromptTemplate,
-    model: MODELS,
+    model: Any,
 ) -> Tuple[str, str, list]:
     logger.info(
         f"### Test Case: {test_case['name']}, content length: {len(str(test_case))}"
@@ -76,7 +61,7 @@ async def execute_llm_and_get_results(
     test_cases: list,
     config: DefaultConfigModel,
     prompt: ChatPromptTemplate,
-    model: MODELS,
+    model: Any,
     dryrun: bool = False,
 ) -> dict:
     question_from_config_file = config.llm_config.question_prompt
