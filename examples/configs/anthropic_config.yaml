@@ -2,10 +2,9 @@
 # Requires: ANTHROPIC_API_KEY environment variable
 
 llm_factory:
-  model_type: "ChatAnthropic"
+  model: "anthropic/claude-3-5-haiku-latest"
+  api_key: "${ANTHROPIC_API_KEY}"
   parameters:
-    model: "claude-haiku-4-5"
-    api_key: "${ANTHROPIC_API_KEY}"
     temperature: 0
 
 tokenizer:
