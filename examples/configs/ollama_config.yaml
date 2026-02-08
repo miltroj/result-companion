@@ -70,12 +70,16 @@ llm_config:
 
 llm_factory:
   # LiteLLM model format: provider/model-name
-  # Examples: copilot_sdk/gpt-4.1, openai/gpt-4o, anthropic/claude-3-sonnet
-  model: "copilot_sdk/gpt-4.1"
+  # Examples: ollama_chat/llama2, openai/gpt-4o, anthropic/claude-3-sonnet
+  model: "ollama_chat/deepseek-r1:1.5b"
+  api_base: "http://localhost:11434"  # Required for Ollama
+  strategy:
+    parameters:
+      model_name: "deepseek-r1"
 
 tokenizer:
-  tokenizer: openai_tokenizer
-  max_content_tokens: 50000
+  tokenizer: ollama_tokenizer
+  max_content_tokens: 140000
 
 concurrency:
   test_case: 1

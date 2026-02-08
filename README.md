@@ -60,7 +60,7 @@ result-companion setup ollama
 result-companion setup model deepseek-r1:1.5b
 
 # Analyze your tests
-result-companion analyze -o output.xml
+result-companion analyze -o output.xml -c examples/configs/ollama_config.yaml
 ```
 
 ### Option 3: Cloud AI ([OpenAI](https://github.com/miltroj/result-companion/blob/main/examples/EXAMPLES.md#openai), Azure, Google)

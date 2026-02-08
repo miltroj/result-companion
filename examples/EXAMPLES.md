@@ -11,7 +11,7 @@ Quick-start configurations for different LLM providers and use cases.
     - [Available Models](#available-models)
     - [Troubleshooting](#troubleshooting)
   - [Quick Configs](#quick-configs)
-    - [Local (Ollama) - Default](#local-ollama---default)
+    - [Local (Ollama)](#local-ollama)
     - [OpenAI](#openai)
     - [Azure OpenAI](#azure-openai)
     - [Google Gemini](#google-gemini)
@@ -110,14 +110,19 @@ result-companion analyze -o output.xml -c examples/configs/copilot_config.yaml
 
 ## Quick Configs
 
-### Local (Ollama) - Default
+### Local (Ollama)
 
-No config needed! Just run:
+Setup:
 ```bash
-result-companion analyze -o output.xml
+result-companion setup ollama
+result-companion setup model deepseek-r1:1.5b
 ```
 
-The default uses Ollama with `deepseek-r1:1.5b` model.
+Use the Ollama example config:
+```bash
+result-companion analyze -o output.xml -c examples/configs/ollama_config.yaml
+```
+This config uses Ollama with `deepseek-r1:1.5b` model.
 
 **Other MacBook-friendly models:**
 - `phi-3-mini` (2.3GB, 8GB RAM) - Fast and efficient
@@ -518,4 +523,4 @@ LiteLLM documentation for supported providers:
 
 ---
 
-**Default Configuration**: See [`default_config.yaml`](../result_companion/core/configs/default_config.yaml) for all available options.
+**Ollama Example**: See [`ollama_config.yaml`](configs/ollama_config.yaml).
