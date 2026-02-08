@@ -243,7 +243,7 @@ result-companion analyze -o output.xml -c examples/configs/custom_endpoint_confi
 ```yaml
 # examples/configs/anthropic_config.yaml
 llm_factory:
-  model: "anthropic/claude-3-5-haiku-latest"
+  model: "anthropic/claude-haiku-4-5"
   api_key: "${ANTHROPIC_API_KEY}"
   parameters:
     temperature: 0
@@ -254,9 +254,9 @@ tokenizer:
 ```
 
 **Note:** Set up the `ANTHROPIC_API_KEY` environment variable. Anthropic offers multiple Claude models:
-- `claude-3-5-haiku-latest`: Lightweight, cheaper, faster (recommended for most cases)
-- `claude-3-5-sonnet-latest`: Balanced performance and cost
-- `claude-3-opus-latest`: Best reasoning capabilities
+- `claude-haiku-4-5`: Lightweight, cheaper, faster (recommended for most cases)
+- `claude-sonnet-4-5`: Balanced performance and cost
+- `claude-opus-4-5`: Best reasoning capabilities
 
 
 ## Test Filtering
@@ -423,9 +423,9 @@ result-companion analyze -o output.xml --test-concurrency 2 --chunk-concurrency 
 | Ollama | mistral:7b | 8K | - | `max_content_tokens: 8000` |
 | OpenAI | gpt-4o | 128K | 16K | `max_content_tokens: 120000` |
 | Azure | gpt-4 | 8K | - | `max_content_tokens: 7000` |
-| Google | gemini-2.0-flash | 1,048K | 65K | `max_content_tokens: 1000000` |
+| Google | gemini-2.5-flash | 1,048K | 65K | `max_content_tokens: 1000000` |
 
-**Note**: Set input slightly below actual limit to account for prompt overhead. Gemini 2.0 Flash is ideal for large test suites.
+**Note**: Set input slightly below actual limit to account for prompt overhead. Gemini 2.5 Flash is ideal for large test suites.
 
 **Local models (Ollama)**: Models run faster with GPU/NPU acceleration (Apple Silicon, NVIDIA CUDA, AMD ROCm). CPU-only is slower but works.
 
