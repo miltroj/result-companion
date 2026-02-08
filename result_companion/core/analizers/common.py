@@ -24,6 +24,24 @@ async def run_with_semaphore(semaphore: asyncio.Semaphore, coroutine: Any) -> An
         return await coroutine
 
 
+async def simple_llm_call(
+    prompt: str,
+    llm_params: dict[str, Any],
+) -> str:
+    """Makes a simple LLM call with the given prompt.
+
+    Args:
+        prompt: The prompt to send to the LLM.
+        llm_params: Parameters for LiteLLM acompletion (model, api_key, etc).
+
+    Returns:
+        The LLM response content.
+    """
+    messages = [{"role": "user", "content": prompt}]
+    response = await acompletion(messages=messages, **llm_params)
+    return response.choices[0].message.content
+
+
 async def streaming_llm_call(
     prompt: str,
     llm_params: dict[str, Any],
