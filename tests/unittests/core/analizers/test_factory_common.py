@@ -206,7 +206,7 @@ class TestAnalyzeTestCase:
         fake_acompletion = make_fake_acompletion("Root cause: timeout error")
 
         with patch(
-            "result_companion.core.analizers.factory_common.acompletion",
+            "result_companion.core.analizers.factory_common._smart_acompletion",
             fake_acompletion,
         ):
             result, name, chunks = await analyze_test_case(
@@ -235,7 +235,7 @@ class TestExecuteLLMAndGetResults:
         fake_acompletion = make_fake_acompletion("Analysis result")
 
         with patch(
-            "result_companion.core.analizers.factory_common.acompletion",
+            "result_companion.core.analizers.factory_common._smart_acompletion",
             fake_acompletion,
         ):
             results = await execute_llm_and_get_results(
@@ -272,7 +272,7 @@ class TestExecuteLLMAndGetResults:
         fake_acompletion = make_fake_acompletion("Analysis")
 
         with patch(
-            "result_companion.core.analizers.factory_common.acompletion",
+            "result_companion.core.analizers.factory_common._smart_acompletion",
             fake_acompletion,
         ):
             results = await execute_llm_and_get_results(

@@ -41,7 +41,7 @@ class FakeACompletionSequence:
         self.responses = responses
         self.call_count = 0
 
-    async def __call__(self, **kwargs):
+    async def __call__(self, messages: list[dict], **kwargs):
         """Returns next response in sequence."""
         if self.call_count < len(self.responses):
             response = self.responses[self.call_count]
@@ -100,14 +100,14 @@ class TestAnalyzeChunk:
         """Test that analyze_chunk formats prompt correctly."""
         captured_messages = []
 
-        async def capture_acompletion(**kwargs):
-            captured_messages.append(kwargs.get("messages"))
+        async def capture_acompletion(messages: list[dict], **kwargs):
+            captured_messages.append(messages)
             return FakeLiteLLMResponse(content="chunk analysis")
 
         semaphore = asyncio.Semaphore(1)
 
         with patch(
-            "result_companion.core.chunking.chunking.acompletion",
+            "result_companion.core.chunking.chunking._smart_acompletion",
             capture_acompletion,
         ):
             result = await analyze_chunk(
@@ -133,12 +133,12 @@ class TestSynthesizeSummaries:
         """Test that synthesize_summaries formats and calls LLM."""
         captured_messages = []
 
-        async def capture_acompletion(**kwargs):
-            captured_messages.append(kwargs.get("messages"))
+        async def capture_acompletion(messages: list[dict], **kwargs):
+            captured_messages.append(messages)
             return FakeLiteLLMResponse(content="final synthesis")
 
         with patch(
-            "result_companion.core.chunking.chunking.acompletion",
+            "result_companion.core.chunking.chunking._smart_acompletion",
             capture_acompletion,
         ):
             result = await synthesize_summaries(
@@ -173,7 +173,7 @@ class TestAccumulateLLMResultsForSummarization:
         )
 
         with patch(
-            "result_companion.core.chunking.chunking.acompletion",
+            "result_companion.core.chunking.chunking._smart_acompletion",
             fake_acompletion,
         ):
             result, name, chunks = await accumulate_llm_results_for_summarization(
@@ -196,7 +196,7 @@ class TestAccumulateLLMResultsForSummarization:
         current_concurrent = 0
         lock = asyncio.Lock()
 
-        async def tracking_acompletion(**kwargs):
+        async def tracking_acompletion(messages: list[dict], **kwargs):
             nonlocal max_concurrent, current_concurrent
             async with lock:
                 current_concurrent += 1
@@ -216,7 +216,7 @@ class TestAccumulateLLMResultsForSummarization:
         )
 
         with patch(
-            "result_companion.core.chunking.chunking.acompletion",
+            "result_companion.core.chunking.chunking._smart_acompletion",
             tracking_acompletion,
         ):
             await accumulate_llm_results_for_summarization(
