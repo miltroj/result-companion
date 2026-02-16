@@ -15,6 +15,24 @@ from result_companion.core.utils.log_levels import LogLevels
 from result_companion.core.utils.logging_config import logger, set_global_log_level
 
 
+def _run_provider_init_strategies(model_name: str, strategy_params: dict) -> None:
+    """Runs provider-specific initialization based on LiteLLM model prefix.
+
+    Args:
+        model_name: LiteLLM model identifier (e.g., ollama_chat/llama2).
+        strategy_params: Parameters for optional init strategies.
+    """
+    provider = model_name.split("/", 1)[0]
+    strategies = {
+        "ollama": lambda: _run_ollama_init_strategy(model_name, strategy_params),
+        "ollama_chat": lambda: _run_ollama_init_strategy(model_name, strategy_params),
+        "copilot_sdk": lambda: _register_copilot_if_needed(model_name),
+    }
+    strategy = strategies.get(provider)
+    if strategy:
+        strategy()
+
+
 def _run_ollama_init_strategy(model_name: str, strategy_params: dict) -> None:
     """Runs Ollama initialization strategy if model is Ollama.
 
@@ -95,12 +113,10 @@ async def _main(
 
     logger.info(f"Filtered to {len(test_cases)} test cases")
 
-    # Run provider init strategies
-    _run_ollama_init_strategy(
+    _run_provider_init_strategies(
         model_name=parsed_config.llm_factory.model,
         strategy_params=parsed_config.llm_factory.strategy.parameters,
     )
-    _register_copilot_if_needed(parsed_config.llm_factory.model)
 
     logger.debug(f"Using model: {parsed_config.llm_factory.model}")
 

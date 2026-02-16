@@ -9,6 +9,7 @@ from result_companion.entrypoints.run_rc import (
     _main,
     _register_copilot_if_needed,
     _run_ollama_init_strategy,
+    _run_provider_init_strategies,
     run_rc,
 )
 
@@ -48,6 +49,41 @@ class TestRunOllamaInitStrategy:
                 strategy_params={},
             )
             mock_init.assert_called_once_with(model_name="deepseek-r1")
+
+
+class TestRunProviderInitStrategies:
+    """Tests for generic provider strategy dispatcher."""
+
+    def test_runs_ollama_strategy_for_ollama_chat(self):
+        with patch(
+            "result_companion.entrypoints.run_rc._run_ollama_init_strategy"
+        ) as mocked_ollama:
+            _run_provider_init_strategies(
+                model_name="ollama_chat/deepseek-r1:1.5b",
+                strategy_params={"model_name": "deepseek-r1"},
+            )
+
+        mocked_ollama.assert_called_once_with(
+            "ollama_chat/deepseek-r1:1.5b",
+            {"model_name": "deepseek-r1"},
+        )
+
+    def test_skips_for_unmapped_providers(self):
+        with (
+            patch(
+                "result_companion.entrypoints.run_rc._run_ollama_init_strategy"
+            ) as mocked_ollama,
+            patch(
+                "result_companion.entrypoints.run_rc._register_copilot_if_needed"
+            ) as mocked_copilot,
+        ):
+            _run_provider_init_strategies(
+                model_name="openai/gpt-4o",
+                strategy_params={},
+            )
+
+        mocked_ollama.assert_not_called()
+        mocked_copilot.assert_not_called()
 
 
 class TestRegisterCopilotIfNeeded:
@@ -163,7 +199,7 @@ class TestMainE2E:
             ),
             patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
             patch(
-                "result_companion.entrypoints.run_rc._run_ollama_init_strategy"
+                "result_companion.entrypoints.run_rc._run_provider_init_strategies"
             ) as mocked_init,
         ):
             mocked_config.return_value = DefaultConfigModel(
