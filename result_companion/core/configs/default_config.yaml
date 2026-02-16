@@ -70,8 +70,7 @@ llm_config:
 
 llm_factory:
   # LiteLLM model format: provider/model-name
-  # Examples: copilot_sdk/gpt-4.1, openai/gpt-4o, anthropic/claude-3-sonnet
-  model: "copilot_sdk/gpt-4.1"
+  model: "copilot_sdk/gpt-5-mini"
 
 tokenizer:
   tokenizer: openai_tokenizer

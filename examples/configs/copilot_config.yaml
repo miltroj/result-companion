@@ -3,7 +3,7 @@
 # Setup: brew install copilot-cli && copilot (login) && /exit
 
 llm_factory:
-  model: "copilot_sdk/gpt-4.1"
+  model: "copilot_sdk/gpt-5-mini"
   # Alternative models:
   # model: "copilot_sdk/claude-sonnet-4.5"
   # model: "copilot_sdk/gpt-5"

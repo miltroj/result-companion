@@ -54,7 +54,7 @@ npm install -g @github/copilot
 **2. Authenticate**
 
 ```bash
-copilot /login
+copilot -i "/login"
 ```
 
 Follow the prompts to log in with your GitHub account. Type `/exit` when done.
@@ -71,7 +71,7 @@ You should see available models (e.g., `gpt-4.1`, `claude-haiku-4.5`).
 ```yaml
 # examples/configs/copilot_config.yaml
 llm_factory:
-  model: "copilot_sdk/gpt-4.1"
+  model: "copilot_sdk/gpt-5-mini"
   # Alternative models:
   # model: "copilot_sdk/claude-sonnet-4.5"
   # model: "copilot_sdk/gpt-5"
@@ -94,9 +94,9 @@ result-companion analyze -o output.xml -c examples/configs/copilot_config.yaml
 
 | Model | Best For |
 |-------|----------|
-| `gpt-4.1` | General analysis (default) |
+| `gpt-5-mini` | General analysis (default) |
 | `claude-haiku-4.5` | Fast, cost-effective |
-| `gpt-5-mini` | Complex reasoning |
+| `gpt-5` | Complex reasoning |
 
 ### Troubleshooting
 

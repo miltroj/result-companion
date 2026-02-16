@@ -90,7 +90,7 @@ class CopilotLLM(CustomLLM):
 
     def __init__(
         self,
-        model: str = "gpt-4.1",
+        model: str = "gpt-5-mini",
         pool_size: int = 5,
         timeout: int = 300,
         cli_path: Optional[str] = None,
@@ -147,7 +147,7 @@ class CopilotLLM(CustomLLM):
         """Async completion using Copilot SDK.
 
         Args:
-            model: Model identifier (e.g., copilot/gpt-4.1).
+            model: Model identifier (e.g., copilot/gpt-5-mini).
             messages: List of message dicts.
             **kwargs: Additional parameters (ignored).
 
@@ -201,7 +201,7 @@ _copilot_handler: Optional[CopilotLLM] = None
 
 
 def register_copilot_provider(
-    model: str = "gpt-4.1",
+    model: str = "gpt-5-mini",
     pool_size: int = 5,
     timeout: int = 300,
     cli_path: Optional[str] = None,
@@ -225,7 +225,7 @@ def register_copilot_provider(
     Example:
         register_copilot_provider()
         response = await litellm.acompletion(
-            model="copilot_sdk/gpt-4.1",
+            model="copilot_sdk/gpt-5-mini",
             messages=[{"role": "user", "content": "Hello"}]
         )
     """

@@ -43,7 +43,7 @@ def _register_copilot_if_needed(model_name: str) -> None:
     """Registers Copilot SDK provider if model uses copilot_sdk prefix.
 
     Args:
-        model_name: LiteLLM model identifier (e.g., copilot_sdk/gpt-4.1).
+        model_name: LiteLLM model identifier (e.g., copilot_sdk/gpt-5-mini).
     """
     if not model_name.startswith("copilot_sdk/"):
         return

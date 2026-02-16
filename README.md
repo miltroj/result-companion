@@ -42,7 +42,7 @@ pip install result-companion
 
 # One-time setup
 brew install copilot-cli   # or: npm install -g @github/copilot
-copilot /login             # Login when prompted, then /exit
+copilot -i "/login"            # Login when prompted, then /exit
 
 # Analyze your tests
 result-companion analyze -o output.xml -c examples/configs/copilot_config.yaml
