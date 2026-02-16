@@ -103,6 +103,10 @@ class TestCopilotLLM:
             "result_companion.core.analizers.remote.copilot.SessionPool",
             fake_pool,
         )
+        monkeypatch.setattr(
+            "result_companion.core.analizers.remote.copilot.shutil.which",
+            lambda _: "/tmp/copilot",
+        )
 
         handler = CopilotLLM(
             model="gpt-4.1", cli_path="/tmp/copilot", cli_url="http://x"
@@ -118,6 +122,18 @@ class TestCopilotLLM:
         assert calls["start"] == 1
         assert calls["pool"] == 1
         assert handler._started is True
+
+    @pytest.mark.asyncio
+    async def test_ensure_started_raises_when_cli_missing(self, monkeypatch):
+        handler = CopilotLLM()
+        monkeypatch.setattr(
+            "result_companion.core.analizers.remote.copilot.shutil.which",
+            lambda _: None,
+        )
+        monkeypatch.setenv("COPILOT_CLI_PATH", "/missing/copilot")
+
+        with pytest.raises(FileNotFoundError):
+            await handler._ensure_started("gpt-4.1")
 
     @pytest.mark.asyncio
     async def test_acompletion_returns_model_response(self, monkeypatch):

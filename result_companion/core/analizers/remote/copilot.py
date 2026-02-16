@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import os
+import shutil
 import stat
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Optional
@@ -119,9 +120,12 @@ class CopilotLLM(CustomLLM):
             if self._started:
                 return
 
+            resolved_cli = self._resolve_cli_path()
             opts = {}
             if self._cli_path:
                 opts["cli_path"] = self._cli_path
+            elif resolved_cli:
+                opts["cli_path"] = resolved_cli
             if self._cli_url:
                 opts["cli_url"] = self._cli_url
 
@@ -131,6 +135,20 @@ class CopilotLLM(CustomLLM):
             await self._client.start()
             self._pool = SessionPool(self._client, model, self._pool_size)
             self._started = True
+
+    def _resolve_cli_path(self) -> str | None:
+        """Resolves Copilot CLI path or raises if missing."""
+        if self._cli_url:
+            return None
+        cli_path = self._cli_path or os.getenv("COPILOT_CLI_PATH") or "copilot"
+        resolved = shutil.which(cli_path)
+        if not resolved and os.path.isabs(cli_path) and os.path.isfile(cli_path):
+            resolved = cli_path
+        if not resolved:
+            raise FileNotFoundError(
+                "Copilot CLI not found. Install GitHub Copilot CLI or set COPILOT_CLI_PATH."
+            )
+        return resolved
 
     def _extract_model(self, model: str) -> str:
         """Extracts model name from 'copilot/model-name' format."""
