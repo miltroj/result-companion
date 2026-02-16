@@ -24,7 +24,6 @@ class TestRunOllamaInitStrategy:
         ) as mock_init:
             _run_ollama_init_strategy(
                 model_name="openai/gpt-4",
-                strategy_params={},
             )
             mock_init.assert_not_called()
 
@@ -35,7 +34,6 @@ class TestRunOllamaInitStrategy:
         ) as mock_init:
             _run_ollama_init_strategy(
                 model_name="ollama_chat/llama2",
-                strategy_params={"model_name": "llama2"},
             )
             mock_init.assert_called_once_with(model_name="llama2")
 
@@ -46,7 +44,6 @@ class TestRunOllamaInitStrategy:
         ) as mock_init:
             _run_ollama_init_strategy(
                 model_name="ollama_chat/deepseek-r1:1.5b",
-                strategy_params={},
             )
             mock_init.assert_called_once_with(model_name="deepseek-r1")
 
@@ -60,13 +57,9 @@ class TestRunProviderInitStrategies:
         ) as mocked_ollama:
             _run_provider_init_strategies(
                 model_name="ollama_chat/deepseek-r1:1.5b",
-                strategy_params={"model_name": "deepseek-r1"},
             )
 
-        mocked_ollama.assert_called_once_with(
-            "ollama_chat/deepseek-r1:1.5b",
-            {"model_name": "deepseek-r1"},
-        )
+        mocked_ollama.assert_called_once_with("ollama_chat/deepseek-r1:1.5b")
 
     def test_skips_for_unmapped_providers(self):
         with (
@@ -79,7 +72,6 @@ class TestRunProviderInitStrategies:
         ):
             _run_provider_init_strategies(
                 model_name="openai/gpt-4o",
-                strategy_params={},
             )
 
         mocked_ollama.assert_not_called()
@@ -215,7 +207,6 @@ class TestMainE2E:
                 llm_factory={
                     "model": "ollama_chat/llama2",
                     "api_base": "http://localhost:11434",
-                    "strategy": {"parameters": {"model_name": "llama2"}},
                 },
                 tokenizer={"tokenizer": "ollama_tokenizer", "max_content_tokens": 1000},
             )
@@ -230,7 +221,6 @@ class TestMainE2E:
 
             mocked_init.assert_called_once_with(
                 model_name="ollama_chat/llama2",
-                strategy_params={"model_name": "llama2"},
             )
 
 

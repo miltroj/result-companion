@@ -35,10 +35,6 @@ class LLMConfigModel(BaseModel):
     chunking: ChunkingPromptsModel
 
 
-class LLMInitStrategyModel(BaseModel):
-    parameters: dict = Field(default={}, description="Strategy parameters.")
-
-
 class LLMFactoryModel(BaseModel):
     """LiteLLM model configuration.
 
@@ -57,9 +53,6 @@ class LLMFactoryModel(BaseModel):
     api_base: str | None = Field(default=None, description="Optional API base URL.")
     api_key: str | None = Field(default=None, description="Optional API key.")
     parameters: dict = Field(default={}, description="Additional model parameters.")
-    strategy: LLMInitStrategyModel = Field(
-        description="Strategy to run on init.", default_factory=LLMInitStrategyModel
-    )
 
     def _is_sensitive(self, key: str) -> bool:
         """Checks if a key is sensitive."""
@@ -83,7 +76,6 @@ class LLMFactoryModel(BaseModel):
             "api_base": self.api_base,
             "api_key": "***REDACTED***" if self.api_key else None,
             "parameters": self.parameters,
-            "strategy": self.strategy,
         }
 
 

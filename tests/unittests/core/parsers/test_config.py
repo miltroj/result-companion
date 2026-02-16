@@ -12,7 +12,6 @@ from result_companion.core.parsers.config import (
     ConfigLoader,
     DefaultConfigModel,
     LLMFactoryModel,
-    LLMInitStrategyModel,
     TokenizerModel,
 )
 
@@ -74,7 +73,6 @@ def test_default_config_model_loads_parameters() -> None:
     assert config.llm_config.prompt_template == "{question} {cotext}"
     assert config.llm_factory.model == "ollama_chat/llama2"
     assert config.llm_factory.parameters == {}
-    assert config.llm_factory.strategy.parameters == {}
     assert config.tokenizer.tokenizer == "ollama_tokenizer"
     assert config.tokenizer.max_content_tokens == 1234
     assert config.version == 1.0
@@ -104,7 +102,6 @@ def test_default_config_model_drops_redundant_parameters() -> None:
     assert config.llm_config.prompt_template == "{question} {cotext}"
     assert config.llm_factory.model == "openai/gpt-4"
     assert config.llm_factory.parameters == {}
-    assert config.llm_factory.strategy.parameters == {}
     assert config.tokenizer.tokenizer == "ollama_tokenizer"
     assert config.tokenizer.max_content_tokens == 1234
     assert config.version == 1.0
@@ -122,9 +119,6 @@ def test_user_llm_config_takes_precedense_over_default(mocker):
     llm_factory:
       model: "ollama_chat/llama2"
       parameters: {}
-      strategy:
-        parameters:
-            custom: "strategy"
     tokenizer:
       tokenizer: "ollama_tokenizer"
       max_content_tokens: 1234
@@ -135,9 +129,6 @@ def test_user_llm_config_takes_precedense_over_default(mocker):
     llm_factory:
       model: "openai/gpt-4"
       parameters: {"param1": "value1"}
-      strategy:
-        parameters:
-            users: "user_strategy"
     tokenizer:
       tokenizer: "azure_openai_tokenizer"
       max_content_tokens: 4321
@@ -159,26 +150,14 @@ def test_user_llm_config_takes_precedense_over_default(mocker):
     assert config.version == 1.0
     assert config.llm_factory.model == "openai/gpt-4"
     assert config.llm_factory.parameters == {"param1": "value1"}
-    assert config.llm_factory.strategy.parameters == {"users": "user_strategy"}
     assert config.tokenizer.tokenizer == "azure_openai_tokenizer"
     assert config.tokenizer.max_content_tokens == 4321
-
-
-def test_initing_strategy_model_with_defaults() -> None:
-    strategy = LLMInitStrategyModel()
-    assert strategy.parameters == {}
-
-
-def test_initing_strategy_model_with_extra_params() -> None:
-    strategy = LLMInitStrategyModel(parameters={"param1": "value1"})
-    assert strategy.parameters == {"param1": "value1"}
 
 
 def test_init_factory_llm_model_with_defaults() -> None:
     factory = LLMFactoryModel(model="ollama_chat/llama2", parameters={})
     assert factory.model == "ollama_chat/llama2"
     assert factory.parameters == {}
-    assert factory.strategy.parameters == {}
 
 
 def test_init_factory_llm_model_with_extra_params() -> None:
@@ -186,12 +165,10 @@ def test_init_factory_llm_model_with_extra_params() -> None:
         model="openai/gpt-4",
         api_key="sk-test123",
         parameters={"param1": "value1"},
-        strategy={"parameters": {"custom": "strategy"}},
     )
     assert factory.model == "openai/gpt-4"
     assert factory.api_key == "sk-test123"
     assert factory.parameters == {"param1": "value1"}
-    assert factory.strategy.parameters == {"custom": "strategy"}
 
 
 def test_llm_factory_model_dump_masks_api_key() -> None:
@@ -225,48 +202,6 @@ def test_llm_factory_repr_masks_api_key() -> None:
     assert "super-secret-key" not in result
     assert "***REDACTED***" in result
     assert "openai/gpt-4" in result
-
-
-def test_default_config_model_loads_default_empty_strategy() -> None:
-    config = DefaultConfigModel(
-        version=1.0,
-        **{
-            "llm_config": {
-                "question_prompt": "Test prompt message.",
-                **prompt_template,
-                **chunking_prompts,
-            }
-        },
-        **{"llm_factory": {"model": "ollama_chat/test", "parameters": {}}},
-        **{"tokenizer": {"tokenizer": "ollama_tokenizer", "max_content_tokens": 1234}},
-    )
-    assert config.llm_config.question_prompt == "Test prompt message."
-    assert config.llm_config.prompt_template == "{question} {cotext}"
-    assert config.llm_factory.strategy.parameters == {}
-    assert config.version == 1.0
-
-
-def test_default_config_model_loads_custom_strategy() -> None:
-    config = DefaultConfigModel(
-        version=1.0,
-        llm_config={
-            "question_prompt": "Test prompt message.",
-            **prompt_template,
-            **chunking_prompts,
-        },
-        llm_factory={
-            "model": "ollama_chat/llama2",
-            "parameters": {},
-            "strategy": {"parameters": {"custom": "strategy"}},
-        },
-        tokenizer={"tokenizer": "ollama_tokenizer", "max_content_tokens": 1234},
-    )
-    assert config.llm_config.question_prompt == "Test prompt message."
-    assert config.llm_config.prompt_template == "{question} {cotext}"
-    assert config.llm_factory.strategy.parameters == {"custom": "strategy"}
-    assert config.tokenizer.tokenizer == "ollama_tokenizer"
-    assert config.tokenizer.max_content_tokens == 1234
-    assert config.version == 1.0
 
 
 def test_tokenizer_type_model_pass_on_existing_tokenizer() -> None:

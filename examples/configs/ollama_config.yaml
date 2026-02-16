@@ -10,9 +10,6 @@ llm_factory:
   # Examples: ollama_chat/llama2, openai/gpt-4o, anthropic/claude-3-sonnet
   model: "ollama_chat/deepseek-r1:1.5b"
   api_base: "http://localhost:11434"  # Required for Ollama
-  strategy:
-    parameters:
-      model_name: "deepseek-r1"
 
 tokenizer:
   tokenizer: ollama_tokenizer
