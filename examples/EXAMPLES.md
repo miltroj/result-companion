@@ -127,6 +127,7 @@ This config uses Ollama with `deepseek-r1:1.5b` model.
 **Other MacBook-friendly models:**
 - `phi-3-mini` (2.3GB, 8GB RAM) - Fast and efficient
 - `mistral:7b` (4.1GB, 16GB RAM) - Industry standard, excellent quality
+- `gpt oss 20b` (13GB) - OpenAI opensource model
 
 **Hardware note**: GPU/NPU significantly improves inference speed. Apple Silicon Macs use unified memory (RAM serves both CPU and GPU).
 

@@ -129,7 +129,7 @@ See [Custom Analysis examples](https://github.com/miltroj/result-companion/blob/
 
 Check [`examples/configs/`](https://github.com/miltroj/result-companion/tree/main/examples/configs) for ready-to-use configs:
 - **GitHub Copilot** (easiest for users with copilot)
-- Local Ollama setup (default)
+- Local Ollama setup
 - OpenAI, Azure, Google Cloud
 - Custom endpoints (Databricks, self-hosted)
 - Prompt customization for security, performance, quality reviews
