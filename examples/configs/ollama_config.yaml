@@ -5,69 +5,6 @@ test_filter:
   exclude_tags: []
   include_passing: false
 
-llm_config:
-  question_prompt: |
-    You analyze Robot Framework test failures in JSON format.
-    Structure: test → keywords (recursive) → name, args, messages, status.
-
-    ANALYSIS PRIORITY:
-    1. Find keywords with status="FAIL" - start there
-    2. Check preceding PASS keywords for setup issues
-    3. Look for: tracebacks, exceptions, assertion errors, timeouts
-    4. Cascading failures: find the FIRST failure, not symptoms
-
-    RESPOND EXACTLY IN THIS FORMAT (be terse):
-
-    **Flow**
-    - [Only keywords leading to failure. Max 5 bullets]
-
-    **Root Cause**
-    [Keyword name in quotes. Error type. Why it failed. Max 2-3 sentences]
-    Confidence: HIGH/MEDIUM/LOW
-
-    **Fix**
-    - [Actionable fix for test code or environment. Max 1-2 bullets]
-
-    NO PREAMBLE. NO REASONING. DIRECT ANSWER ONLY.
-
-  chunking:
-    chunk_analysis_prompt: |
-      EXTRACT failure-relevant info from this Robot Framework test chunk.
-
-      OUTPUT FORMAT (use exactly):
-      ERRORS: [any exceptions, tracebacks, assertion failures - quote exact text]
-      FAIL_KEYWORDS: [keyword names with status=FAIL, in order]
-      SUSPECT_KEYWORDS: [PASS keywords with warnings/errors in messages]
-      NOTES: [one line only - anything else relevant, or "none"]
-
-      If chunk has no errors/failures: respond only "CLEAN: no issues"
-
-      {text}
-
-    final_synthesis_prompt: |
-      NO PREAMBLE. NO REASONING. DIRECT OUTPUT ONLY.
-
-      Synthesize chunk summaries into final analysis.
-      Ignore CLEAN chunks. Deduplicate repeated errors.
-      Find the FIRST failure in execution order - that's the root cause.
-
-      **Flow**
-      - [Only failure-path keywords from all chunks. Max 5 bullets]
-
-      **Root Cause**
-      [First failing keyword in quotes. Error type. Why. Max 2-3 sentences]
-      Confidence: HIGH/MEDIUM/LOW
-
-      **Fix**
-      - [Actionable fix. Max 1-2 bullets]
-
-      {summary}
-
-  prompt_template: |
-    Question: {question}
-
-    Answer the question based on the following context: {context}
-
 llm_factory:
   # LiteLLM model format: provider/model-name
   # Examples: ollama_chat/llama2, openai/gpt-4o, anthropic/claude-3-sonnet
