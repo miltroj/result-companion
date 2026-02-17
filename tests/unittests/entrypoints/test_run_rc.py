@@ -55,31 +55,48 @@ class TestRunOllamaInitStrategy:
 class TestRunProviderInitStrategies:
     """Tests for generic provider strategy dispatcher."""
 
-    def test_runs_ollama_strategy_for_ollama_chat(self):
-        with patch(
-            "result_companion.entrypoints.run_rc._run_ollama_init_strategy"
-        ) as mocked_ollama:
-            _run_provider_init_strategies(
-                model_name="ollama_chat/deepseek-r1:1.5b",
-            )
+    @pytest.fixture(autouse=True)
+    def _capture_provider_init_calls(self, monkeypatch):
+        ollama_calls = []
+        copilot_calls = []
 
-        mocked_ollama.assert_called_once_with("ollama_chat/deepseek-r1:1.5b")
+        def _fake_run_ollama_init_strategy(model_name: str):
+            ollama_calls.append(model_name)
+
+        def _fake_register_copilot_if_needed(model_name: str):
+            copilot_calls.append(model_name)
+
+        monkeypatch.setattr(
+            "result_companion.entrypoints.run_rc._run_ollama_init_strategy",
+            _fake_run_ollama_init_strategy,
+        )
+        monkeypatch.setattr(
+            "result_companion.entrypoints.run_rc._register_copilot_if_needed",
+            _fake_register_copilot_if_needed,
+        )
+        self.ollama_calls = ollama_calls
+        self.copilot_calls = copilot_calls
+
+    def test_runs_ollama_strategy_for_ollama_chat(self):
+        _run_provider_init_strategies(
+            model_name="ollama_chat/deepseek-r1:1.5b",
+        )
+        assert self.ollama_calls == ["ollama_chat/deepseek-r1:1.5b"]
+        assert self.copilot_calls == []
+
+    def test_runs_copilot_provider_init_strategy(self):
+        _run_provider_init_strategies(
+            model_name="copilot_sdk/gpt-5-mini",
+        )
+        assert self.copilot_calls == ["copilot_sdk/gpt-5-mini"]
+        assert self.ollama_calls == []
 
     def test_skips_for_unmapped_providers(self):
-        with (
-            patch(
-                "result_companion.entrypoints.run_rc._run_ollama_init_strategy"
-            ) as mocked_ollama,
-            patch(
-                "result_companion.entrypoints.run_rc._register_copilot_if_needed"
-            ) as mocked_copilot,
-        ):
-            _run_provider_init_strategies(
-                model_name="openai/gpt-4o",
-            )
-
-        mocked_ollama.assert_not_called()
-        mocked_copilot.assert_not_called()
+        _run_provider_init_strategies(
+            model_name="openai/gpt-4o",
+        )
+        assert self.ollama_calls == []
+        assert self.copilot_calls == []
 
 
 class TestRegisterCopilotIfNeeded:
