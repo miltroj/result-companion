@@ -68,6 +68,15 @@ llm_config:
 
     Answer the question based on the following context: {context}
 
+  failure_summary_prompt_template: |
+    Summarize the following failed test analyses for CI output.
+    Return plain text only.
+    Format:
+    1) One short paragraph (max 4 sentences) with common failure themes.
+    2) A bullet list of top 3 actionable fixes.
+
+    {analyses}
+
 llm_factory:
   # LiteLLM model format: provider/model-name
   model: "copilot_sdk/gpt-5-mini"

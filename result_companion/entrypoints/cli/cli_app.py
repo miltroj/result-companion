@@ -88,6 +88,22 @@ def analyze(
     report: Optional[str] = typer.Option(
         None, "-r", "--report", help="Write LLM Report to HTML file"
     ),
+    html_report: bool = typer.Option(
+        True,
+        "--html-report/--no-html-report",
+        help="Enable or disable HTML report generation",
+    ),
+    text_report: Optional[str] = typer.Option(
+        None, "--text-report", help="Write concise text summary to file"
+    ),
+    print_text_summary: bool = typer.Option(
+        False, "--print-text-summary", help="Print concise text summary to stdout"
+    ),
+    summarize_failures: bool = typer.Option(
+        False,
+        "--summarize-failures",
+        help="Ask LLM for a concise overall summary of all failures",
+    ),
     include_passing: bool = typer.Option(
         False, "-i", "--include-passing", help="Include PASS test cases"
     ),
@@ -124,6 +140,10 @@ def analyze(
     typer.echo(f"Log Level: {log_level}")
     typer.echo(f"Config: {config}")
     typer.echo(f"Report: {report}")
+    typer.echo(f"HTML Report: {html_report}")
+    typer.echo(f"Text Report: {text_report}")
+    typer.echo(f"Print Text Summary: {print_text_summary}")
+    typer.echo(f"Summarize Failures: {summarize_failures}")
     typer.echo(f"Include Passing: {include_passing}")
 
     # Parse CLI tag options
@@ -143,16 +163,20 @@ def analyze(
         run = run_rc
 
     run(
-        output,
-        log_level,
-        config,
-        report,
-        include_passing,
-        test_case_concurrency,
-        chunk_concurrency,
-        include_tag_list,
-        exclude_tag_list,
-        dryrun,
+        output=output,
+        log_level=log_level,
+        config=config,
+        report=report,
+        include_passing=include_passing,
+        test_case_concurrency=test_case_concurrency,
+        chunk_concurrency=chunk_concurrency,
+        include_tags=include_tag_list,
+        exclude_tags=exclude_tag_list,
+        dryrun=dryrun,
+        html_report=html_report,
+        text_report=text_report,
+        print_text_summary=print_text_summary,
+        summarize_failures=summarize_failures,
     )
 
 

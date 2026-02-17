@@ -11,6 +11,10 @@ from result_companion.core.parsers.config import load_config
 from result_companion.core.parsers.result_parser import (
     get_robot_results_from_file_as_dict,
 )
+from result_companion.core.results.text_report import (
+    render_text_report,
+    summarize_failures_with_llm,
+)
 from result_companion.core.utils.log_levels import LogLevels
 from result_companion.core.utils.logging_config import logger, set_global_log_level
 
@@ -77,6 +81,10 @@ async def _main(
     include_tags: Optional[list[str]] = None,
     exclude_tags: Optional[list[str]] = None,
     dryrun: bool = False,
+    html_report: bool = True,
+    text_report: Optional[str] = None,
+    print_text_summary: bool = False,
+    summarize_failures: bool = False,
 ) -> bool:
     set_global_log_level(str(log_level))
 
@@ -119,8 +127,9 @@ async def _main(
         dryrun=dryrun,
     )
 
+    failed_test_names = [t["name"] for t in test_cases if t.get("status") == "FAIL"]
     report_path = report if report else "rc_log.html"
-    if llm_results:
+    if llm_results and html_report:
         model_info = {"model": parsed_config.llm_factory.model}
         create_llm_html_log(
             input_result_path=output,
@@ -129,6 +138,27 @@ async def _main(
             model_info=model_info,
         )
         logger.info(f"Report created: {Path(report_path).resolve()}")
+
+    overall_summary = None
+    if summarize_failures and llm_results and not dryrun:
+        overall_summary = await summarize_failures_with_llm(
+            llm_results=llm_results,
+            model_name=parsed_config.llm_factory.model,
+            config=config,
+        )
+
+    should_emit_text = bool(text_report) or print_text_summary
+    if should_emit_text:
+        text_output = render_text_report(
+            llm_results=llm_results,
+            failed_test_names=failed_test_names,
+            overall_summary=overall_summary,
+        )
+        if text_report:
+            Path(text_report).write_text(text_output)
+            logger.info(f"Text report created: {Path(text_report).resolve()}")
+        if print_text_summary:
+            print(text_output)
 
     stop = time.time()
     logger.debug(f"Execution time: {stop - start}")
@@ -151,6 +181,10 @@ def run_rc(
     include_tags: Optional[list[str]] = None,
     exclude_tags: Optional[list[str]] = None,
     dryrun: bool = False,
+    html_report: bool = True,
+    text_report: Optional[str] = None,
+    print_text_summary: bool = False,
+    summarize_failures: bool = False,
 ) -> bool:
     """Runs the Result Companion analysis.
 
@@ -158,13 +192,17 @@ def run_rc(
         output: Path to Robot Framework output.xml file.
         log_level: Logging verbosity level.
         config: Optional path to user config file.
-        report: Optional output report path.
+        report: Optional HTML report output path.
         include_passing: Whether to include passing tests.
         test_case_concurrency: Number of test cases to process in parallel.
         chunk_concurrency: Number of chunks to process in parallel.
         include_tags: RF tag patterns to include.
         exclude_tags: RF tag patterns to exclude.
         dryrun: If True, skip LLM calls.
+        html_report: Whether to generate HTML report.
+        text_report: Optional text summary output path.
+        print_text_summary: Whether to print text summary to stdout.
+        summarize_failures: Whether to ask LLM for overall failure summary.
 
     Returns:
         True if analysis completed successfully.
@@ -176,6 +214,10 @@ def run_rc(
                 log_level=log_level,
                 config=config,
                 report=report,
+                html_report=html_report,
+                text_report=text_report,
+                print_text_summary=print_text_summary,
+                summarize_failures=summarize_failures,
                 include_passing=include_passing,
                 test_case_concurrency=test_case_concurrency,
                 chunk_concurrency=chunk_concurrency,
