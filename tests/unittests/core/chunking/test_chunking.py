@@ -1,6 +1,5 @@
 import asyncio
 from dataclasses import dataclass
-from unittest.mock import patch
 
 import pytest
 
@@ -11,6 +10,19 @@ from result_companion.core.chunking.chunking import (
     synthesize_summaries,
 )
 from result_companion.core.chunking.utils import Chunking
+
+
+@pytest.fixture
+def patch_smart_acompletion(monkeypatch):
+    """Patches chunking._smart_acompletion with provided async callable."""
+
+    def _apply(fake_acompletion):
+        monkeypatch.setattr(
+            "result_companion.core.chunking.chunking._smart_acompletion",
+            fake_acompletion,
+        )
+
+    return _apply
 
 
 @dataclass
@@ -96,7 +108,7 @@ class TestAnalyzeChunk:
     """Tests for analyze_chunk function."""
 
     @pytest.mark.asyncio
-    async def test_formats_prompt_and_calls_llm(self):
+    async def test_formats_prompt_and_calls_llm(self, patch_smart_acompletion):
         """Test that analyze_chunk formats prompt correctly."""
         captured_messages = []
 
@@ -105,20 +117,17 @@ class TestAnalyzeChunk:
             return FakeLiteLLMResponse(content="chunk analysis")
 
         semaphore = asyncio.Semaphore(1)
+        patch_smart_acompletion(capture_acompletion)
 
-        with patch(
-            "result_companion.core.chunking.chunking._smart_acompletion",
-            capture_acompletion,
-        ):
-            result = await analyze_chunk(
-                chunk="test chunk content",
-                chunk_idx=0,
-                total_chunks=3,
-                test_name="my_test",
-                chunk_analysis_prompt="Analyze this: {text}",
-                llm_params={"model": "test-model"},
-                semaphore=semaphore,
-            )
+        result = await analyze_chunk(
+            chunk="test chunk content",
+            chunk_idx=0,
+            total_chunks=3,
+            test_name="my_test",
+            chunk_analysis_prompt="Analyze this: {text}",
+            llm_params={"model": "test-model"},
+            semaphore=semaphore,
+        )
 
         assert result == "chunk analysis"
         assert len(captured_messages) == 1
@@ -129,7 +138,7 @@ class TestSynthesizeSummaries:
     """Tests for synthesize_summaries function."""
 
     @pytest.mark.asyncio
-    async def test_synthesizes_summaries(self):
+    async def test_synthesizes_summaries(self, patch_smart_acompletion):
         """Test that synthesize_summaries formats and calls LLM."""
         captured_messages = []
 
@@ -137,15 +146,13 @@ class TestSynthesizeSummaries:
             captured_messages.append(messages)
             return FakeLiteLLMResponse(content="final synthesis")
 
-        with patch(
-            "result_companion.core.chunking.chunking._smart_acompletion",
-            capture_acompletion,
-        ):
-            result = await synthesize_summaries(
-                aggregated_summary="chunk1 summary\nchunk2 summary",
-                final_synthesis_prompt="Combine: {summary}",
-                llm_params={"model": "test-model"},
-            )
+        patch_smart_acompletion(capture_acompletion)
+
+        result = await synthesize_summaries(
+            aggregated_summary="chunk1 summary\nchunk2 summary",
+            final_synthesis_prompt="Combine: {summary}",
+            llm_params={"model": "test-model"},
+        )
 
         assert result == "final synthesis"
         assert "Combine:" in captured_messages[0][0]["content"]
@@ -156,7 +163,7 @@ class TestAccumulateLLMResultsForSummarization:
     """Tests for accumulate_llm_results_for_summarization function."""
 
     @pytest.mark.asyncio
-    async def test_splits_and_summarizes(self):
+    async def test_splits_and_summarizes(self, patch_smart_acompletion):
         """Test full chunking and summarization flow."""
         # str(test_case) creates ~155 chars, chunk_size=50 produces 4 chunks + 1 synthesis
         fake_acompletion = FakeACompletionSequence(
@@ -172,25 +179,23 @@ class TestAccumulateLLMResultsForSummarization:
             tokenized_chunks=2,
         )
 
-        with patch(
-            "result_companion.core.chunking.chunking._smart_acompletion",
-            fake_acompletion,
-        ):
-            result, name, chunks = await accumulate_llm_results_for_summarization(
-                test_case=test_case,
-                chunk_analysis_prompt="Analyze: {text}",
-                final_synthesis_prompt="Synthesize: {summary}",
-                chunking_strategy=chunking_strategy,
-                llm_params={"model": "test-model"},
-                chunk_concurrency=1,
-            )
+        patch_smart_acompletion(fake_acompletion)
+
+        result, name, chunks = await accumulate_llm_results_for_summarization(
+            test_case=test_case,
+            chunk_analysis_prompt="Analyze: {text}",
+            final_synthesis_prompt="Synthesize: {summary}",
+            chunking_strategy=chunking_strategy,
+            llm_params={"model": "test-model"},
+            chunk_concurrency=1,
+        )
 
         assert result == "final summary"
         assert name == "chunking_test"
         assert len(chunks) > 0
 
     @pytest.mark.asyncio
-    async def test_respects_chunk_concurrency(self):
+    async def test_respects_chunk_concurrency(self, patch_smart_acompletion):
         """Test that chunk_concurrency limits parallel processing."""
         max_concurrent = 0
         current_concurrent = 0
@@ -215,18 +220,16 @@ class TestAccumulateLLMResultsForSummarization:
             tokenized_chunks=4,
         )
 
-        with patch(
-            "result_companion.core.chunking.chunking._smart_acompletion",
-            tracking_acompletion,
-        ):
-            await accumulate_llm_results_for_summarization(
-                test_case=test_case,
-                chunk_analysis_prompt="Analyze: {text}",
-                final_synthesis_prompt="Synthesize: {summary}",
-                chunking_strategy=chunking_strategy,
-                llm_params={"model": "test-model"},
-                chunk_concurrency=2,
-            )
+        patch_smart_acompletion(tracking_acompletion)
+
+        await accumulate_llm_results_for_summarization(
+            test_case=test_case,
+            chunk_analysis_prompt="Analyze: {text}",
+            final_synthesis_prompt="Synthesize: {summary}",
+            chunking_strategy=chunking_strategy,
+            llm_params={"model": "test-model"},
+            chunk_concurrency=2,
+        )
 
         # Max concurrent should be limited to 2 (not counting final synthesis)
         assert max_concurrent <= 2

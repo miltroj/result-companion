@@ -105,6 +105,7 @@ def test_default_config_model_drops_redundant_parameters() -> None:
     assert config.tokenizer.tokenizer == "ollama_tokenizer"
     assert config.tokenizer.max_content_tokens == 1234
     assert config.version == 1.0
+    assert "redundant" not in config
 
 
 def test_user_llm_config_takes_precedense_over_default(mocker):
