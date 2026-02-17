@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from unittest.mock import patch
 
 import pytest
 
@@ -18,6 +17,19 @@ from result_companion.core.parsers.config import (
     LLMFactoryModel,
     TokenizerModel,
 )
+
+
+@pytest.fixture
+def patch_smart_acompletion(monkeypatch):
+    """Patches factory_common._smart_acompletion with provided async callable."""
+
+    def _apply(fake_acompletion):
+        monkeypatch.setattr(
+            "result_companion.core.analizers.factory_common._smart_acompletion",
+            fake_acompletion,
+        )
+
+    return _apply
 
 
 @dataclass
@@ -200,21 +212,18 @@ class TestAnalyzeTestCase:
     """Tests for analyze_test_case function."""
 
     @pytest.mark.asyncio
-    async def test_returns_llm_response(self):
+    async def test_returns_llm_response(self, patch_smart_acompletion):
         """Test that analyze_test_case returns LLM response."""
         test_case = {"name": "test_login", "status": "FAIL", "error": "timeout"}
         fake_acompletion = make_fake_acompletion("Root cause: timeout error")
+        patch_smart_acompletion(fake_acompletion)
 
-        with patch(
-            "result_companion.core.analizers.factory_common._smart_acompletion",
-            fake_acompletion,
-        ):
-            result, name, chunks = await analyze_test_case(
-                test_case=test_case,
-                question_prompt="What failed?",
-                prompt_template="Q: {question}\nC: {context}",
-                llm_params={"model": "test-model"},
-            )
+        result, name, chunks = await analyze_test_case(
+            test_case=test_case,
+            question_prompt="What failed?",
+            prompt_template="Q: {question}\nC: {context}",
+            llm_params={"model": "test-model"},
+        )
 
         assert result == "Root cause: timeout error"
         assert name == "test_login"
@@ -225,7 +234,7 @@ class TestExecuteLLMAndGetResults:
     """Tests for execute_llm_and_get_results function."""
 
     @pytest.mark.asyncio
-    async def test_processes_test_cases(self):
+    async def test_processes_test_cases(self, patch_smart_acompletion):
         """Test that execute_llm_and_get_results processes all test cases."""
         config = make_config(max_content_tokens=100000)  # High limit to avoid chunking
         test_cases = [
@@ -233,15 +242,12 @@ class TestExecuteLLMAndGetResults:
             {"name": "test2", "status": "FAIL"},
         ]
         fake_acompletion = make_fake_acompletion("Analysis result")
+        patch_smart_acompletion(fake_acompletion)
 
-        with patch(
-            "result_companion.core.analizers.factory_common._smart_acompletion",
-            fake_acompletion,
-        ):
-            results = await execute_llm_and_get_results(
-                test_cases=test_cases,
-                config=config,
-            )
+        results = await execute_llm_and_get_results(
+            test_cases=test_cases,
+            config=config,
+        )
 
         assert "test1" in results
         assert "test2" in results
@@ -265,20 +271,17 @@ class TestExecuteLLMAndGetResults:
         assert "DRYRUN" in results["test1"]
 
     @pytest.mark.asyncio
-    async def test_includes_stats_header(self):
+    async def test_includes_stats_header(self, patch_smart_acompletion):
         """Test that results include stats header."""
         config = make_config(max_content_tokens=100000)
         test_cases = [{"name": "test_with_stats", "status": "FAIL"}]
         fake_acompletion = make_fake_acompletion("Analysis")
+        patch_smart_acompletion(fake_acompletion)
 
-        with patch(
-            "result_companion.core.analizers.factory_common._smart_acompletion",
-            fake_acompletion,
-        ):
-            results = await execute_llm_and_get_results(
-                test_cases=test_cases,
-                config=config,
-            )
+        results = await execute_llm_and_get_results(
+            test_cases=test_cases,
+            config=config,
+        )
 
         result = results["test_with_stats"]
         assert "Status: FAIL" in result
