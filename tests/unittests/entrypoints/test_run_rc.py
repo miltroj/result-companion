@@ -17,35 +17,39 @@ from result_companion.entrypoints.run_rc import (
 class TestRunOllamaInitStrategy:
     """Tests for _run_ollama_init_strategy function."""
 
+    @pytest.fixture(autouse=True)
+    def _capture_ollama_init_calls(self, monkeypatch):
+        calls = []
+
+        def _fake_ollama_on_init_strategy(*, model_name: str):
+            calls.append(model_name)
+
+        monkeypatch.setattr(
+            "result_companion.entrypoints.run_rc.ollama_on_init_strategy",
+            _fake_ollama_on_init_strategy,
+        )
+        self.calls = calls
+
     def test_skips_non_ollama_models(self):
         """Test that non-Ollama models are skipped."""
-        with patch(
-            "result_companion.entrypoints.run_rc.ollama_on_init_strategy"
-        ) as mock_init:
-            _run_ollama_init_strategy(
-                model_name="openai/gpt-4",
-            )
-            mock_init.assert_not_called()
+        _run_ollama_init_strategy(
+            model_name="openai/gpt-4",
+        )
+        assert self.calls == []
 
     def test_runs_for_ollama_models(self):
         """Test that Ollama models trigger init strategy."""
-        with patch(
-            "result_companion.entrypoints.run_rc.ollama_on_init_strategy"
-        ) as mock_init:
-            _run_ollama_init_strategy(
-                model_name="ollama_chat/llama2",
-            )
-            mock_init.assert_called_once_with(model_name="llama2")
+        _run_ollama_init_strategy(
+            model_name="ollama_chat/llama2",
+        )
+        assert self.calls == ["llama2"]
 
     def test_extracts_model_name_from_identifier(self):
         """Test that model name is extracted when not in strategy params."""
-        with patch(
-            "result_companion.entrypoints.run_rc.ollama_on_init_strategy"
-        ) as mock_init:
-            _run_ollama_init_strategy(
-                model_name="ollama_chat/deepseek-r1:1.5b",
-            )
-            mock_init.assert_called_once_with(model_name="deepseek-r1")
+        _run_ollama_init_strategy(
+            model_name="ollama_chat/deepseek-r1:1.5b",
+        )
+        assert self.calls == ["deepseek-r1"]
 
 
 class TestRunProviderInitStrategies:
@@ -191,7 +195,7 @@ class TestMainE2E:
             ),
             patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
             patch(
-                "result_companion.entrypoints.run_rc._run_provider_init_strategies"
+                "result_companion.entrypoints.run_rc.ollama_on_init_strategy"
             ) as mocked_init,
         ):
             mocked_config.return_value = DefaultConfigModel(
@@ -205,7 +209,7 @@ class TestMainE2E:
                     },
                 },
                 llm_factory={
-                    "model": "ollama_chat/llama2",
+                    "model": "ollama_chat/llama2:123",
                     "api_base": "http://localhost:11434",
                 },
                 tokenizer={"tokenizer": "ollama_tokenizer", "max_content_tokens": 1000},
@@ -219,9 +223,7 @@ class TestMainE2E:
                 include_passing=False,
             )
 
-            mocked_init.assert_called_once_with(
-                model_name="ollama_chat/llama2",
-            )
+            mocked_init.assert_called_once_with(model_name="llama2")
 
 
 class TestRunRC:
