@@ -2,10 +2,9 @@
 # Requires: AWS_BEDROCK_MODEL_ID, AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
 
 llm_factory:
-  model_type: "BedrockLLM"
+  model: "bedrock/${AWS_BEDROCK_MODEL_ID}"
   parameters:
-    model_id: "${AWS_BEDROCK_MODEL_ID}"
-    region_name: "${AWS_REGION}"
+    aws_region_name: "${AWS_REGION}"
     aws_access_key_id: "${AWS_ACCESS_KEY_ID}"
     aws_secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
 

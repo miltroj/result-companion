@@ -1,39 +1,32 @@
 import asyncio
-from typing import Callable, Tuple
+from typing import Any
 
-from langchain_anthropic import ChatAnthropic
-from langchain_aws import BedrockLLM
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_ollama.llms import OllamaLLM
-from langchain_openai import AzureChatOpenAI, ChatOpenAI
-
+from result_companion.core.analizers.llm_router import _smart_acompletion
 from result_companion.core.chunking.chunking import (
-    accumulate_llm_results_for_summarizaton_chain,
+    accumulate_llm_results_for_summarization,
 )
 from result_companion.core.chunking.utils import Chunking, calculate_chunk_size
-from result_companion.core.parsers.config import DefaultConfigModel
+from result_companion.core.parsers.config import DefaultConfigModel, LLMFactoryModel
 from result_companion.core.utils.logging_config import get_progress_logger
 from result_companion.core.utils.progress import run_tasks_with_progress
 
 logger = get_progress_logger("Analyzer")
 
-MODELS = Tuple[
-    OllamaLLM
-    | AzureChatOpenAI
-    | BedrockLLM
-    | ChatGoogleGenerativeAI
-    | ChatOpenAI
-    | ChatAnthropic,
-    Callable,
-]
-
 
 def _stats_header(
     status: str, chunk: Chunking, dryrun: bool = False, name: str = ""
 ) -> str:
-    """Returns markdown stats line for analysis."""
+    """Returns markdown stats line for analysis.
+
+    Args:
+        status: Test case status (PASS/FAIL).
+        chunk: Chunking information.
+        dryrun: Whether this is a dryrun.
+        name: Test case name.
+
+    Returns:
+        Formatted markdown header string.
+    """
     chunks = chunk.number_of_chunks if chunk.requires_chunking else 0
     prefix = "**[DRYRUN]** " if dryrun else ""
     return f"""## {prefix} {name}
@@ -45,77 +38,136 @@ def _stats_header(
 """
 
 
-async def _dryrun_result(test_case: dict) -> Tuple[str, str, list]:
-    """Returns placeholder without calling LLM."""
+def _build_llm_params(llm_factory: LLMFactoryModel) -> dict[str, Any]:
+    """Builds LiteLLM parameters from config.
+
+    Args:
+        llm_factory: LLM factory configuration.
+
+    Returns:
+        Dictionary of parameters for acompletion().
+    """
+    params = {"model": llm_factory.model}
+
+    if llm_factory.api_base:
+        params["api_base"] = llm_factory.api_base
+
+    if llm_factory.api_key:
+        params["api_key"] = llm_factory.api_key
+
+    # Merge any additional parameters
+    params.update(llm_factory.parameters)
+
+    return params
+
+
+async def _dryrun_result(test_case: dict) -> tuple[str, str, list]:
+    """Returns placeholder without calling LLM.
+
+    Args:
+        test_case: Test case dictionary.
+
+    Returns:
+        Tuple of (result, test_name, chunks).
+    """
     logger.info(
         f"### Test Case: {test_case['name']}, content length: {len(str(test_case))}"
     )
     return ("*No LLM analysis in dryrun mode.*", test_case["name"], [])
 
 
-async def accumulate_llm_results_without_streaming(
+async def analyze_test_case(
     test_case: dict,
-    question_from_config_file: str,
-    prompt: ChatPromptTemplate,
-    model: MODELS,
-) -> Tuple[str, str, list]:
+    question_prompt: str,
+    prompt_template: str,
+    llm_params: dict[str, Any],
+) -> tuple[str, str, list]:
+    """Analyzes a single test case using LiteLLM.
+
+    Args:
+        test_case: Test case dictionary.
+        question_prompt: The analysis question/prompt.
+        prompt_template: Template for formatting the prompt.
+        llm_params: Parameters for LiteLLM acompletion.
+
+    Returns:
+        Tuple of (result, test_name, chunks).
+    """
     logger.info(
         f"### Test Case: {test_case['name']}, content length: {len(str(test_case))}"
     )
-    chain = prompt | model | StrOutputParser()
-    return (
-        await chain.ainvoke(
-            {"context": test_case, "question": question_from_config_file}, verbose=True
-        ),
-        test_case["name"],
-        [],
+
+    # Format the prompt using the template
+    formatted_prompt = prompt_template.format(
+        question=question_prompt,
+        context=str(test_case),
     )
+
+    messages = [{"role": "user", "content": formatted_prompt}]
+
+    response = await _smart_acompletion(messages=messages, **llm_params)
+    result = response.choices[0].message.content
+
+    return (result, test_case["name"], [])
 
 
 async def execute_llm_and_get_results(
     test_cases: list,
     config: DefaultConfigModel,
-    prompt: ChatPromptTemplate,
-    model: MODELS,
     dryrun: bool = False,
 ) -> dict:
-    question_from_config_file = config.llm_config.question_prompt
+    """Executes LLM analysis on test cases and returns results.
+
+    Args:
+        test_cases: List of test case dictionaries.
+        config: Parsed configuration.
+        dryrun: If True, skip actual LLM calls.
+
+    Returns:
+        Dictionary mapping test case names to analysis results.
+    """
+    question_prompt = config.llm_config.question_prompt
+    prompt_template = config.llm_config.prompt_template
     tokenizer = config.tokenizer
     test_case_concurrency = config.concurrency.test_case
     chunk_concurrency = config.concurrency.chunk
     chunk_analysis_prompt = config.llm_config.chunking.chunk_analysis_prompt
     final_synthesis_prompt = config.llm_config.chunking.final_synthesis_prompt
 
-    llm_results = dict()
-    corutines = []
+    llm_params = _build_llm_params(config.llm_factory)
+
+    llm_results = {}
+    coroutines = []
     test_case_stats = {}  # name -> (chunk, status) for adding headers later
+
     logger.info(
-        f"Executing chain, {len(test_cases)=}, {test_case_concurrency=}, {chunk_concurrency=}"
+        f"Executing analysis, {len(test_cases)=}, {test_case_concurrency=}, {chunk_concurrency=}"
     )
 
     for test_case in test_cases:
         raw_test_case_text = str(test_case)
-        chunk = calculate_chunk_size(
-            raw_test_case_text, question_from_config_file, tokenizer
-        )
+        chunk = calculate_chunk_size(raw_test_case_text, question_prompt, tokenizer)
         test_case_stats[test_case["name"]] = (chunk, test_case.get("status", "N/A"))
 
         if dryrun:
-            corutines.append(_dryrun_result(test_case))
+            coroutines.append(_dryrun_result(test_case))
         elif not chunk.requires_chunking:
-            corutines.append(
-                accumulate_llm_results_without_streaming(
-                    test_case, question_from_config_file, prompt, model
+            coroutines.append(
+                analyze_test_case(
+                    test_case=test_case,
+                    question_prompt=question_prompt,
+                    prompt_template=prompt_template,
+                    llm_params=llm_params,
                 )
             )
         else:
-            corutines.append(
-                accumulate_llm_results_for_summarizaton_chain(
+            coroutines.append(
+                accumulate_llm_results_for_summarization(
                     test_case=test_case,
                     chunk_analysis_prompt=chunk_analysis_prompt,
                     final_synthesis_prompt=final_synthesis_prompt,
                     chunking_strategy=chunk,
-                    llm=model,
+                    llm_params=llm_params,
                     chunk_concurrency=chunk_concurrency,
                 )
             )
@@ -123,7 +175,7 @@ async def execute_llm_and_get_results(
     semaphore = asyncio.Semaphore(test_case_concurrency)
 
     desc = f"Analyzing {len(test_cases)} test cases"
-    results = await run_tasks_with_progress(corutines, semaphore=semaphore, desc=desc)
+    results = await run_tasks_with_progress(coroutines, semaphore=semaphore, desc=desc)
 
     for result, name, chunks in results:
         chunk, status = test_case_stats[name]

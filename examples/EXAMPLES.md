@@ -11,7 +11,7 @@ Quick-start configurations for different LLM providers and use cases.
     - [Available Models](#available-models)
     - [Troubleshooting](#troubleshooting)
   - [Quick Configs](#quick-configs)
-    - [Local (Ollama) - Default](#local-ollama---default)
+    - [Local (Ollama)](#local-ollama)
     - [OpenAI](#openai)
     - [Azure OpenAI](#azure-openai)
     - [Google Gemini](#google-gemini)
@@ -54,7 +54,7 @@ npm install -g @github/copilot
 **2. Authenticate**
 
 ```bash
-copilot /login
+copilot -i "/login"
 ```
 
 Follow the prompts to log in with your GitHub account. Type `/exit` when done.
@@ -68,31 +68,35 @@ copilot -p "/models" --allow-all -s
 You should see available models (e.g., `gpt-4.1`, `claude-haiku-4.5`).
 
 ### Configuration
-
 ```yaml
-# configs/copilot_config.yaml
+# examples/configs/copilot_config.yaml
 llm_factory:
-  model_type: "ChatCopilot"
-  parameters:
-    model: "gpt-4.1"  # or: claude-haiku-4.5, gpt-5-mini
+  model: "copilot_sdk/gpt-5-mini"
+  # Alternative models:
+  # model: "copilot_sdk/claude-sonnet-4.5"
+  # model: "copilot_sdk/gpt-5"
 
 tokenizer:
   tokenizer: openai_tokenizer
-  max_content_tokens: 60000
+  max_content_tokens: 50000
+
+concurrency:
+  test_case: 3
+  chunk: 2
 ```
 
 Run with:
 ```bash
-result-companion analyze -o output.xml -c configs/copilot_config.yaml
+result-companion analyze -o output.xml -c examples/configs/copilot_config.yaml
 ```
 
 ### Available Models
 
 | Model | Best For |
 |-------|----------|
-| `gpt-4.1` | General analysis (default) |
+| `gpt-5-mini` | General analysis (default) |
 | `claude-haiku-4.5` | Fast, cost-effective |
-| `gpt-5-mini` | Complex reasoning |
+| `gpt-5` | Complex reasoning |
 
 ### Troubleshooting
 
@@ -106,30 +110,34 @@ result-companion analyze -o output.xml -c configs/copilot_config.yaml
 
 ## Quick Configs
 
-### Local (Ollama) - Default
+### Local (Ollama)
 
-No config needed! Just run:
+Setup:
 ```bash
-result-companion analyze -o output.xml
+result-companion setup ollama
+result-companion setup model deepseek-r1:1.5b
 ```
 
-The default uses Ollama with `deepseek-r1:1.5b` model.
+Use the Ollama example config:
+```bash
+result-companion analyze -o output.xml -c examples/configs/ollama_config.yaml
+```
+This config uses Ollama with `deepseek-r1:1.5b` model.
 
 **Other MacBook-friendly models:**
 - `phi-3-mini` (2.3GB, 8GB RAM) - Fast and efficient
 - `mistral:7b` (4.1GB, 16GB RAM) - Industry standard, excellent quality
+- `gpt oss 20b` (13GB) - OpenAI opensource model
 
 **Hardware note**: GPU/NPU significantly improves inference speed. Apple Silicon Macs use unified memory (RAM serves both CPU and GPU).
 
 ### OpenAI
 
 ```yaml
-# configs/openai_config.yaml
+# examples/configs/openai_config.yaml
 llm_factory:
-  model_type: "ChatOpenAI"
-  parameters:
-    model: "gpt-5-nano"
-    api_key: "${OPENAI_API_KEY}"
+  model: "openai/gpt-4o"
+  api_key: "${OPENAI_API_KEY}"
 
 tokenizer:
   tokenizer: openai_tokenizer
@@ -139,19 +147,18 @@ tokenizer:
 Run with:
 ```bash
 export OPENAI_API_KEY="sk-..."
-result-companion analyze -o output.xml -c configs/openai_config.yaml
+result-companion analyze -o output.xml -c examples/configs/openai_config.yaml
 ```
 
 ### Azure OpenAI
 
 ```yaml
-# configs/azure_config.yaml
+# examples/configs/azure_config.yaml
 llm_factory:
-  model_type: "AzureChatOpenAI"
+  model: "azure/${AZURE_DEPLOYMENT_NAME}"
+  api_key: "${AZURE_API_KEY}"
+  api_base: "${AZURE_API_BASE}"
   parameters:
-    deployment_name: "${AZURE_DEPLOYMENT_NAME}"
-    api_key: "${AZURE_API_KEY}"
-    api_base: "${AZURE_API_BASE}"
     api_version: "2023-05-15"
 
 tokenizer:
@@ -164,18 +171,17 @@ Run with:
 export AZURE_DEPLOYMENT_NAME="gpt-4"
 export AZURE_API_BASE="https://myresource.openai.azure.com/"
 export AZURE_API_KEY="..."
-result-companion analyze -o output.xml -c configs/azure_config.yaml
+result-companion analyze -o output.xml -c examples/configs/azure_config.yaml
 ```
 
 ### Google Gemini
 
 ```yaml
-# configs/gemini_config.yaml
+# examples/configs/gemini_config.yaml
 llm_factory:
-  model_type: "ChatGoogleGenerativeAI"
+  model: "gemini/gemini-2.0-flash"
+  api_key: "${GOOGLE_API_KEY}"
   parameters:
-    model: "gemini-2.5-flash"
-    google_api_key: "${GOOGLE_API_KEY}"
     temperature: 0
 
 tokenizer:
@@ -186,18 +192,17 @@ tokenizer:
 Run with:
 ```bash
 export GOOGLE_API_KEY="..."
-result-companion analyze -o output.xml -c configs/gemini_config.yaml
+result-companion analyze -o output.xml -c examples/configs/gemini_config.yaml
 ```
 
 ### AWS Bedrock
 
 ```yaml
-# configs/bedrock_config.yaml
+# examples/configs/bedrock_config.yaml
 llm_factory:
-  model_type: "BedrockLLM"
+  model: "bedrock/${AWS_BEDROCK_MODEL_ID}"
   parameters:
-    model_id: "${AWS_BEDROCK_MODEL_ID}"
-    region_name: "${AWS_REGION}"
+    aws_region_name: "${AWS_REGION}"
     aws_access_key_id: "${AWS_ACCESS_KEY_ID}"
     aws_secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
 
@@ -212,7 +217,7 @@ export AWS_BEDROCK_MODEL_ID="anthropic.claude-v2"
 export AWS_REGION="us-west-2"
 export AWS_ACCESS_KEY_ID="..."
 export AWS_SECRET_ACCESS_KEY="..."
-result-companion analyze -o output.xml -c configs/bedrock_config.yaml
+result-companion analyze -o output.xml -c examples/configs/bedrock_config.yaml
 ```
 
 ### Custom OpenAI-Compatible Endpoint
@@ -220,13 +225,11 @@ result-companion analyze -o output.xml -c configs/bedrock_config.yaml
 For Databricks, self-hosted, or other OpenAI-compatible APIs:
 
 ```yaml
-# configs/custom_endpoint_config.yaml
+# examples/configs/custom_endpoint_config.yaml
 llm_factory:
-  model_type: "ChatOpenAI"
-  parameters:
-    model: "${OPENAI_MODEL}"
-    api_key: "${OPENAI_API_KEY}"
-    base_url: "${OPENAI_BASE_URL}"
+  model: "openai/${OPENAI_MODEL}"
+  api_key: "${OPENAI_API_KEY}"
+  api_base: "${OPENAI_BASE_URL}"
 
 tokenizer:
   tokenizer: openai_tokenizer
@@ -238,35 +241,29 @@ Run with:
 export OPENAI_MODEL="your-model"
 export OPENAI_API_KEY="..."
 export OPENAI_BASE_URL="https://your-endpoint.com/v1"
-result-companion analyze -o output.xml -c configs/custom_endpoint_config.yaml
+result-companion analyze -o output.xml -c examples/configs/custom_endpoint_config.yaml
 ```
 
 ### Anthropic with Claude Models
 
 ```yaml
-# configs/anthropic_config.yaml
+# examples/configs/anthropic_config.yaml
 llm_factory:
-  model_type: "ChatAnthropic"
+  model: "anthropic/claude-haiku-4-5"
+  api_key: "${ANTHROPIC_API_KEY}"
   parameters:
-    model: "claude-haiku-4-5"
-    api_key: "${ANTHROPIC_API_KEY}"
     temperature: 0
 
 tokenizer:
   tokenizer: anthropic_tokenizer
-  max_content_tokens: 200000  # Claude 4.5 supports 200K context window
+  max_content_tokens: 200000  # Claude supports 200K context window
 ```
 
-Run with:
-```bash
-export ANTHROPIC_API_KEY="..."
-result-companion analyze -o output.xml -c configs/anthropic_config.yaml
-```
-
-Anthropic offers multiple Claude 4.5 models:
-- `claude-haiku-4-5`: Lightweight, 3x cheaper, 2x faster (recommended for most cases)
+**Note:** Set up the `ANTHROPIC_API_KEY` environment variable. Anthropic offers multiple Claude models:
+- `claude-haiku-4-5`: Lightweight, cheaper, faster (recommended for most cases)
 - `claude-sonnet-4-5`: Balanced performance and cost
 - `claude-opus-4-5`: Best reasoning capabilities
+
 
 ## Test Filtering
 
@@ -291,7 +288,7 @@ result-companion analyze -o output.xml --include "api,smoke" --exclude "flaky"
 ### Config File
 
 ```yaml
-# configs/tag_filtering_config.yaml
+# examples/configs/tag_filtering_config.yaml
 test_filter:
   include_tags: ["smoke*", "critical"]  # Wildcards supported
   exclude_tags: ["wip", "bug-*"]        # Exclude takes precedence
@@ -300,7 +297,7 @@ test_filter:
 
 Run with:
 ```bash
-result-companion analyze -o output.xml -c configs/tag_filtering_config.yaml
+result-companion analyze -o output.xml -c examples/configs/tag_filtering_config.yaml
 ```
 
 ### Filter Logic
@@ -430,7 +427,7 @@ result-companion analyze -o output.xml --test-concurrency 2 --chunk-concurrency 
 | Ollama | phi-3-mini | 4K | - | `max_content_tokens: 4000` |
 | Ollama | deepseek-r1:1.5b | 8K | - | `max_content_tokens: 8000` |
 | Ollama | mistral:7b | 8K | - | `max_content_tokens: 8000` |
-| OpenAI | gpt-5-nano | 400K | 128K | `max_content_tokens: 390000` |
+| OpenAI | gpt-4o | 128K | 16K | `max_content_tokens: 120000` |
 | Azure | gpt-4 | 8K | - | `max_content_tokens: 7000` |
 | Google | gemini-2.5-flash | 1,048K | 65K | `max_content_tokens: 1000000` |
 
@@ -468,10 +465,8 @@ llm_config:
 # Create custom config
 cat > my_config.yaml << 'EOF'
 llm_factory:
-  model_type: "ChatOpenAI"
-  parameters:
-    model: "gpt-5-nano"
-    api_key: "${OPENAI_API_KEY}"
+  model: "openai/gpt-4o"
+  api_key: "${OPENAI_API_KEY}"
 
 llm_config:
   question_prompt: |
@@ -505,6 +500,9 @@ export AZURE_API_KEY="..."
 # Google
 export GOOGLE_API_KEY="..."
 
+# Anthropic
+export ANTHROPIC_API_KEY="..."
+
 # AWS Bedrock
 export AWS_BEDROCK_MODEL_ID="anthropic.claude-v2"
 export AWS_REGION="us-west-2"
@@ -514,15 +512,16 @@ export AWS_SECRET_ACCESS_KEY="..."
 
 ## Additional Resources
 
-LangChain documentation for each model type:
+LiteLLM documentation for supported providers:
 
-- **ChatCopilot** - Built-in adapter using [GitHub Copilot SDK](https://github.com/github/copilot-sdk)
-- [OllamaLLM](https://python.langchain.com/docs/integrations/llms/ollama/)
-- [AzureChatOpenAI](https://python.langchain.com/docs/integrations/chat/azure_chat_openai/)
-- [BedrockLLM](https://python.langchain.com/api_reference/aws/llms/langchain_aws.llms.bedrock.BedrockLLM.html)
-- [ChatGoogleGenerativeAI](https://python.langchain.com/docs/integrations/chat/google_generative_ai)
-- [ChatOpenAI](https://python.langchain.com/docs/integrations/chat/openai/)
+- [LiteLLM Providers Overview](https://docs.litellm.ai/docs/providers)
+- [Ollama](https://docs.litellm.ai/docs/providers/ollama)
+- [OpenAI](https://docs.litellm.ai/docs/providers/openai)
+- [Azure OpenAI](https://docs.litellm.ai/docs/providers/azure/)
+- [Google Gemini](https://docs.litellm.ai/docs/providers/gemini)
+- [Anthropic](https://docs.litellm.ai/docs/providers/anthropic)
+- [AWS Bedrock](https://docs.litellm.ai/docs/providers/bedrock)
 
 ---
 
-**Default Configuration**: See [`default_config.yaml`](../result_companion/core/configs/default_config.yaml) for all available options.
+**Ollama Example**: See [`ollama_config.yaml`](configs/ollama_config.yaml).

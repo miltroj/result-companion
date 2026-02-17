@@ -92,7 +92,7 @@ def calculate_overall_chunk_size(
             tokens_from_raw_text=actual_tokens_from_text,
             tokenized_chunks=N_tokenized_chunks,
         )
-    chunk_size = raw_text_len / N_tokenized_chunks
+    chunk_size = raw_text_len // N_tokenized_chunks
     logger.info(
         f"Chunk size: {chunk_size}, Number of chunks: {N_tokenized_chunks}, Raw text length: {raw_text_len}"
     )

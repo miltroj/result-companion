@@ -3,11 +3,11 @@
 # Setup: brew install copilot-cli && copilot (login) && /exit
 
 llm_factory:
-  model_type: "ChatCopilot"
-  parameters:
-    model: "gpt-4.1"  # Options: gpt-4.1, claude-haiku-4.5, gpt-5-mini
-    timeout: 300  # 5 minutes per request (large chunks need more time)
+  model: "copilot_sdk/gpt-5-mini"
+  # Alternative models:
+  # model: "copilot_sdk/claude-sonnet-4.5"
+  # model: "copilot_sdk/gpt-5"
 
 tokenizer:
   tokenizer: openai_tokenizer
-  max_content_tokens: 50000  # Conservative limit with buffer for prompts
+  max_content_tokens: 50000

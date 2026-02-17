@@ -42,7 +42,7 @@ pip install result-companion
 
 # One-time setup
 brew install copilot-cli   # or: npm install -g @github/copilot
-copilot /login             # Login when prompted, then /exit
+copilot -i "/login"            # Login when prompted, then /exit
 
 # Analyze your tests
 result-companion analyze -o output.xml -c examples/configs/copilot_config.yaml
@@ -60,7 +60,7 @@ result-companion setup ollama
 result-companion setup model deepseek-r1:1.5b
 
 # Analyze your tests
-result-companion analyze -o output.xml
+result-companion analyze -o output.xml -c examples/configs/ollama_config.yaml
 ```
 
 ### Option 3: Cloud AI ([OpenAI](https://github.com/miltroj/result-companion/blob/main/examples/EXAMPLES.md#openai), Azure, Google)
@@ -72,6 +72,8 @@ pip install result-companion
 export OPENAI_API_KEY="your-key"
 result-companion analyze -o output.xml -c examples/configs/openai_config.yaml
 ```
+
+Supports 100+ LLM providers via [LiteLLM](https://docs.litellm.ai/docs/providers).
 
 ## Real Example
 
@@ -127,7 +129,7 @@ See [Custom Analysis examples](https://github.com/miltroj/result-companion/blob/
 
 Check [`examples/configs/`](https://github.com/miltroj/result-companion/tree/main/examples/configs) for ready-to-use configs:
 - **GitHub Copilot** (easiest for users with copilot)
-- Local Ollama setup (default)
+- Local Ollama setup
 - OpenAI, Azure, Google Cloud
 - Custom endpoints (Databricks, self-hosted)
 - Prompt customization for security, performance, quality reviews

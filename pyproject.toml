@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "result-companion"
-version = "0.0.4"
+version = "0.0.5"
 description = "AI-powered analysis of Robot Framework test failures - instant insights from output.xml"
 authors = ["Milosz Trojanowski <mil.troj@gmail.com>"]
 license = "Apache-2.0"
@@ -28,16 +28,10 @@ typer = "^0.15.1"
 ollama = "^0.4.0"
 python-dotenv = "^1.0.1"
 pyyaml = "^6.0.2"
-langchain-ollama = "^0.2.1"
-langchain-community = "^0.3.9"
-langchain-openai = "^0.2.11"
-langchain-aws = "^0.2.10"
+litellm = "^1.59"
+github-copilot-sdk = "^0.1.20"
 tiktoken = "^0.8.0"
-langchain-text-splitters = "^0.3.4"
-langchain-google-genai = "^2.1.6"
-langchain-anthropic = "^0.3.7"
 tqdm = "^4.67.1"
-github-copilot-sdk = "^0.1.0"
 
 [tool.poetry.scripts]
 result-companion = "result_companion.entrypoints.cli.cli_app:app"

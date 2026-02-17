@@ -1,0 +1,20 @@
+version: 1.0
+
+test_filter:
+  include_tags: []
+  exclude_tags: []
+  include_passing: false
+
+llm_factory:
+  # LiteLLM model format: provider/model-name
+  # Examples: ollama_chat/llama2, openai/gpt-4o, anthropic/claude-3-sonnet
+  model: "ollama_chat/deepseek-r1:1.5b"
+  api_base: "http://localhost:11434"  # Required for Ollama
+
+tokenizer:
+  tokenizer: ollama_tokenizer
+  max_content_tokens: 140000
+
+concurrency:
+  test_case: 1
+  chunk: 1

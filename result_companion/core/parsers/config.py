@@ -4,14 +4,9 @@ from enum import Enum
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, Field, SecretStr, ValidationError, model_serializer
+from pydantic import BaseModel, Field, ValidationError, model_serializer
 
 from result_companion.core.utils.logging_config import logger
-
-
-class ModelType(str, Enum):
-    LOCAL = "local"
-    REMOTE = "remote"
 
 
 class TokenizerTypes(str, Enum):
@@ -21,18 +16,6 @@ class TokenizerTypes(str, Enum):
     GOOGLE = "google_tokenizer"
     OPENAI = "openai_tokenizer"
     ANTHROPIC = "anthropic_tokenizer"
-
-
-class CustomEndpointModel(BaseModel):
-    azure_deployment: str = Field(min_length=5, description="Azure deployment URL.")
-    azure_endpoint: str
-    openai_api_version: str = Field(
-        min_length=5, description="OpenAI API version.", default="2023-03-15-preview"
-    )
-    openai_api_type: str = Field(
-        min_length=5, description="OpenAI API type.", default="azure"
-    )
-    openai_api_key: SecretStr = Field(min_length=5, description="OpenAI API key.")
 
 
 class ChunkingPromptsModel(BaseModel):
@@ -47,52 +30,52 @@ class ChunkingPromptsModel(BaseModel):
 class LLMConfigModel(BaseModel):
     question_prompt: str = Field(min_length=5, description="User prompt.")
     prompt_template: str = Field(
-        min_length=5, description="Template for LLM ChatPromptTemplate."
+        min_length=5, description="Template for LLM prompt formatting."
     )
     chunking: ChunkingPromptsModel
-    model_type: ModelType = Field(
-        default=ModelType.LOCAL,
-        description=f"Which type of llm model runners to use {[el.name for el in ModelType]}",
-    )
-
-
-class LLMInitStrategyModel(BaseModel):
-    parameters: dict = Field(default={}, description="Strategy parameters.")
 
 
 class LLMFactoryModel(BaseModel):
-    model_type: str = Field(min_length=5, description="Model type.")
-    parameters: dict = Field(default={}, description="Model parameters.")
-    strategy: LLMInitStrategyModel = Field(
-        description="Strategy to run on init.", default_factory=LLMInitStrategyModel
-    )
+    """LiteLLM model configuration.
 
-    def _get_masked_params(self) -> dict:
-        """Returns parameters dict with sensitive values masked."""
+    Model naming convention:
+    - Ollama: ollama_chat/model-name or ollama/model-name
+    - OpenAI: openai/gpt-4o or gpt-4o
+    - Azure: azure/deployment-name
+    - Anthropic: anthropic/claude-3-sonnet
+    - Google: gemini/gemini-2.0-flash
+    - Bedrock: bedrock/anthropic.claude-v2
+    """
+
+    model: str = Field(
+        min_length=3, description="LiteLLM model identifier (e.g., ollama_chat/llama2)"
+    )
+    api_base: str | None = Field(default=None, description="Optional API base URL.")
+    api_key: str | None = Field(default=None, description="Optional API key.")
+    parameters: dict = Field(default={}, description="Additional model parameters.")
+
+    def _is_sensitive(self, key: str) -> bool:
+        """Checks if a key is sensitive."""
         sensitive_keys = {"api_key", "token", "password", "secret", "auth"}
-        masked = {}
-        for key, value in self.parameters.items():
-            if any(s in key.lower() for s in sensitive_keys):
-                masked[key] = "***REDACTED***"
-            else:
-                masked[key] = value
-        return masked
+        return any(s in key.lower() for s in sensitive_keys)
 
     def __repr__(self) -> str:
         """Returns string representation with masked sensitive fields."""
+        api_key_display = "***REDACTED***" if self.api_key else None
         return (
-            f"LLMFactoryModel(model_type={self.model_type!r}, "
-            f"parameters={self._get_masked_params()!r}, "
-            f"strategy={self.strategy!r})"
+            f"LLMFactoryModel(model={self.model!r}, "
+            f"api_base={self.api_base!r}, "
+            f"api_key={api_key_display!r})"
         )
 
     @model_serializer
     def _mask_sensitive_fields(self) -> dict:
-        """Masks sensitive fields in parameters dict for serialization."""
+        """Masks sensitive fields for serialization."""
         return {
-            "model_type": self.model_type,
-            "parameters": self._get_masked_params(),
-            "strategy": self.strategy,
+            "model": self.model,
+            "api_base": self.api_base,
+            "api_key": "***REDACTED***" if self.api_key else None,
+            "parameters": self.parameters,
         }
 
 
@@ -125,10 +108,6 @@ class DefaultConfigModel(BaseModel):
     tokenizer: TokenizerModel
     concurrency: ConcurrencyModel = Field(default_factory=ConcurrencyModel)
     test_filter: TestFilterModel = Field(default_factory=TestFilterModel)
-
-
-class CustomModelEndpointConfig(DefaultConfigModel):
-    custom_endpoint: CustomEndpointModel
 
 
 class ConfigLoader:

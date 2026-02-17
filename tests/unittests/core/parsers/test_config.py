@@ -12,7 +12,6 @@ from result_companion.core.parsers.config import (
     ConfigLoader,
     DefaultConfigModel,
     LLMFactoryModel,
-    LLMInitStrategyModel,
     TokenizerModel,
 )
 
@@ -34,7 +33,7 @@ def test_reading_yaml_from_file(mocker: MockerFixture) -> None:
 
 def test_load_default_config(mocker: MockerFixture) -> None:
     mock_data = mocker.mock_open(
-        read_data="version: 1.0\nllm_config:\n  question_prompt: Test prompt message.\n  prompt_template: question context\n  chunking:\n    chunk_analysis_prompt: 'Analyze: {text}'\n    final_synthesis_prompt: 'Synthesize: {summary}'\nllm_factory:\n  model_type: local_model\n  parameters: {}\ntokenizer:\n  ollama:\n  tokenizer: ollama_tokenizer\n  max_content_tokens: 1234"
+        read_data="version: 1.0\nllm_config:\n  question_prompt: Test prompt message.\n  prompt_template: question context\n  chunking:\n    chunk_analysis_prompt: 'Analyze: {text}'\n    final_synthesis_prompt: 'Synthesize: {summary}'\nllm_factory:\n  model: ollama_chat/llama2\n  parameters: {}\ntokenizer:\n  ollama:\n  tokenizer: ollama_tokenizer\n  max_content_tokens: 1234"
     )
     mocker.patch("builtins.open", mock_data)
 
@@ -46,7 +45,7 @@ def test_load_default_config(mocker: MockerFixture) -> None:
 
 def test_reading_existing_user_config_not_default(mocker: MockerFixture) -> None:
     mock_data = mocker.mock_open(
-        read_data="version: 1.0\nllm_config:\n  question_prompt: User config.\n  prompt_template: question context\n  chunking:\n    chunk_analysis_prompt: 'Analyze: {text}'\n    final_synthesis_prompt: 'Synthesize: {summary}'\nllm_factory:\n  model_type: local_model\n  parameters: {}\ntokenizer:\n  ollama:\n  tokenizer: ollama_tokenizer\n  max_content_tokens: 1234"
+        read_data="version: 1.0\nllm_config:\n  question_prompt: User config.\n  prompt_template: question context\n  chunking:\n    chunk_analysis_prompt: 'Analyze: {text}'\n    final_synthesis_prompt: 'Synthesize: {summary}'\nllm_factory:\n  model: ollama_chat/llama2\n  parameters: {}\ntokenizer:\n  ollama:\n  tokenizer: ollama_tokenizer\n  max_content_tokens: 1234"
     )
     mocker.patch("builtins.open", mock_data)
     config = ConfigLoader(default_config_file="default_config.yaml").load_config(
@@ -67,14 +66,13 @@ def test_default_config_model_loads_parameters() -> None:
                 **chunking_prompts,
             }
         },
-        **{"llm_factory": {"model_type": "local", "parameters": {}}},
-        **{"tokenizer": {"tokenizer": "ollama_tokenizer", "max_content_tokens": 1234}}
+        **{"llm_factory": {"model": "ollama_chat/llama2", "parameters": {}}},
+        **{"tokenizer": {"tokenizer": "ollama_tokenizer", "max_content_tokens": 1234}},
     )
     assert config.llm_config.question_prompt == "Test prompt message."
     assert config.llm_config.prompt_template == "{question} {cotext}"
-    assert config.llm_factory.model_type == "local"
+    assert config.llm_factory.model == "ollama_chat/llama2"
     assert config.llm_factory.parameters == {}
-    assert config.llm_factory.strategy.parameters == {}
     assert config.tokenizer.tokenizer == "ollama_tokenizer"
     assert config.tokenizer.max_content_tokens == 1234
     assert config.version == 1.0
@@ -91,23 +89,23 @@ def test_default_config_model_drops_redundant_parameters() -> None:
             }
         },
         redundant="redundant",
-        **{"llm_factory": {"model_type": "local", "parameters": {}}},
+        **{"llm_factory": {"model": "openai/gpt-4", "parameters": {}}},
         **{
             "tokenizer": {
                 "tokenizer": "ollama_tokenizer",
                 "max_content_tokens": 1234,
                 "redundant": "redundant",
             }
-        }
+        },
     )
     assert config.llm_config.question_prompt == "Test prompt message."
     assert config.llm_config.prompt_template == "{question} {cotext}"
-    assert config.llm_factory.model_type == "local"
+    assert config.llm_factory.model == "openai/gpt-4"
     assert config.llm_factory.parameters == {}
-    assert config.llm_factory.strategy.parameters == {}
     assert config.tokenizer.tokenizer == "ollama_tokenizer"
     assert config.tokenizer.max_content_tokens == 1234
     assert config.version == 1.0
+    assert "redundant" not in config
 
 
 def test_user_llm_config_takes_precedense_over_default(mocker):
@@ -119,13 +117,9 @@ def test_user_llm_config_takes_precedense_over_default(mocker):
       chunking:
         chunk_analysis_prompt: "Analyze: {text}"
         final_synthesis_prompt: "Synthesize: {summary}"
-      model_type: "local"
     llm_factory:
-      model_type: "OllamaLLM"
+      model: "ollama_chat/llama2"
       parameters: {}
-      strategy:
-        parameters:
-            custom: "strategy"
     tokenizer:
       tokenizer: "ollama_tokenizer"
       max_content_tokens: 1234
@@ -133,138 +127,82 @@ def test_user_llm_config_takes_precedense_over_default(mocker):
     user_config_content = """
     llm_config:
       question_prompt: "User question prompt"
-      model_type: "remote"
     llm_factory:
-      model_type: "OverrideLLM"
+      model: "openai/gpt-4"
       parameters: {"param1": "value1"}
-      strategy:
-        parameters:
-            users: "user_strategy"
     tokenizer:
       tokenizer: "azure_openai_tokenizer"
       max_content_tokens: 4321
     """
 
-    # Set the side_effect of mock_open to return different contents for different calls
     mock_open_instance = mock_open()
     mock_open_instance.side_effect = [
         mock_open(read_data=default_config_content).return_value,
         mock_open(read_data=user_config_content).return_value,
     ]
 
-    # Patch the open function and file_exists function
     mocker.patch("builtins.open", mock_open_instance)
 
-    # Load the config using the mocked file contents
     config_loader = ConfigLoader(default_config_file=Path("default_config.yaml"))
     config = config_loader.load_config(user_config_file=Path("user_config.yaml"))
 
-    # Check that the user config takes precedence over the default config
     assert config.llm_config.question_prompt == "User question prompt"
     assert config.llm_config.prompt_template == "Default prompt template"
-    assert config.llm_config.model_type == "remote"
     assert config.version == 1.0
-    assert config.llm_factory.model_type == "OverrideLLM"
+    assert config.llm_factory.model == "openai/gpt-4"
     assert config.llm_factory.parameters == {"param1": "value1"}
-    assert config.llm_factory.strategy.parameters == {"users": "user_strategy"}
     assert config.tokenizer.tokenizer == "azure_openai_tokenizer"
     assert config.tokenizer.max_content_tokens == 4321
 
 
-def test_initing_strategy_model_with_defaults() -> None:
-    strategy = LLMInitStrategyModel()
-    assert strategy.parameters == {}
-
-
-def test_initing_strategy_model_with_extra_params() -> None:
-    strategy = LLMInitStrategyModel(parameters={"param1": "value1"})
-    assert strategy.parameters == {"param1": "value1"}
-
-
 def test_init_factory_llm_model_with_defaults() -> None:
-    factory = LLMFactoryModel(model_type="local", parameters={})
-    assert factory.model_type == "local"
+    factory = LLMFactoryModel(model="ollama_chat/llama2", parameters={})
+    assert factory.model == "ollama_chat/llama2"
     assert factory.parameters == {}
-    assert factory.strategy.parameters == {}
 
 
 def test_init_factory_llm_model_with_extra_params() -> None:
     factory = LLMFactoryModel(
-        model_type="local",
+        model="openai/gpt-4",
+        api_key="sk-test123",
         parameters={"param1": "value1"},
-        strategy={"parameters": {"custom": "strategy"}},
     )
-    assert factory.model_type == "local"
+    assert factory.model == "openai/gpt-4"
+    assert factory.api_key == "sk-test123"
     assert factory.parameters == {"param1": "value1"}
-    assert factory.strategy.parameters == {"custom": "strategy"}
 
 
-def test_llm_factory_model_dump_masks_sensitive_parameters() -> None:
+def test_llm_factory_model_dump_masks_api_key() -> None:
     factory = LLMFactoryModel(
-        model_type="local_model",
-        parameters={"api_key": "super-secret-key", "model_name": "llama3"},
+        model="openai/gpt-4",
+        api_key="super-secret-key",
     )
 
     result = factory.model_dump()
 
-    assert result["parameters"]["api_key"] == "***REDACTED***"
-    assert result["parameters"]["model_name"] == "llama3"
+    assert result["api_key"] == "***REDACTED***"
+    assert result["model"] == "openai/gpt-4"
 
 
-def test_llm_factory_repr_masks_sensitive_parameters() -> None:
+def test_llm_factory_model_is_sensitive_detects_sensitive_keys() -> None:
+    factory = LLMFactoryModel(model="openai/gpt-4", parameters={})
+
+    assert factory._is_sensitive("api_key") is True
+    assert factory._is_sensitive("TOKEN") is True
+    assert factory._is_sensitive("user") is False
+
+
+def test_llm_factory_repr_masks_api_key() -> None:
     factory = LLMFactoryModel(
-        model_type="local_model",
-        parameters={"api_key": "super-secret-key", "model_name": "llama3"},
+        model="openai/gpt-4",
+        api_key="super-secret-key",
     )
 
     result = repr(factory)
 
     assert "super-secret-key" not in result
     assert "***REDACTED***" in result
-    assert "llama3" in result
-
-
-def test_default_config_model_loads_default_empty_strategy() -> None:
-    config = DefaultConfigModel(
-        version=1.0,
-        **{
-            "llm_config": {
-                "question_prompt": "Test prompt message.",
-                **prompt_template,
-                **chunking_prompts,
-            }
-        },
-        **{"llm_factory": {"model_type": "local", "parameters": {}}},
-        **{"tokenizer": {"tokenizer": "ollama_tokenizer", "max_content_tokens": 1234}}
-    )
-    assert config.llm_config.question_prompt == "Test prompt message."
-    assert config.llm_config.prompt_template == "{question} {cotext}"
-
-    assert config.llm_factory.strategy.parameters == {}
-    assert config.version == 1.0
-
-
-def test_default_config_model_loads_custom_strategy() -> None:
-    config = DefaultConfigModel(
-        version=1.0,
-        llm_config={
-            "question_prompt": "Test prompt message.",
-            **prompt_template,
-            **chunking_prompts,
-        },
-        llm_factory={
-            "model_type": "local",
-            "parameters": {},
-            "strategy": {"parameters": {"custom": "strategy"}},
-        },
-        tokenizer={"tokenizer": "ollama_tokenizer", "max_content_tokens": 1234},
-    )
-    assert config.llm_config.question_prompt == "Test prompt message."
-    assert config.llm_config.prompt_template == "{question} {cotext}"
-    assert config.llm_factory.strategy.parameters == {"custom": "strategy"}
-    assert config.tokenizer.tokenizer == "ollama_tokenizer"
-    assert config.tokenizer.max_content_tokens == 1234
-    assert config.version == 1.0
+    assert "openai/gpt-4" in result
 
 
 def test_tokenizer_type_model_pass_on_existing_tokenizer() -> None:
@@ -309,8 +247,7 @@ def test_expand_config_with_multiple_env_vars():
 
 def test_expand_config_with_not_existing_env_var():
     config_loader = ConfigLoader()
-    with mock.patch.dict(os.environ, {}, clear=True):  # Clear all env vars
-        # Should return the same string and log a warning
+    with mock.patch.dict(os.environ, {}, clear=True):
         assert config_loader._expand_env_vars("${NON_EXISTENT}") == "${NON_EXISTENT}"
 
 
@@ -319,16 +256,13 @@ def test_process_env_vars():
     config_loader = ConfigLoader()
 
     with mock.patch.dict(os.environ, {"API_KEY": "secret_key"}):
-        # Test with simple string
         assert config_loader._process_env_vars("${API_KEY}") == "secret_key"
 
-        # Test with list
         assert config_loader._process_env_vars(["item1", "${API_KEY}"]) == [
             "item1",
             "secret_key",
         ]
 
-        # Test with nested dictionary
         test_dict = {
             "key1": "value1",
             "key2": "${API_KEY}",
@@ -338,18 +272,15 @@ def test_process_env_vars():
 
         processed = config_loader._process_env_vars(test_dict)
 
-        assert processed["key1"] == "value1"  # Unchanged
-        assert processed["key2"] == "secret_key"  # Replaced
-        assert (
-            processed["nested"]["nested_key"] == "secret_key_suffix"
-        )  # Nested replaced
-        assert processed["list_key"][0] == "item1"  # List item unchanged
-        assert processed["list_key"][1] == "secret_key"  # List item replaced
+        assert processed["key1"] == "value1"
+        assert processed["key2"] == "secret_key"
+        assert processed["nested"]["nested_key"] == "secret_key_suffix"
+        assert processed["list_key"][0] == "item1"
+        assert processed["list_key"][1] == "secret_key"
 
 
 def test_load_config_with_env_vars(mocker):
     """Test loading configuration with environment variables."""
-    # Create mock yaml files
     default_config_content = """
     version: 1.0
     llm_config:
@@ -358,11 +289,10 @@ def test_load_config_with_env_vars(mocker):
       chunking:
         chunk_analysis_prompt: "Analyze: {text}"
         final_synthesis_prompt: "Synthesize: {summary}"
-      model_type: "local"
     llm_factory:
-      model_type: "OllamaLLM"
+      model: "ollama_chat/llama3"
       parameters:
-        model: "llama3"
+        temperature: 0.7
     tokenizer:
       tokenizer: "ollama_tokenizer"
       max_content_tokens: 1000
@@ -370,43 +300,31 @@ def test_load_config_with_env_vars(mocker):
 
     user_config_content = """
     llm_factory:
-      model_type: "ChatGoogleGenerativeAI"
-      parameters:
-        model: "gemini-pro"
-        google_api_key: "${GOOGLE_API_KEY}"
+      model: "gemini/gemini-pro"
+      api_key: "${GOOGLE_API_KEY}"
     tokenizer:
       tokenizer: "google_tokenizer"
       max_content_tokens: 4000
     """
 
-    # Set the side_effect of mock_open to return different contents for different calls
     mock_open_instance = mock_open()
     mock_open_instance.side_effect = [
         mock_open(read_data=default_config_content).return_value,
         mock_open(read_data=user_config_content).return_value,
     ]
 
-    # Patch the open function
     mocker.patch("builtins.open", mock_open_instance)
 
-    # Set the environment variable
     with mock.patch.dict(os.environ, {"GOOGLE_API_KEY": "fake-api-key-12345"}):
-        # Load the config using the mocked file contents
         config_loader = ConfigLoader(default_config_file=Path("default_config.yaml"))
         config = config_loader.load_config(user_config_file=Path("user_config.yaml"))
 
-        # Verify environment variable was correctly substituted
-        assert config.llm_factory.parameters["google_api_key"] == "fake-api-key-12345"
-
-        # Verify other config values
-        assert config.llm_factory.model_type == "ChatGoogleGenerativeAI"
+        assert config.llm_factory.api_key == "fake-api-key-12345"
+        assert config.llm_factory.model == "gemini/gemini-pro"
         assert config.tokenizer.tokenizer == "google_tokenizer"
         assert config.tokenizer.max_content_tokens == 4000
-
-        # Verify values from default config that weren't overridden
         assert config.llm_config.question_prompt == "Default question prompt"
         assert config.llm_config.prompt_template == "Default prompt template"
-        assert config.llm_config.model_type == "local"
 
 
 def test_concurrency_model_with_defaults():
@@ -423,7 +341,7 @@ def test_default_config_model_loads_custom_concurrency():
             **prompt_template,
             **chunking_prompts,
         },
-        llm_factory={"model_type": "local", "parameters": {}},
+        llm_factory={"model": "ollama_chat/llama2", "parameters": {}},
         tokenizer={"tokenizer": "ollama_tokenizer", "max_content_tokens": 1000},
         concurrency={"test_case": 5, "chunk": 3},
     )
@@ -440,7 +358,7 @@ def test_default_config_model_loads_chunking_prompts():
             **prompt_template,
             **chunking_prompts,
         },
-        llm_factory={"model_type": "local", "parameters": {}},
+        llm_factory={"model": "ollama_chat/llama2", "parameters": {}},
         tokenizer={"tokenizer": "ollama_tokenizer", "max_content_tokens": 1000},
     )
     assert config.llm_config.chunking.chunk_analysis_prompt == "Analyze: {text}"
@@ -458,7 +376,7 @@ def test_user_config_can_override_chunking_prompts(mocker):
         chunk_analysis_prompt: "Default analyze: {text}"
         final_synthesis_prompt: "Default synthesize: {summary}"
     llm_factory:
-      model_type: "OllamaLLM"
+      model: "ollama_chat/llama2"
       parameters: {}
     tokenizer:
       tokenizer: "ollama_tokenizer"
