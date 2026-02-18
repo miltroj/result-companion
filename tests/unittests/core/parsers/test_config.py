@@ -16,6 +16,9 @@ from result_companion.core.parsers.config import (
 )
 
 prompt_template = {"prompt_template": "{question} {cotext}"}
+failure_summary_prompt_template = {
+    "failure_summary_prompt_template": "CI summary:\n{analyses}"
+}
 
 chunking_prompts = {
     "chunking": {
@@ -33,7 +36,7 @@ def test_reading_yaml_from_file(mocker: MockerFixture) -> None:
 
 def test_load_default_config(mocker: MockerFixture) -> None:
     mock_data = mocker.mock_open(
-        read_data="version: 1.0\nllm_config:\n  question_prompt: Test prompt message.\n  prompt_template: question context\n  chunking:\n    chunk_analysis_prompt: 'Analyze: {text}'\n    final_synthesis_prompt: 'Synthesize: {summary}'\nllm_factory:\n  model: ollama_chat/llama2\n  parameters: {}\ntokenizer:\n  ollama:\n  tokenizer: ollama_tokenizer\n  max_content_tokens: 1234"
+        read_data="version: 1.0\nllm_config:\n  question_prompt: Test prompt message.\n  prompt_template: question context\n  failure_summary_prompt_template: CI summary:\\n{analyses}\n  chunking:\n    chunk_analysis_prompt: 'Analyze: {text}'\n    final_synthesis_prompt: 'Synthesize: {summary}'\nllm_factory:\n  model: ollama_chat/llama2\n  parameters: {}\ntokenizer:\n  ollama:\n  tokenizer: ollama_tokenizer\n  max_content_tokens: 1234"
     )
     mocker.patch("builtins.open", mock_data)
 
@@ -45,7 +48,7 @@ def test_load_default_config(mocker: MockerFixture) -> None:
 
 def test_reading_existing_user_config_not_default(mocker: MockerFixture) -> None:
     mock_data = mocker.mock_open(
-        read_data="version: 1.0\nllm_config:\n  question_prompt: User config.\n  prompt_template: question context\n  chunking:\n    chunk_analysis_prompt: 'Analyze: {text}'\n    final_synthesis_prompt: 'Synthesize: {summary}'\nllm_factory:\n  model: ollama_chat/llama2\n  parameters: {}\ntokenizer:\n  ollama:\n  tokenizer: ollama_tokenizer\n  max_content_tokens: 1234"
+        read_data="version: 1.0\nllm_config:\n  question_prompt: User config.\n  prompt_template: question context\n  failure_summary_prompt_template: CI summary:\\n{analyses}\n  chunking:\n    chunk_analysis_prompt: 'Analyze: {text}'\n    final_synthesis_prompt: 'Synthesize: {summary}'\nllm_factory:\n  model: ollama_chat/llama2\n  parameters: {}\ntokenizer:\n  ollama:\n  tokenizer: ollama_tokenizer\n  max_content_tokens: 1234"
     )
     mocker.patch("builtins.open", mock_data)
     config = ConfigLoader(default_config_file="default_config.yaml").load_config(
@@ -63,6 +66,7 @@ def test_default_config_model_loads_parameters() -> None:
             "llm_config": {
                 "question_prompt": "Test prompt message.",
                 **prompt_template,
+                **failure_summary_prompt_template,
                 **chunking_prompts,
             }
         },
@@ -85,6 +89,7 @@ def test_default_config_model_drops_redundant_parameters() -> None:
             "llm_config": {
                 "question_prompt": "Test prompt message.",
                 **prompt_template,
+                **failure_summary_prompt_template,
                 **chunking_prompts,
             }
         },
@@ -114,6 +119,7 @@ def test_user_llm_config_takes_precedense_over_default(mocker):
     llm_config:
       question_prompt: "Default question prompt"
       prompt_template: "Default prompt template"
+      failure_summary_prompt_template: "CI summary {analyses}"
       chunking:
         chunk_analysis_prompt: "Analyze: {text}"
         final_synthesis_prompt: "Synthesize: {summary}"
@@ -148,6 +154,7 @@ def test_user_llm_config_takes_precedense_over_default(mocker):
 
     assert config.llm_config.question_prompt == "User question prompt"
     assert config.llm_config.prompt_template == "Default prompt template"
+    assert config.llm_config.failure_summary_prompt_template == "CI summary {analyses}"
     assert config.version == 1.0
     assert config.llm_factory.model == "openai/gpt-4"
     assert config.llm_factory.parameters == {"param1": "value1"}
@@ -286,6 +293,7 @@ def test_load_config_with_env_vars(mocker):
     llm_config:
       question_prompt: "Default question prompt"
       prompt_template: "Default prompt template"
+      failure_summary_prompt_template: "CI summary {analyses}"
       chunking:
         chunk_analysis_prompt: "Analyze: {text}"
         final_synthesis_prompt: "Synthesize: {summary}"
@@ -325,6 +333,9 @@ def test_load_config_with_env_vars(mocker):
         assert config.tokenizer.max_content_tokens == 4000
         assert config.llm_config.question_prompt == "Default question prompt"
         assert config.llm_config.prompt_template == "Default prompt template"
+        assert (
+            config.llm_config.failure_summary_prompt_template == "CI summary {analyses}"
+        )
 
 
 def test_concurrency_model_with_defaults():
@@ -339,6 +350,7 @@ def test_default_config_model_loads_custom_concurrency():
         llm_config={
             "question_prompt": "Test prompt.",
             **prompt_template,
+            **failure_summary_prompt_template,
             **chunking_prompts,
         },
         llm_factory={"model": "ollama_chat/llama2", "parameters": {}},
@@ -356,6 +368,7 @@ def test_default_config_model_loads_chunking_prompts():
         llm_config={
             "question_prompt": "Test prompt.",
             **prompt_template,
+            **failure_summary_prompt_template,
             **chunking_prompts,
         },
         llm_factory={"model": "ollama_chat/llama2", "parameters": {}},
@@ -365,6 +378,24 @@ def test_default_config_model_loads_chunking_prompts():
     assert config.llm_config.chunking.final_synthesis_prompt == "Synthesize: {summary}"
 
 
+def test_default_config_model_loads_summary_prompt_template():
+    """Test that summary prompt template is properly loaded."""
+    config = DefaultConfigModel(
+        version=1.0,
+        llm_config={
+            "question_prompt": "Test prompt.",
+            **prompt_template,
+            **failure_summary_prompt_template,
+            **chunking_prompts,
+        },
+        llm_factory={"model": "ollama_chat/llama2", "parameters": {}},
+        tokenizer={"tokenizer": "ollama_tokenizer", "max_content_tokens": 1000},
+    )
+    assert (
+        config.llm_config.failure_summary_prompt_template == "CI summary:\n{analyses}"
+    )
+
+
 def test_user_config_can_override_chunking_prompts(mocker):
     """Test that user config can override chunking prompts."""
     default_config_content = """
@@ -372,6 +403,7 @@ def test_user_config_can_override_chunking_prompts(mocker):
     llm_config:
       question_prompt: "Default prompt"
       prompt_template: "Default template"
+      failure_summary_prompt_template: "CI summary {analyses}"
       chunking:
         chunk_analysis_prompt: "Default analyze: {text}"
         final_synthesis_prompt: "Default synthesize: {summary}"

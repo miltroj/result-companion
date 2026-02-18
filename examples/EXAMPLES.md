@@ -22,6 +22,7 @@ Quick-start configurations for different LLM providers and use cases.
     - [CLI Examples](#cli-examples)
     - [Config File](#config-file)
     - [Filter Logic](#filter-logic)
+  - [Text Output for CI](#text-output-for-ci)
   - [Dryrun Mode](#dryrun-mode)
   - [Custom Analysis](#custom-analysis)
     - [Find Performance Issues](#find-performance-issues)
@@ -330,6 +331,27 @@ Generates `rc_log.html` with debug metadata per test:
 - Verify tag filtering works correctly
 - Check chunking behavior before real runs
 
+## Text Output for CI
+
+Use text output in Jenkins or other orchestrators:
+
+```bash
+# Write short text report
+result-companion analyze -o output.xml --text-report rc_summary.txt
+
+# Print short text report to stdout
+result-companion analyze -o output.xml --print-text-summary
+
+# Disable HTML when only text output is needed
+result-companion analyze -o output.xml --no-html-report --text-report rc_summary.txt
+```
+
+Optional global synthesis across all failed tests:
+
+```bash
+result-companion analyze -o output.xml --text-report rc_summary.txt --summarize-failures
+```
+
 ## Custom Analysis
 
 Customize prompts via `llm_config`:
@@ -339,6 +361,7 @@ Customize prompts via `llm_config`:
 | `question_prompt` | Main analysis prompt for each test |
 | `chunking.chunk_analysis_prompt` | Prompt for analyzing individual chunks (large tests) |
 | `chunking.final_synthesis_prompt` | Prompt for combining chunk summaries |
+| `failure_summary_prompt_template` | Prompt template for `--summarize-failures` output (`{analyses}` placeholder) |
 
 ### Find Performance Issues
 
