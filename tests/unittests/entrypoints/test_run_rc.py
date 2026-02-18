@@ -143,6 +143,7 @@ class TestMainE2E:
                         "chunk_analysis_prompt": "Analyze: {text}",
                         "final_synthesis_prompt": "Synthesize: {summary}",
                     },
+                    "failure_summary_prompt_template": "CI summary:\n{analyses}",
                 },
                 llm_factory={
                     "model": "openai/gpt-4",
@@ -228,6 +229,7 @@ class TestMainE2E:
                         "chunk_analysis_prompt": "Analyze: {text}",
                         "final_synthesis_prompt": "Synthesize: {summary}",
                     },
+                    "failure_summary_prompt_template": "CI summary:\n{analyses}",
                 },
                 llm_factory={
                     "model": "ollama_chat/llama2:123",
@@ -376,6 +378,7 @@ class TestMainTextAndSynthesis:
                         "chunk_analysis_prompt": "Analyze: {text}",
                         "final_synthesis_prompt": "Synthesize: {summary}",
                     },
+                    "failure_summary_prompt_template": "CI summary:\n{analyses}",
                 },
                 llm_factory={
                     "model": "openai/gpt-4",
