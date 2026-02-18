@@ -26,7 +26,7 @@ class TestAnalizeEntrypoint:
     def setup_method(self):
         """Setup common test fixtures"""
         self.runner = CliRunner()
-        self.noop_analyze = lambda *args: None
+        self.noop_analyze = lambda *args, **kwargs: None
 
     def test_cli_fail_when_outpu_not_exists(self):
         result = self.runner.invoke(
@@ -84,7 +84,7 @@ class TestAnalizeEntrypoint:
         result = self.runner.invoke(
             app,
             [self.ENTRYPOINT, "-o", existing_xml_path],
-            obj={"analyze": lambda *args: echo("RUNNING MAIN")},
+            obj={"analyze": lambda *args, **kwargs: echo("RUNNING MAIN")},
         )
         assert result.exit_code == 0
         assert "Output: " in result.output
@@ -110,10 +110,65 @@ class TestAnalizeEntrypoint:
         )
         assert result.exit_code == 0
         mock_run.assert_called_once()
-        assert mock_run.call_args[0][5] == 4  # test_case_concurrency
-        assert mock_run.call_args[0][6] == 2  # chunk_concurrency
-        assert mock_run.call_args[0][7] is None  # include_tags
-        assert mock_run.call_args[0][8] is None  # exclude_tags
+        call_kwargs = mock_run.call_args.kwargs
+        assert call_kwargs["test_case_concurrency"] == 4
+        assert call_kwargs["chunk_concurrency"] == 2
+        assert call_kwargs["include_tags"] is None
+        assert call_kwargs["exclude_tags"] is None
+
+    def test_cli_sets_no_html_report(self):
+        mock_run = MagicMock()
+        result = self.runner.invoke(
+            app,
+            [self.ENTRYPOINT, "-o", existing_xml_path, "--no-html-report"],
+            obj={"analyze": mock_run},
+        )
+        assert result.exit_code == 0
+        assert "HTML Report: False" in result.output
+        mock_run.assert_called_once()
+        assert mock_run.call_args.kwargs["html_report"] is False
+
+    def test_cli_sets_text_report(self):
+        mock_run = MagicMock()
+        result = self.runner.invoke(
+            app,
+            [
+                self.ENTRYPOINT,
+                "-o",
+                existing_xml_path,
+                "--text-report",
+                "rc_summary.txt",
+            ],
+            obj={"analyze": mock_run},
+        )
+        assert result.exit_code == 0
+        assert "Text Report: rc_summary.txt" in result.output
+        mock_run.assert_called_once()
+        assert mock_run.call_args.kwargs["text_report"] == "rc_summary.txt"
+
+    def test_cli_sets_print_text_summary(self):
+        mock_run = MagicMock()
+        result = self.runner.invoke(
+            app,
+            [self.ENTRYPOINT, "-o", existing_xml_path, "--print-text-summary"],
+            obj={"analyze": mock_run},
+        )
+        assert result.exit_code == 0
+        assert "Print Text Summary: True" in result.output
+        mock_run.assert_called_once()
+        assert mock_run.call_args.kwargs["print_text_summary"] is True
+
+    def test_cli_sets_summarize_failures(self):
+        mock_run = MagicMock()
+        result = self.runner.invoke(
+            app,
+            [self.ENTRYPOINT, "-o", existing_xml_path, "--summarize-failures"],
+            obj={"analyze": mock_run},
+        )
+        assert result.exit_code == 0
+        assert "Summarize Failures: True" in result.output
+        mock_run.assert_called_once()
+        assert mock_run.call_args.kwargs["summarize_failures"] is True
 
 
 class TestInstallOllamaModel:
