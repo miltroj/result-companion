@@ -42,7 +42,7 @@ def render_text_report(
             lines.append(f"- {test_name}")
 
     if llm_results:
-        lines.extend(["", "PET-TEST-ANALYSIS:"])
+        lines.extend(["", "PER-TEST-ANALYSIS:"])
         for test_name in failed_test_names:
             result = llm_results.get(test_name)
             if not result:

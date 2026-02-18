@@ -32,6 +32,7 @@ class LLMConfigModel(BaseModel):
     prompt_template: str = Field(
         min_length=5, description="Template for LLM prompt formatting."
     )
+    # TODO: change name to summary_prompt_template
     failure_summary_prompt_template: str = Field(
         min_length=5,
         description="Template for overall failed-tests synthesis prompt.",
