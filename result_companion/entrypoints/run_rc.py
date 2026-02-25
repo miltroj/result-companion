@@ -85,8 +85,10 @@ async def _main(
     text_report: Optional[str] = None,
     print_text_summary: bool = False,
     summarize_failures: bool = False,
+    quiet: bool = False,
 ) -> bool:
-    set_global_log_level(str(log_level))
+    resolved_log_level = "ERROR" if quiet else str(log_level)
+    set_global_log_level(resolved_log_level)
 
     logger.info("Starting Result Companion!")
     start = time.time()
@@ -125,6 +127,7 @@ async def _main(
         test_cases=test_cases,
         config=parsed_config,
         dryrun=dryrun,
+        quiet=quiet,
     )
 
     failed_test_names = [t["name"] for t in test_cases if t.get("status") == "FAIL"]
@@ -185,6 +188,7 @@ def run_rc(
     text_report: Optional[str] = None,
     print_text_summary: bool = False,
     summarize_failures: bool = False,
+    quiet: bool = False,
 ) -> bool:
     """Runs the Result Companion analysis.
 
@@ -203,6 +207,7 @@ def run_rc(
         text_report: Optional text summary output path.
         print_text_summary: Whether to print text summary to stdout.
         summarize_failures: Whether to ask LLM for overall failure summary.
+        quiet: Whether to suppress logs and progress output.
 
     Returns:
         True if analysis completed successfully.
@@ -218,6 +223,7 @@ def run_rc(
                 text_report=text_report,
                 print_text_summary=print_text_summary,
                 summarize_failures=summarize_failures,
+                quiet=quiet,
                 include_passing=include_passing,
                 test_case_concurrency=test_case_concurrency,
                 chunk_concurrency=chunk_concurrency,

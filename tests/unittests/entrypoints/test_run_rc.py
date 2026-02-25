@@ -287,6 +287,7 @@ class TestRunRC:
                 text_report=None,
                 print_text_summary=False,
                 summarize_failures=False,
+                quiet=False,
                 include_passing=False,
                 test_case_concurrency=None,
                 chunk_concurrency=None,
@@ -341,6 +342,24 @@ class TestRunRC:
 
             call_kwargs = mocked_main.call_args.kwargs
             assert call_kwargs["dryrun"] is True
+
+    def test_run_rc_passes_quiet_flag(self):
+        """Test that quiet flag is passed correctly."""
+        with patch(
+            "result_companion.entrypoints.run_rc._main",
+            return_value=True,
+        ) as mocked_main:
+            run_rc(
+                output=Path("output.xml"),
+                log_level="DEBUG",
+                config=None,
+                report=None,
+                include_passing=False,
+                quiet=True,
+            )
+
+            call_kwargs = mocked_main.call_args.kwargs
+            assert call_kwargs["quiet"] is True
 
 
 class TestMainTextAndSynthesis:

@@ -115,6 +115,7 @@ async def execute_llm_and_get_results(
     test_cases: list,
     config: DefaultConfigModel,
     dryrun: bool = False,
+    quiet: bool = False,
 ) -> dict:
     """Executes LLM analysis on test cases and returns results.
 
@@ -122,6 +123,7 @@ async def execute_llm_and_get_results(
         test_cases: List of test case dictionaries.
         config: Parsed configuration.
         dryrun: If True, skip actual LLM calls.
+        quiet: If True, suppress progress output.
 
     Returns:
         Dictionary mapping test case names to analysis results.
@@ -175,7 +177,12 @@ async def execute_llm_and_get_results(
     semaphore = asyncio.Semaphore(test_case_concurrency)
 
     desc = f"Analyzing {len(test_cases)} test cases"
-    results = await run_tasks_with_progress(coroutines, semaphore=semaphore, desc=desc)
+    results = await run_tasks_with_progress(
+        coroutines,
+        semaphore=semaphore,
+        desc=desc,
+        disable_progress=quiet,
+    )
 
     for result, name, chunks in results:
         chunk, status = test_case_stats[name]

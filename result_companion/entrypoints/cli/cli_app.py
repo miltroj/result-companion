@@ -104,6 +104,12 @@ def analyze(
         "--summarize-failures",
         help="Ask LLM for a concise overall summary of all failures",
     ),
+    quiet: bool = typer.Option(
+        False,
+        "-q",
+        "--quiet",
+        help="Suppress logs/progress and CLI parameter echo output",
+    ),
     include_passing: bool = typer.Option(
         False, "-i", "--include-passing", help="Include PASS test cases"
     ),
@@ -136,15 +142,16 @@ def analyze(
     ),
 ):
     """Analyze Robot Framework test results with LLM assistance."""
-    typer.echo(f"Output: {output}")
-    typer.echo(f"Log Level: {log_level}")
-    typer.echo(f"Config: {config}")
-    typer.echo(f"Report: {report}")
-    typer.echo(f"HTML Report: {html_report}")
-    typer.echo(f"Text Report: {text_report}")
-    typer.echo(f"Print Text Summary: {print_text_summary}")
-    typer.echo(f"Summarize Failures: {summarize_failures}")
-    typer.echo(f"Include Passing: {include_passing}")
+    if not quiet:
+        typer.echo(f"Output: {output}")
+        typer.echo(f"Log Level: {log_level}")
+        typer.echo(f"Config: {config}")
+        typer.echo(f"Report: {report}")
+        typer.echo(f"HTML Report: {html_report}")
+        typer.echo(f"Text Report: {text_report}")
+        typer.echo(f"Print Text Summary: {print_text_summary}")
+        typer.echo(f"Summarize Failures: {summarize_failures}")
+        typer.echo(f"Include Passing: {include_passing}")
 
     # Parse CLI tag options
     include_tag_list = (
@@ -177,6 +184,7 @@ def analyze(
         text_report=text_report,
         print_text_summary=print_text_summary,
         summarize_failures=summarize_failures,
+        quiet=quiet,
     )
 
 

@@ -170,6 +170,19 @@ class TestAnalizeEntrypoint:
         mock_run.assert_called_once()
         assert mock_run.call_args.kwargs["summarize_failures"] is True
 
+    def test_cli_sets_quiet_mode_and_hides_parameter_echo(self):
+        mock_run = MagicMock()
+        result = self.runner.invoke(
+            app,
+            [self.ENTRYPOINT, "-o", existing_xml_path, "--quiet"],
+            obj={"analyze": mock_run},
+        )
+        assert result.exit_code == 0
+        assert "Output: " not in result.output
+        assert "Log Level: " not in result.output
+        mock_run.assert_called_once()
+        assert mock_run.call_args.kwargs["quiet"] is True
+
 
 class TestInstallOllamaModel:
 
