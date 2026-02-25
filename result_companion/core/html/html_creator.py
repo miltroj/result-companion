@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 from robot.api import ExecutionResult
 from robot.reporting.resultwriter import ResultWriter
@@ -13,6 +13,7 @@ def create_llm_html_log(
     llm_output_path: Path | str,
     llm_results: Dict[str, str],
     model_info: Dict[str, str] = None,
+    overall_summary: Optional[str] = None,
 ) -> None:
     """Create HTML log with LLM data embedded in JS model.
 
@@ -21,11 +22,12 @@ def create_llm_html_log(
         llm_output_path: Path for generated HTML report.
         llm_results: Mapping of test names to LLM analysis.
         model_info: Optional model information.
+        overall_summary: Optional synthesized summary of all failures.
     """
     results = ExecutionResult(str(input_result_path))
 
     results.visit(UniqueNameResultVisitor())
-    results.visit(LLMDataInjector(llm_results, model_info))
+    results.visit(LLMDataInjector(llm_results, model_info, overall_summary))
 
     writer = ResultWriter(results)
     writer.write_results(report=None, log=str(llm_output_path))
@@ -76,6 +78,31 @@ $(function() {
                     modelInfo = data.model;
                 } else {
                     llmData = data;
+                }
+
+                if (data.overall_summary) {
+                    var badge = modelInfo ? '<span class="llm-model">' + modelInfo.model + '</span>' : '';
+                    var sumHtml = '<div class="llm-section">' +
+                        '<div class="llm-header" style="border-left:4px solid var(--fail-color)">' +
+                            '<div>Overall Summary ' + badge + '</div>' +
+                            '<span class="llm-chevron collapsed">▼</span>' +
+                        '</div>' +
+                        '<div class="llm-content">' +
+                            '<button class="llm-copy" data-raw="__overall_summary__">Copy</button>' +
+                            marked.parse(data.overall_summary) +
+                        '</div></div>';
+                    var $sum = $(sumHtml);
+                    $sum.find('.llm-header').click(function() {
+                        var c = $(this).next(); var ch = $(this).find('.llm-chevron');
+                        c.slideToggle(200); ch.toggleClass('collapsed');
+                    });
+                    $sum.find('.llm-copy').click(function(e) {
+                        e.stopPropagation(); var b = $(this);
+                        navigator.clipboard.writeText(data.overall_summary);
+                        b.text('✓ Copied').addClass('copied');
+                        setTimeout(function() { b.text('Copy').removeClass('copied'); }, 2000);
+                    });
+                    $('.suite').first().find('.children').first().prepend($sum);
                 }
                 break;
             }

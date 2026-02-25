@@ -131,16 +131,6 @@ async def _main(
     )
 
     failed_test_names = [t["name"] for t in test_cases if t.get("status") == "FAIL"]
-    report_path = report if report else "rc_log.html"
-    if llm_results and html_report:
-        model_info = {"model": parsed_config.llm_factory.model}
-        create_llm_html_log(
-            input_result_path=output,
-            llm_output_path=report_path,
-            llm_results=llm_results,
-            model_info=model_info,
-        )
-        logger.info(f"Report created: {Path(report_path).resolve()}")
 
     overall_summary = None
     if summarize_failures and llm_results and not dryrun:
@@ -149,6 +139,18 @@ async def _main(
             model_name=parsed_config.llm_factory.model,
             config=parsed_config,
         )
+
+    report_path = report if report else "rc_log.html"
+    if llm_results and html_report:
+        model_info = {"model": parsed_config.llm_factory.model}
+        create_llm_html_log(
+            input_result_path=output,
+            llm_output_path=report_path,
+            llm_results=llm_results,
+            model_info=model_info,
+            overall_summary=overall_summary,
+        )
+        logger.info(f"Report created: {Path(report_path).resolve()}")
 
     should_emit_text = bool(text_report) or print_text_report
     if should_emit_text:

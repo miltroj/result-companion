@@ -199,6 +199,7 @@ class TestMainE2E:
                 llm_output_path="/tmp/report.html",
                 llm_results={"test2": "llm_result_2"},
                 model_info={"model": "openai/gpt-4"},
+                overall_summary=None,
             )
             assert result is True
 
