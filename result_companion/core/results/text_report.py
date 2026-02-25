@@ -1,9 +1,8 @@
-from pathlib import Path
 from typing import Optional
 
 from result_companion.core.analizers.factory_common import _build_llm_params
 from result_companion.core.analizers.llm_router import _smart_acompletion
-from result_companion.core.parsers.config import load_config
+from result_companion.core.parsers.config import DefaultConfigModel
 from result_companion.core.utils.logging_config import logger
 
 
@@ -67,14 +66,14 @@ def _build_overall_summary_prompt(
 async def summarize_failures_with_llm(
     llm_results: dict[str, str],
     model_name: str,
-    config: Optional[Path],
+    config: DefaultConfigModel,
 ) -> Optional[str]:
     """Generates concise overall summary from per-test LLM results.
 
     Args:
         llm_results: Mapping of failed test names to analyses.
         model_name: Model identifier to use for synthesis.
-        config: Optional config path used to load credentials and params.
+        config: Parsed configuration with LLM params and prompt templates.
 
     Returns:
         Generated summary text, or None when unavailable.
@@ -83,10 +82,9 @@ async def summarize_failures_with_llm(
         return None
 
     try:
-        parsed_config = load_config(config)
-        llm_params = _build_llm_params(parsed_config.llm_factory)
+        llm_params = _build_llm_params(config.llm_factory)
         llm_params["model"] = model_name
-        prompt_template = parsed_config.llm_config.summary_prompt_template
+        prompt_template = config.llm_config.summary_prompt_template
         prompt = _build_overall_summary_prompt(llm_results, prompt_template)
         messages = [{"role": "user", "content": prompt}]
         response = await _smart_acompletion(messages=messages, **llm_params)

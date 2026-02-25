@@ -144,7 +144,7 @@ async def _main(
         overall_summary = await summarize_failures_with_llm(
             llm_results=llm_results,
             model_name=parsed_config.llm_factory.model,
-            config=config,
+            config=parsed_config,
         )
 
     should_emit_text = bool(text_report) or print_text_summary
