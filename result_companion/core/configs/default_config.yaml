@@ -68,7 +68,7 @@ llm_config:
 
     Answer the question based on the following context: {context}
 
-  failure_summary_prompt_template: |
+  summary_prompt_template: |
     Summarize the following failed test analyses for CI output.
     Return plain text only.
     Format:

@@ -86,7 +86,7 @@ async def summarize_failures_with_llm(
         parsed_config = load_config(config)
         llm_params = _build_llm_params(parsed_config.llm_factory)
         llm_params["model"] = model_name
-        prompt_template = parsed_config.llm_config.failure_summary_prompt_template
+        prompt_template = parsed_config.llm_config.summary_prompt_template
         prompt = _build_overall_summary_prompt(llm_results, prompt_template)
         messages = [{"role": "user", "content": prompt}]
         response = await _smart_acompletion(messages=messages, **llm_params)
