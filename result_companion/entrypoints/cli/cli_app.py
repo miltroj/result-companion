@@ -96,8 +96,8 @@ def analyze(
     text_report: Optional[str] = typer.Option(
         None, "--text-report", help="Write concise text summary to file"
     ),
-    print_text_summary: bool = typer.Option(
-        False, "--print-text-summary", help="Print concise text summary to stdout"
+    print_text_report: bool = typer.Option(
+        False, "--print-text-report", help="Print concise text report to stdout"
     ),
     summarize_failures: bool = typer.Option(
         False,
@@ -149,7 +149,7 @@ def analyze(
         typer.echo(f"Report: {report}")
         typer.echo(f"HTML Report: {html_report}")
         typer.echo(f"Text Report: {text_report}")
-        typer.echo(f"Print Text Summary: {print_text_summary}")
+        typer.echo(f"Print Text Report: {print_text_report}")
         typer.echo(f"Summarize Failures: {summarize_failures}")
         typer.echo(f"Include Passing: {include_passing}")
 
@@ -182,7 +182,7 @@ def analyze(
         dryrun=dryrun,
         html_report=html_report,
         text_report=text_report,
-        print_text_summary=print_text_summary,
+        print_text_report=print_text_report,
         summarize_failures=summarize_failures,
         quiet=quiet,
     )

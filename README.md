@@ -35,7 +35,7 @@ For CI logs and pipelines, use text output:
 
 ```bash
 result-companion analyze -o output.xml --text-report rc_summary.txt
-result-companion analyze -o output.xml --print-text-summary
+result-companion analyze -o output.xml --print-text-report
 result-companion analyze -o output.xml --text-report rc_summary.txt --summarize-failures
 ```
 

@@ -83,7 +83,7 @@ async def _main(
     dryrun: bool = False,
     html_report: bool = True,
     text_report: Optional[str] = None,
-    print_text_summary: bool = False,
+    print_text_report: bool = False,
     summarize_failures: bool = False,
     quiet: bool = False,
 ) -> bool:
@@ -150,7 +150,7 @@ async def _main(
             config=parsed_config,
         )
 
-    should_emit_text = bool(text_report) or print_text_summary
+    should_emit_text = bool(text_report) or print_text_report
     if should_emit_text:
         text_output = render_text_report(
             llm_results=llm_results,
@@ -160,7 +160,7 @@ async def _main(
         if text_report:
             Path(text_report).write_text(text_output)
             logger.info(f"Text report created: {Path(text_report).resolve()}")
-        if print_text_summary:
+        if print_text_report:
             print(text_output)
 
     stop = time.time()
@@ -186,7 +186,7 @@ def run_rc(
     dryrun: bool = False,
     html_report: bool = True,
     text_report: Optional[str] = None,
-    print_text_summary: bool = False,
+    print_text_report: bool = False,
     summarize_failures: bool = False,
     quiet: bool = False,
 ) -> bool:
@@ -205,7 +205,7 @@ def run_rc(
         dryrun: If True, skip LLM calls.
         html_report: Whether to generate HTML report.
         text_report: Optional text summary output path.
-        print_text_summary: Whether to print text summary to stdout.
+        print_text_report: Whether to print text report to stdout.
         summarize_failures: Whether to ask LLM for overall failure summary.
         quiet: Whether to suppress logs and progress output.
 
@@ -221,7 +221,7 @@ def run_rc(
                 report=report,
                 html_report=html_report,
                 text_report=text_report,
-                print_text_summary=print_text_summary,
+                print_text_report=print_text_report,
                 summarize_failures=summarize_failures,
                 quiet=quiet,
                 include_passing=include_passing,

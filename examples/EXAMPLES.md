@@ -341,7 +341,7 @@ Use text output in Jenkins or other orchestrators:
 result-companion analyze -o output.xml --text-report rc_summary.txt
 
 # Print short text report to stdout
-result-companion analyze -o output.xml --print-text-summary
+result-companion analyze -o output.xml --print-text-report
 
 # Disable HTML when only text output is needed
 result-companion analyze -o output.xml --no-html-report --text-report rc_summary.txt
