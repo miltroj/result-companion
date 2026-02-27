@@ -2,6 +2,7 @@ import math
 from dataclasses import dataclass
 
 import tiktoken
+from toon import encode as toon_encode
 
 from result_companion.core.parsers.config import TokenizerModel
 from result_companion.core.utils.logging_config import logger
@@ -108,7 +109,7 @@ def calculate_overall_chunk_size(
 def calculate_chunk_size(
     test_case: dict, system_prompt: str, tokenizer_from_config: TokenizerModel
 ) -> Chunking:
-    LLM_fed_text = str(test_case) + system_prompt
+    LLM_fed_text = toon_encode(test_case) + system_prompt
     tokenizer = tokenizer_mappings[tokenizer_from_config.tokenizer]
     max_content_tokens = tokenizer_from_config.max_content_tokens
     text_to_tokens = tokenizer(LLM_fed_text)

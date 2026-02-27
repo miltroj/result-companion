@@ -1,6 +1,8 @@
 import asyncio
 from typing import Any
 
+from toon import encode as toon_encode
+
 from result_companion.core.analizers.llm_router import _smart_acompletion
 from result_companion.core.chunking.chunking import (
     accumulate_llm_results_for_summarization,
@@ -100,7 +102,7 @@ async def analyze_test_case(
     # Format the prompt using the template
     formatted_prompt = prompt_template.format(
         question=question_prompt,
-        context=str(test_case),
+        context=toon_encode(test_case),
     )
 
     messages = [{"role": "user", "content": formatted_prompt}]
@@ -147,7 +149,7 @@ async def execute_llm_and_get_results(
     )
 
     for test_case in test_cases:
-        raw_test_case_text = str(test_case)
+        raw_test_case_text = toon_encode(test_case)
         chunk = calculate_chunk_size(raw_test_case_text, question_prompt, tokenizer)
         test_case_stats[test_case["name"]] = (chunk, test_case.get("status", "N/A"))
 

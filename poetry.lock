@@ -2576,6 +2576,26 @@ files = [
 ]
 
 [[package]]
+name = "toonify"
+version = "1.6.0"
+description = "TOON (Token-Oriented Object Notation) - A compact, human-readable serialization format for LLMs"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "toonify-1.6.0-py3-none-any.whl", hash = "sha256:7998a72c48d8dadd2f339bae78011fd30b9a90efde69a8abd8a3665c4107dd83"},
+    {file = "toonify-1.6.0.tar.gz", hash = "sha256:57bf6fbc9d73e463e8773c491123b233b0c79482235e0c27b908b4e58b54ec77"},
+]
+
+[package.dependencies]
+tiktoken = ">=0.5.0"
+
+[package.extras]
+all = ["pydantic (>=1.10.0)"]
+dev = ["black (>=24.0.0)", "isort (>=5.13.0)", "poethepoet (>=0.29.0)", "pylint (>=3.3.0)", "pytest (>=7.0.0)", "pytest-cov (>=4.0.0)", "ruff (>=0.8.0)"]
+pydantic = ["pydantic (>=1.10.0)"]
+
+[[package]]
 name = "tqdm"
 version = "4.67.1"
 description = "Fast, Extensible Progress Meter"
@@ -2805,4 +2825,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "995a849d91f9315ad07d8e12706ba3d559e141beb3823ec7971e88edb6c28b2c"
+content-hash = "ef489b6583da9a804daa6cafd117c092a9bcb75c9a8108b8a10872dc1bfd3ce9"

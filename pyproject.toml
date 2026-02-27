@@ -32,6 +32,7 @@ litellm = "^1.59"
 github-copilot-sdk = "^0.1.20"
 tiktoken = "^0.8.0"
 tqdm = "^4.67.1"
+toonify = "^1.6.0"
 
 [tool.poetry.scripts]
 result-companion = "result_companion.entrypoints.cli.cli_app:app"

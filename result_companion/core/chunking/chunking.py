@@ -1,6 +1,8 @@
 import asyncio
 from typing import Any
 
+from toon import encode as toon_encode
+
 from result_companion.core.analizers.llm_router import _smart_acompletion
 from result_companion.core.chunking.utils import Chunking
 from result_companion.core.utils.logging_config import get_progress_logger
@@ -124,7 +126,7 @@ async def accumulate_llm_results_for_summarization(
     """
     overlap = chunking_strategy.chunk_size // 10
     chunks = split_text_into_chunks(
-        str(test_case), chunking_strategy.chunk_size, overlap
+        toon_encode(test_case), chunking_strategy.chunk_size, overlap
     )
 
     test_name = test_case["name"]
