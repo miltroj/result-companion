@@ -6,13 +6,14 @@ from result_companion.core.html.llm_injector import LLMDataInjector
 
 def test_llm_data_injector_stores_in_suite_metadata():
     """Test that LLM data is stored in suite metadata."""
+    overall_summary = "Overall summary"
     llm_results = {
         "Test 1": "Analysis for test 1",
         "Test 2": "Analysis for test 2",
     }
     model_info = {"model": "deepseek-r1:1.5b"}
 
-    injector = LLMDataInjector(llm_results, model_info)
+    injector = LLMDataInjector(llm_results, model_info, overall_summary)
 
     # Create mock result with suite
     result = MagicMock()
@@ -26,27 +27,4 @@ def test_llm_data_injector_stores_in_suite_metadata():
     stored_data = json.loads(result.suite.metadata["__llm_results"])
     assert stored_data["results"] == llm_results
     assert stored_data["model"] == model_info
-
-
-def test_llm_data_injector_stores_overall_summary():
-    """Test that overall summary is stored in suite metadata."""
-    overall_summary = "Overall summary"
-    llm_results = {
-        "Test 1": "Analysis for test 1",
-        "Test 2": "Analysis for test 2",
-    }
-    model_info = {"model": "deepseek-r1:1.5b"}
-    injector = LLMDataInjector(llm_results, model_info, overall_summary)
-
-    # Create mock result with suite
-    result = MagicMock()
-    result.suite.metadata = {}
-
-    # Call end_result
-    injector.end_result(result)
-
-    assert "__llm_results" in result.suite.metadata
-    stored_data = json.loads(result.suite.metadata["__llm_results"])
     assert stored_data["overall_summary"] == overall_summary
-    assert stored_data["model"] == model_info
-    assert stored_data["results"] == llm_results
