@@ -130,7 +130,7 @@ async def _main(
         quiet=quiet,
     )
 
-    failed_test_names = [t["name"] for t in test_cases if t.get("status") == "FAIL"]
+    analyzed_test_names = [t["name"] for t in test_cases]
 
     overall_summary = None
     if summarize_failures and llm_results and not dryrun:
@@ -156,7 +156,7 @@ async def _main(
     if should_emit_text:
         text_output = render_text_report(
             llm_results=llm_results,
-            failed_test_names=failed_test_names,
+            analyzed_test_names=analyzed_test_names,
             overall_summary=overall_summary,
         )
         if text_report:

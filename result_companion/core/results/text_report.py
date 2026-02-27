@@ -8,22 +8,22 @@ from result_companion.core.utils.logging_config import logger
 
 def render_text_report(
     llm_results: dict[str, str],
-    failed_test_names: list[str],
+    analyzed_test_names: list[str],
     overall_summary: Optional[str],
 ) -> str:
     """Builds concise plain-text report from LLM per-test results.
 
     Args:
         llm_results: Mapping of test names to LLM analysis.
-        failed_test_names: Names of failed tests in current run.
+        analyzed_test_names: Names of tests included in current analysis.
         overall_summary: Optional synthesized summary.
 
     Returns:
         Text report content for file or console output.
     """
     lines = [
-        "Result Companion - Failure Summary",
-        f"Failed tests analyzed: {len(failed_test_names)}",
+        "Result Companion - Summary",
+        f"Tests analyzed: {len(analyzed_test_names)}",
     ]
 
     if overall_summary:
@@ -35,14 +35,14 @@ def render_text_report(
             ]
         )
 
-    if failed_test_names:
-        lines.extend(["", "Failed Tests:"])
-        for test_name in failed_test_names:
+    if analyzed_test_names:
+        lines.extend(["", "Analyzed Tests:"])
+        for test_name in analyzed_test_names:
             lines.append(f"- {test_name}")
 
     if llm_results:
         lines.extend(["", "PER-TEST-ANALYSIS:"])
-        for test_name in failed_test_names:
+        for test_name in analyzed_test_names:
             result = llm_results.get(test_name)
             if not result:
                 continue
