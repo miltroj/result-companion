@@ -10,6 +10,7 @@ async def run_tasks_with_progress(
     coroutines: List,
     semaphore: asyncio.Semaphore = None,
     desc: str = "Processing tasks",
+    disable_progress: bool = False,
 ) -> List[Any]:
     """Run coroutines with progress bar tracking.
 
@@ -17,6 +18,7 @@ async def run_tasks_with_progress(
         coroutines: List of coroutines to run.
         semaphore: Optional semaphore to limit concurrency.
         desc: Description to display in the progress bar.
+        disable_progress: If True, hides tqdm progress output.
 
     Returns:
         List of results from the coroutines.
@@ -47,7 +49,12 @@ async def run_tasks_with_progress(
     pending = set(tasks)
 
     with tqdm(
-        total=len(tasks), desc=desc, position=0, leave=True, dynamic_ncols=True
+        total=len(tasks),
+        desc=desc,
+        position=0,
+        leave=True,
+        dynamic_ncols=True,
+        disable=disable_progress,
     ) as pbar:
         while pending:
             done, pending = await asyncio.wait(

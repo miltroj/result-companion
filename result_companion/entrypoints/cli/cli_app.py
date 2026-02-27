@@ -88,6 +88,28 @@ def analyze(
     report: Optional[str] = typer.Option(
         None, "-r", "--report", help="Write LLM Report to HTML file"
     ),
+    html_report: bool = typer.Option(
+        True,
+        "--html-report/--no-html-report",
+        help="Enable or disable HTML report generation",
+    ),
+    text_report: Optional[str] = typer.Option(
+        None, "--text-report", help="Write concise text summary to file"
+    ),
+    print_text_report: bool = typer.Option(
+        False, "--print-text-report", help="Print concise text report to stdout"
+    ),
+    overall_summary: bool = typer.Option(
+        False,
+        "--overall-summary",
+        help="Run extra LLM pass to synthesize all per-test results",
+    ),
+    quiet: bool = typer.Option(
+        False,
+        "-q",
+        "--quiet",
+        help="Suppress logs/progress and CLI parameter echo output",
+    ),
     include_passing: bool = typer.Option(
         False, "-i", "--include-passing", help="Include PASS test cases"
     ),
@@ -120,11 +142,16 @@ def analyze(
     ),
 ):
     """Analyze Robot Framework test results with LLM assistance."""
-    typer.echo(f"Output: {output}")
-    typer.echo(f"Log Level: {log_level}")
-    typer.echo(f"Config: {config}")
-    typer.echo(f"Report: {report}")
-    typer.echo(f"Include Passing: {include_passing}")
+    if not quiet:
+        typer.echo(f"Output: {output}")
+        typer.echo(f"Log Level: {log_level}")
+        typer.echo(f"Config: {config}")
+        typer.echo(f"Report: {report}")
+        typer.echo(f"HTML Report: {html_report}")
+        typer.echo(f"Text Report: {text_report}")
+        typer.echo(f"Print Text Report: {print_text_report}")
+        typer.echo(f"Overall Summary: {overall_summary}")
+        typer.echo(f"Include Passing: {include_passing}")
 
     # Parse CLI tag options
     include_tag_list = (
@@ -143,16 +170,21 @@ def analyze(
         run = run_rc
 
     run(
-        output,
-        log_level,
-        config,
-        report,
-        include_passing,
-        test_case_concurrency,
-        chunk_concurrency,
-        include_tag_list,
-        exclude_tag_list,
-        dryrun,
+        output=output,
+        log_level=log_level,
+        config=config,
+        report=report,
+        include_passing=include_passing,
+        test_case_concurrency=test_case_concurrency,
+        chunk_concurrency=chunk_concurrency,
+        include_tags=include_tag_list,
+        exclude_tags=exclude_tag_list,
+        dryrun=dryrun,
+        html_report=html_report,
+        text_report=text_report,
+        print_text_report=print_text_report,
+        summarize_failures=overall_summary,
+        quiet=quiet,
     )
 
 

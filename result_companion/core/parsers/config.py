@@ -32,6 +32,10 @@ class LLMConfigModel(BaseModel):
     prompt_template: str = Field(
         min_length=5, description="Template for LLM prompt formatting."
     )
+    summary_prompt_template: str = Field(
+        min_length=5,
+        description="Template for overall failed-tests synthesis prompt.",
+    )
     chunking: ChunkingPromptsModel
 
 

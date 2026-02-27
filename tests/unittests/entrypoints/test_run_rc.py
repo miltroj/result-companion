@@ -143,6 +143,7 @@ class TestMainE2E:
                         "chunk_analysis_prompt": "Analyze: {text}",
                         "final_synthesis_prompt": "Synthesize: {summary}",
                     },
+                    "summary_prompt_template": "CI summary:\n{analyses}",
                 },
                 llm_factory={
                     "model": "openai/gpt-4",
@@ -166,6 +167,10 @@ class TestMainE2E:
                 log_level="DEBUG",
                 config=None,
                 report="/tmp/report.html",
+                html_report=True,
+                text_report=None,
+                print_text_report=False,
+                summarize_failures=False,
                 include_passing=False,
                 test_case_concurrency=None,
                 chunk_concurrency=None,
@@ -194,6 +199,7 @@ class TestMainE2E:
                 llm_output_path="/tmp/report.html",
                 llm_results={"test2": "llm_result_2"},
                 model_info={"model": "openai/gpt-4"},
+                overall_summary=None,
             )
             assert result is True
 
@@ -224,6 +230,7 @@ class TestMainE2E:
                         "chunk_analysis_prompt": "Analyze: {text}",
                         "final_synthesis_prompt": "Synthesize: {summary}",
                     },
+                    "summary_prompt_template": "CI summary:\n{analyses}",
                 },
                 llm_factory={
                     "model": "ollama_chat/llama2:123",
@@ -237,6 +244,10 @@ class TestMainE2E:
                 log_level="DEBUG",
                 config=None,
                 report=None,
+                html_report=True,
+                text_report=None,
+                print_text_report=False,
+                summarize_failures=False,
                 include_passing=False,
             )
 
@@ -257,6 +268,10 @@ class TestRunRC:
                 log_level="DEBUG",
                 config=None,
                 report="/tmp/report.html",
+                html_report=True,
+                text_report=None,
+                print_text_report=False,
+                summarize_failures=False,
                 include_passing=False,
                 test_case_concurrency=None,
                 chunk_concurrency=None,
@@ -269,6 +284,11 @@ class TestRunRC:
                 log_level="DEBUG",
                 config=None,
                 report="/tmp/report.html",
+                html_report=True,
+                text_report=None,
+                print_text_report=False,
+                summarize_failures=False,
+                quiet=False,
                 include_passing=False,
                 test_case_concurrency=None,
                 chunk_concurrency=None,
@@ -289,6 +309,10 @@ class TestRunRC:
                 log_level="DEBUG",
                 config=None,
                 report=None,
+                html_report=True,
+                text_report=None,
+                print_text_report=False,
+                summarize_failures=False,
                 include_passing=False,
                 include_tags=["smoke*", "critical"],
                 exclude_tags=["wip"],
@@ -309,9 +333,105 @@ class TestRunRC:
                 log_level="DEBUG",
                 config=None,
                 report=None,
+                html_report=True,
+                text_report=None,
+                print_text_report=False,
+                summarize_failures=False,
                 include_passing=False,
                 dryrun=True,
             )
 
             call_kwargs = mocked_main.call_args.kwargs
             assert call_kwargs["dryrun"] is True
+
+    def test_run_rc_passes_quiet_flag(self):
+        """Test that quiet flag is passed correctly."""
+        with patch(
+            "result_companion.entrypoints.run_rc._main",
+            return_value=True,
+        ) as mocked_main:
+            run_rc(
+                output=Path("output.xml"),
+                log_level="DEBUG",
+                config=None,
+                report=None,
+                include_passing=False,
+                quiet=True,
+            )
+
+            call_kwargs = mocked_main.call_args.kwargs
+            assert call_kwargs["quiet"] is True
+
+
+class TestMainTextAndSynthesis:
+    """Tests for text output and optional global synthesis."""
+
+    @pytest.mark.asyncio
+    async def test_main_writes_text_report_with_overall_summary(self, tmp_path):
+        """Writes text file and includes synthesized summary."""
+        text_report_path = tmp_path / "rc_summary.txt"
+
+        with (
+            patch(
+                "result_companion.entrypoints.run_rc.create_llm_html_log"
+            ) as mocked_html,
+            patch(
+                "result_companion.entrypoints.run_rc.execute_llm_and_get_results"
+            ) as mocked_execute,
+            patch(
+                "result_companion.entrypoints.run_rc.get_robot_results_from_file_as_dict"
+            ) as mocked_get_results,
+            patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
+            patch(
+                "result_companion.entrypoints.run_rc.summarize_failures_with_llm"
+            ) as mocked_summary,
+        ):
+            mocked_get_results.return_value = [
+                {"name": "test_fail", "status": "FAIL", "tags": []},
+            ]
+            mocked_config.return_value = DefaultConfigModel(
+                version=1.0,
+                llm_config={
+                    "question_prompt": "question prompt",
+                    "prompt_template": "my_template {question} {context}",
+                    "chunking": {
+                        "chunk_analysis_prompt": "Analyze: {text}",
+                        "final_synthesis_prompt": "Synthesize: {summary}",
+                    },
+                    "summary_prompt_template": "CI summary:\n{analyses}",
+                },
+                llm_factory={
+                    "model": "openai/gpt-4",
+                    "api_key": "sk-test",
+                },
+                tokenizer={
+                    "tokenizer": "openai_tokenizer",
+                    "max_content_tokens": 1000,
+                },
+                test_filter={
+                    "include_tags": [],
+                    "exclude_tags": [],
+                    "include_passing": False,
+                },
+            )
+            mocked_execute.return_value = {"test_fail": "LLM details"}
+            mocked_summary.return_value = "Shared root cause summary."
+
+            result = await _main(
+                output=Path("output.xml"),
+                log_level="DEBUG",
+                config=None,
+                report=None,
+                html_report=False,
+                text_report=str(text_report_path),
+                print_text_report=False,
+                summarize_failures=True,
+                include_passing=False,
+            )
+
+            assert result is True
+            mocked_html.assert_not_called()
+            mocked_summary.assert_called_once()
+            text_content = text_report_path.read_text()
+            assert "Shared root cause summary." in text_content
+            assert "test_fail" in text_content

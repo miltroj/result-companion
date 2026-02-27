@@ -76,6 +76,7 @@ def make_config(
                 chunk_analysis_prompt="Analyze: {text}",
                 final_synthesis_prompt="Synthesize: {summary}",
             ),
+            summary_prompt_template="CI summary:\n{analyses}",
         ),
         llm_factory=LLMFactoryModel(
             model=model,

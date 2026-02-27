@@ -23,6 +23,8 @@ Quick-start configurations for different LLM providers and use cases.
     - [Config File](#config-file)
     - [Filter Logic](#filter-logic)
   - [Dryrun Mode](#dryrun-mode)
+  - [Text Output for CI](#text-output-for-ci)
+  - [Agent Chat Workflows](#agent-chat-workflows)
   - [Custom Analysis](#custom-analysis)
     - [Find Performance Issues](#find-performance-issues)
     - [Security Audit](#security-audit)
@@ -330,6 +332,50 @@ Generates `rc_log.html` with debug metadata per test:
 - Verify tag filtering works correctly
 - Check chunking behavior before real runs
 
+## Text Output for CI
+
+Use text output in Jenkins or other orchestrators:
+
+```bash
+# Write short text report
+result-companion analyze -o output.xml --text-report rc_summary.txt
+
+# Print short text report to stdout
+result-companion analyze -o output.xml --print-text-report
+
+# Disable HTML when only text output is needed
+result-companion analyze -o output.xml --no-html-report --text-report rc_summary.txt
+```
+
+Optional global synthesis across all failed tests. Adds an "Overall Failure Summary" section to `rc_log.html` and includes it in text output when `--text-report` or `--print-text-report` is used:
+
+```bash
+result-companion analyze -o output.xml --overall-summary
+result-companion analyze -o output.xml --text-report rc_summary.txt --overall-summary
+```
+
+## Agent Chat Workflows
+
+When many tests fail, copying stack traces into chat is slow and noisy.
+Generate one summary file, feed it to your agent, and work from prioritized fixes.
+This keeps context consistent across all failures and reduces manual triage.
+
+Use text output as chat context:
+
+```bash
+result-companion analyze -o output.xml --text-report rc_summary.txt --overall-summary --no-html-report
+```
+
+Prompt starters:
+
+```text
+Read rc_summary.txt and rank failures by confidence and impact. Propose fix order.
+```
+
+```text
+Read rc_summary.txt and implement minimal code changes for the first failure.
+```
+
 ## Custom Analysis
 
 Customize prompts via `llm_config`:
@@ -339,6 +385,7 @@ Customize prompts via `llm_config`:
 | `question_prompt` | Main analysis prompt for each test |
 | `chunking.chunk_analysis_prompt` | Prompt for analyzing individual chunks (large tests) |
 | `chunking.final_synthesis_prompt` | Prompt for combining chunk summaries |
+| `summary_prompt_template` | Prompt template for `--overall-summary` output (`{analyses}` placeholder) |
 
 ### Find Performance Issues
 
