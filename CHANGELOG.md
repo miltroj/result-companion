@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.6] - 2026-02-27
+
+### Added
+- Plain-text report output via `--text-report <file>` and `--print-text-report` flags
+- Overall LLM summary synthesis with `--overall-summary` — runs an extra LLM pass to produce a concise digest of all per-test analyses
+- Overall summary section rendered in HTML reports when enabled
+- `--quiet` / `-q` flag to suppress logs, progress bars, and CLI parameter echo for clean stdout redirects
+- `--html-report` / `--no-html-report` toggle to skip HTML generation when only text output is needed
+
+### Changed
+- Config: added `summary_prompt_template` field to `llm_config` for controlling the synthesis prompt
+
+[0.0.6]: https://github.com/miltroj/result-companion/releases/tag/v0.0.6
+
 ## [0.0.5] - 2026-02-17
 - **BREAKING**: Migrated from LangChain to LiteLLM for LLM integrations
   - Replaced 7 LangChain packages with single `litellm` package
