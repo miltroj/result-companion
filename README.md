@@ -31,12 +31,12 @@ Your enhanced `log.html` now includes:
 - **Test Flow Summary**: Understand what happened at a glance
 - **Actionable Fixes**: Specific suggestions to resolve the issue
 
-For CI logs and pipelines, use text output:
+For CI logs and pipelines, use text output. `--overall-summary` adds a synthesized summary to both `rc_log.html` and text output:
 
 ```bash
 result-companion analyze -o output.xml --text-report rc_summary.txt
 result-companion analyze -o output.xml --print-text-report
-result-companion analyze -o output.xml --text-report rc_summary.txt --summarize-failures
+result-companion analyze -o output.xml --overall-summary
 ```
 
 ## Quick Start

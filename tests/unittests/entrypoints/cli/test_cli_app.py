@@ -158,15 +158,15 @@ class TestAnalizeEntrypoint:
         mock_run.assert_called_once()
         assert mock_run.call_args.kwargs["print_text_report"] is True
 
-    def test_cli_sets_summarize_failures(self):
+    def test_cli_sets_overall_summary(self):
         mock_run = MagicMock()
         result = self.runner.invoke(
             app,
-            [self.ENTRYPOINT, "-o", existing_xml_path, "--summarize-failures"],
+            [self.ENTRYPOINT, "-o", existing_xml_path, "--overall-summary"],
             obj={"analyze": mock_run},
         )
         assert result.exit_code == 0
-        assert "Summarize Failures: True" in result.output
+        assert "Overall Summary: True" in result.output
         mock_run.assert_called_once()
         assert mock_run.call_args.kwargs["summarize_failures"] is True
 

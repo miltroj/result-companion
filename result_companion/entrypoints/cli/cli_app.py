@@ -99,10 +99,10 @@ def analyze(
     print_text_report: bool = typer.Option(
         False, "--print-text-report", help="Print concise text report to stdout"
     ),
-    summarize_failures: bool = typer.Option(
+    overall_summary: bool = typer.Option(
         False,
-        "--summarize-failures",
-        help="Ask LLM for a concise overall summary of all failures",
+        "--overall-summary",
+        help="Run extra LLM pass to synthesize all per-test results",
     ),
     quiet: bool = typer.Option(
         False,
@@ -150,7 +150,7 @@ def analyze(
         typer.echo(f"HTML Report: {html_report}")
         typer.echo(f"Text Report: {text_report}")
         typer.echo(f"Print Text Report: {print_text_report}")
-        typer.echo(f"Summarize Failures: {summarize_failures}")
+        typer.echo(f"Overall Summary: {overall_summary}")
         typer.echo(f"Include Passing: {include_passing}")
 
     # Parse CLI tag options
@@ -183,7 +183,7 @@ def analyze(
         html_report=html_report,
         text_report=text_report,
         print_text_report=print_text_report,
-        summarize_failures=summarize_failures,
+        summarize_failures=overall_summary,
         quiet=quiet,
     )
 
