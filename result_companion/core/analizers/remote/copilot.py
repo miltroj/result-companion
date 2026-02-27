@@ -70,10 +70,28 @@ class SessionPool:
         if session is None:
             session = await self._available.get()
 
+        failed = False
         try:
             yield session
+        except Exception as e:
+            failed = True
+            logger.debug(f"Failed to acquire session: {session} - {e}")
+            raise
         finally:
-            await self._available.put(session)
+            if failed:
+                async with self._lock:
+                    self._created -= 1
+                try:
+                    logger.debug(f"Destroying session: {session}")
+                    await session.destroy()
+                except Exception as session_destroy_error:
+                    logger.debug(
+                        f"Failed to destroy session: {session} - {session_destroy_error}"
+                    )
+                    pass
+            else:
+                logger.debug(f"Putting session back to pool: {session}")
+                await self._available.put(session)
 
     async def close(self) -> None:
         """Destroys all sessions in the pool."""
