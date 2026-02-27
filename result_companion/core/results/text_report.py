@@ -65,14 +65,12 @@ def _build_overall_summary_prompt(
 
 async def summarize_failures_with_llm(
     llm_results: dict[str, str],
-    model_name: str,
     config: DefaultConfigModel,
 ) -> Optional[str]:
     """Generates concise overall summary from per-test LLM results.
 
     Args:
         llm_results: Mapping of failed test names to analyses.
-        model_name: Model identifier to use for synthesis.
         config: Parsed configuration with LLM params and prompt templates.
 
     Returns:
@@ -83,7 +81,6 @@ async def summarize_failures_with_llm(
 
     try:
         llm_params = _build_llm_params(config.llm_factory)
-        llm_params["model"] = model_name
         prompt_template = config.llm_config.summary_prompt_template
         prompt = _build_overall_summary_prompt(llm_results, prompt_template)
         messages = [{"role": "user", "content": prompt}]

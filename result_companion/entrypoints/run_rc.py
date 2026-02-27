@@ -136,7 +136,6 @@ async def _main(
     if summarize_failures and llm_results and not dryrun:
         overall_summary = await summarize_failures_with_llm(
             llm_results=llm_results,
-            model_name=parsed_config.llm_factory.model,
             config=parsed_config,
         )
 
