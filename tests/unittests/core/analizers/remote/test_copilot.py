@@ -243,12 +243,18 @@ class TestEnsureExecutable:
 class FakeSession:
     """Fake Copilot session for testing."""
 
-    def __init__(self, response_content: str = "test response"):
+    def __init__(
+        self, response_content: str = "test response", fail_on_use: bool = False
+    ):
         self.response_content = response_content
+        self.fail_on_use = fail_on_use
         self.destroyed = False
+        self.destroy_error = None
 
     async def send_and_wait(self, options: dict, timeout: int = 300) -> object:
         """Returns fake response."""
+        if self.fail_on_use:
+            raise ConnectionError("session broken")
 
         class FakeData:
             content = self.response_content
@@ -268,10 +274,13 @@ class FakeCopilotClient:
     def __init__(self, response_content: str = "test response"):
         self.response_content = response_content
         self.sessions_created = 0
+        self.created_sessions: list[FakeSession] = []
 
     async def create_session(self, config: dict) -> FakeSession:
         self.sessions_created += 1
-        return FakeSession(self.response_content)
+        session = FakeSession(self.response_content)
+        self.created_sessions.append(session)
+        return session
 
 
 class TestSessionPool:
@@ -338,6 +347,82 @@ class TestSessionPool:
         await task_one
         await task_two
         await task_three
+
+    @pytest.mark.asyncio
+    async def test_failed_session_is_destroyed_and_not_reused(self):
+        client = FakeCopilotClient()
+        pool = SessionPool(client, "gpt-4.1", pool_size=2)
+
+        async with pool.acquire() as session:
+            pass
+
+        bad_session = client.created_sessions[0]
+        bad_session.fail_on_use = True
+
+        with pytest.raises(ConnectionError):
+            async with pool.acquire() as session:
+                await session.send_and_wait({})
+
+        assert bad_session.destroyed is True
+        assert pool._created == 0
+
+        async with pool.acquire() as session:
+            assert session is not bad_session
+
+        assert client.sessions_created == 2
+
+    @pytest.mark.asyncio
+    async def test_failed_session_frees_slot_for_new_creation(self):
+        client = FakeCopilotClient()
+        pool = SessionPool(client, "gpt-4.1", pool_size=1)
+
+        async with pool.acquire():
+            pass
+
+        bad_session = client.created_sessions[0]
+        bad_session.fail_on_use = True
+
+        with pytest.raises(ConnectionError):
+            async with pool.acquire() as session:
+                await session.send_and_wait({})
+
+        assert pool._created == 0
+
+        async with pool.acquire() as new_session:
+            assert new_session is not bad_session
+            assert new_session.fail_on_use is False
+
+        assert pool._created == 1
+
+    @pytest.mark.asyncio
+    async def test_discard_handles_destroy_failure(self):
+        client = FakeCopilotClient()
+        pool = SessionPool(client, "gpt-4.1", pool_size=1)
+
+        async with pool.acquire():
+            pass
+
+        bad_session = client.created_sessions[0]
+
+        async def exploding_destroy(self):
+            self.destroy_error = True
+            raise RuntimeError("destroy failed")
+
+        bad_session.destroy = exploding_destroy
+        bad_session.fail_on_use = True
+        bad_session.destroy_error = True
+
+        with pytest.raises(ConnectionError):
+            async with pool.acquire() as session:
+                await session.send_and_wait({})
+
+        assert pool._created == 0
+        assert client.sessions_created == 1
+
+        async with pool.acquire():
+            pass
+
+        assert client.sessions_created == 2
 
     @pytest.mark.asyncio
     async def test_close_destroys_sessions(self):
