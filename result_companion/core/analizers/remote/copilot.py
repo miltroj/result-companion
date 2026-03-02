@@ -56,6 +56,15 @@ class SessionPool:
         self._created = 0
         self._lock = asyncio.Lock()
 
+    async def _discard_session(self, session: Any) -> None:
+        """Destroys a failed session and frees its pool slot."""
+        async with self._lock:
+            self._created -= 1
+        try:
+            await session.destroy()
+        except Exception as e:
+            logger.debug(f"Failed to destroy session: {session} - {e}")
+
     @asynccontextmanager
     async def acquire(self) -> AsyncIterator[Any]:
         """Acquires a session from pool, creates if needed."""
@@ -75,22 +84,12 @@ class SessionPool:
             yield session
         except Exception as e:
             failed = True
-            logger.debug(f"Failed to acquire session: {session} - {e}")
+            logger.debug(f"Session failed during use: {session} - {e}")
             raise
         finally:
             if failed:
-                async with self._lock:
-                    self._created -= 1
-                try:
-                    logger.debug(f"Destroying session: {session}")
-                    await session.destroy()
-                except Exception as session_destroy_error:
-                    logger.debug(
-                        f"Failed to destroy session: {session} - {session_destroy_error}"
-                    )
-                    pass
+                await self._discard_session(session)
             else:
-                logger.debug(f"Putting session back to pool: {session}")
                 await self._available.put(session)
 
     async def close(self) -> None:
