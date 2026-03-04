@@ -3431,7 +3431,7 @@ version = "2024.11.6"
 description = "Alternative regular expression module, to replace re."
 optional = false
 python-versions = ">=3.8"
-groups = ["main"]
+groups = ["main", "dev"]
 files = [
     {file = "regex-2024.11.6-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:ff590880083d60acc0433f9c3f713c51f7ac6ebb9adf889c79a261ecf541aa91"},
     {file = "regex-2024.11.6-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:658f90550f38270639e83ce492f27d2c8d2cd63805c65a13a14d36ca126753f0"},
@@ -3886,7 +3886,7 @@ version = "0.8.0"
 description = "tiktoken is a fast BPE tokeniser for use with OpenAI's models"
 optional = false
 python-versions = ">=3.9"
-groups = ["main"]
+groups = ["main", "dev"]
 files = [
     {file = "tiktoken-0.8.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:b07e33283463089c81ef1467180e3e00ab00d46c2c4bbcef0acab5f771d6695e"},
     {file = "tiktoken-0.8.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:9269348cb650726f44dd3bbb3f9110ac19a8dcc8f54949ad3ef652ca22a38e21"},
@@ -4031,6 +4031,26 @@ files = [
     {file = "tomli-2.2.1-py3-none-any.whl", hash = "sha256:cb55c73c5f4408779d0cf3eef9f762b9c9f147a77de7b258bef0a5628adc85cc"},
     {file = "tomli-2.2.1.tar.gz", hash = "sha256:cd45e1dc79c835ce60f7404ec8119f2eb06d38b1deba146f07ced3bbc44505ff"},
 ]
+
+[[package]]
+name = "toonify"
+version = "1.6.0"
+description = "TOON (Token-Oriented Object Notation) - A compact, human-readable serialization format for LLMs"
+optional = false
+python-versions = ">=3.8"
+groups = ["dev"]
+files = [
+    {file = "toonify-1.6.0-py3-none-any.whl", hash = "sha256:7998a72c48d8dadd2f339bae78011fd30b9a90efde69a8abd8a3665c4107dd83"},
+    {file = "toonify-1.6.0.tar.gz", hash = "sha256:57bf6fbc9d73e463e8773c491123b233b0c79482235e0c27b908b4e58b54ec77"},
+]
+
+[package.dependencies]
+tiktoken = ">=0.5.0"
+
+[package.extras]
+all = ["pydantic (>=1.10.0)"]
+dev = ["black (>=24.0.0)", "isort (>=5.13.0)", "poethepoet (>=0.29.0)", "pylint (>=3.3.0)", "pytest (>=7.0.0)", "pytest-cov (>=4.0.0)", "ruff (>=0.8.0)"]
+pydantic = ["pydantic (>=1.10.0)"]
 
 [[package]]
 name = "tornado"
@@ -4380,4 +4400,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "318b1dc90a8b9c6fa034b4cd42d193e2133a0b4109b01324d3ffa65f169154e4"
+content-hash = "1679dfb837629b107bccaf8fdf323617197e3cd371636d0e3a8687129d5aa85a"
