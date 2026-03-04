@@ -96,6 +96,45 @@ def get_robot_results_from_file_as_dict(
 
     result.visit(UniqueNameResultVisitor())
     all_results = result.suite.to_dict()
+    # all_results = search_for_test_cases(all_results)
+    all_results = remove_redundant_fields(all_results)
+    return all_results
+
+
+def get_robot_results_from_file_as_dict_flatened(
+    file_path: Path,
+    log_level: LogLevels,
+    include_tags: list[str] | None = None,
+    exclude_tags: list[str] | None = None,
+) -> list[dict]:
+    """Parses RF output.xml and returns test cases as dicts.
+
+    Uses RF's native filtering via result.configure() - same as rebot.
+
+    Args:
+        file_path: Path to output.xml.
+        log_level: Log level for parsing.
+        include_tags: RF tag patterns to include (e.g., ['smoke*', 'critical']).
+        exclude_tags: RF tag patterns to exclude (e.g., ['wip', 'bug-*']).
+
+    Returns:
+        List of test case dictionaries.
+    """
+    logger.debug(f"Getting robot results from {file_path}")
+    result = ExecutionResult(file_path)
+
+    # Use RF's native filtering (same as rebot --include/--exclude)
+    suite_config = {}
+    if include_tags:
+        suite_config["include_tags"] = include_tags
+    if exclude_tags:
+        suite_config["exclude_tags"] = exclude_tags
+    if suite_config:
+        result.configure(suite_config=suite_config)
+        logger.debug(f"Applied RF native filtering: {suite_config}")
+
+    result.visit(UniqueNameResultVisitor())
+    all_results = result.suite.to_dict()
     all_results = search_for_test_cases(all_results)
     all_results = remove_redundant_fields(all_results)
     return all_results
