@@ -155,7 +155,7 @@ $(function() {
 
     // Process all tests periodically
     setInterval(function() {
-        $('.test').each(function() { process($(this)); });
+        $('.test, .suite').each(function() { process($(this)); });
     }, 1000);
 });
 </script>
