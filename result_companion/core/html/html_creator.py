@@ -130,7 +130,7 @@ $(function() {
                     '<button class="llm-copy">Copy</button>' +
                     marked.parse(llmData[name]) +
                 '</div></div>';
-            test.find('.children').first().append(html);
+            test.find('.children').first().prepend(html);
 
             // Toggle with animation
             test.find('.llm-header').click(function() {

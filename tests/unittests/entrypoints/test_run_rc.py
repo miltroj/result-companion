@@ -4,7 +4,6 @@ from unittest.mock import patch
 import pytest
 
 from result_companion.core.parsers.config import DefaultConfigModel
-from result_companion.core.utils.log_levels import LogLevels
 from result_companion.entrypoints.run_rc import (
     _main,
     _register_copilot_if_needed,
@@ -181,7 +180,6 @@ class TestMainE2E:
             # Verify the flow
             mocked_get_results.assert_called_once_with(
                 file_path=Path("output.xml"),
-                log_level=LogLevels.DEBUG,
                 include_tags=None,
                 exclude_tags=None,
             )
