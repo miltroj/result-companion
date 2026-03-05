@@ -6,7 +6,6 @@ from result_companion.core.parsers.result_parser import (
     get_robot_results_from_file_as_dict,
     remove_redundant_fields,
 )
-from result_companion.core.utils.log_levels import LogLevels
 
 nested_suites = {
     "name": "E2E",
@@ -279,6 +278,88 @@ def test_extract_analyzable_items_returns_suite_not_tests_when_leaf_setup_fails(
     assert "tests" not in delta_suite
     assert delta_suite["setup"]["message"] == "token expired"
 
+    snowflake_test = next(
+        r for r in result if r["name"] == "Config File Should Exist Passing Test"
+    )
+    assert "suite_context" in snowflake_test
+    assert snowflake_test["suite_context"][0]["name"] == "Snowflake-Execution-Passing"
+    assert snowflake_test["suite_context"][0]["setup"]["status"] == "PASS"
+
+
+def test_extract_analyzable_items_propagates_two_levels_of_suite_context():
+    suite = {
+        "name": "Root",
+        "status": "FAIL",
+        "setup": {"name": "Root Setup", "status": "PASS"},
+        "teardown": {"name": "Root Teardown", "status": "PASS"},
+        "suites": [
+            {
+                "name": "Mid",
+                "status": "FAIL",
+                "setup": {"name": "Mid Setup", "status": "PASS"},
+                "suites": [
+                    {
+                        "name": "Leaf-OK",
+                        "status": "FAIL",
+                        "setup": {"name": "Leaf Setup", "status": "PASS"},
+                        "tests": [
+                            {"name": "Test-A", "status": "FAIL", "message": "boom"}
+                        ],
+                    },
+                    {
+                        "name": "Leaf-Broken",
+                        "status": "FAIL",
+                        "setup": {
+                            "name": "Leaf Setup",
+                            "status": "FAIL",
+                            "message": "db down",
+                        },
+                        "tests": [{"name": "Test-B", "status": "FAIL"}],
+                    },
+                ],
+            }
+        ],
+    }
+
+    result = extract_analyzable_items(suite)
+
+    expected = [
+        {
+            "name": "Test-A",
+            "status": "FAIL",
+            "message": "boom",
+            "suite_context": [
+                {
+                    "name": "Root",
+                    "setup": {"name": "Root Setup", "status": "PASS"},
+                    "teardown": {"name": "Root Teardown", "status": "PASS"},
+                },
+                {"name": "Mid", "setup": {"name": "Mid Setup", "status": "PASS"}},
+                {"name": "Leaf-OK", "setup": {"name": "Leaf Setup", "status": "PASS"}},
+            ],
+        },
+        {
+            "name": "Leaf-Broken",
+            "id": None,
+            "status": "FAIL",
+            "setup": {"name": "Leaf Setup", "status": "FAIL", "message": "db down"},
+            "suite_context": [
+                {
+                    "name": "Root",
+                    "setup": {"name": "Root Setup", "status": "PASS"},
+                    "teardown": {"name": "Root Teardown", "status": "PASS"},
+                },
+                {"name": "Mid", "setup": {"name": "Mid Setup", "status": "PASS"}},
+            ],
+        },
+    ]
+
+    assert len(result) == 2
+    assert result[0] == expected[0]
+    assert result[1]["name"] == "Leaf-Broken"
+    assert result[1]["setup"]["status"] == "FAIL"
+    assert result[1]["suite_context"] == expected[1]["suite_context"]
+
 
 def test_remove_redundant_fields_strips_robot_internal_fields():
     data = {
@@ -326,7 +407,6 @@ def test_get_robot_results_passes_tags_to_rf_configure(mock_visitor, mock_exec_r
 
     get_robot_results_from_file_as_dict(
         file_path=Path("fake.xml"),
-        log_level=LogLevels.DEBUG,
         include_tags=["smoke*", "critical"],
         exclude_tags=["wip"],
     )

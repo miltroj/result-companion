@@ -3,22 +3,41 @@ from pathlib import Path
 from robot.api import ExecutionResult
 
 from result_companion.core.results.visitors import UniqueNameResultVisitor
-from result_companion.core.utils.log_levels import LogLevels
 from result_companion.core.utils.logging_config import logger
 
 
-def extract_analyzable_items(suite: dict) -> list[dict]:
+def extract_analyzable_items(
+    suite: dict, parent_suites: list[dict] | None = None
+) -> list[dict]:
     """Walks suite tree returning items to analyze.
 
     Suite setup fails -> returns suite itself (skip children).
     Suite setup passes -> recurses into sub-suites and tests.
+    Propagates parent suite setups/teardowns as context.
     """
-    if suite.get("setup", {}).get("status") == "FAIL":
-        return [{k: v for k, v in suite.items() if k not in ("tests", "suites")}]
+    if parent_suites is None:
+        parent_suites = []
 
-    items = list(suite.get("tests", []))
+    if suite.get("setup", {}).get("status") == "FAIL":
+        item = {k: v for k, v in suite.items() if k not in ("tests", "suites")}
+        if parent_suites:
+            item["suite_context"] = parent_suites
+        return [item]
+
+    suite_meta = {k: suite[k] for k in ("name", "setup", "teardown") if k in suite}
+    chain = (
+        parent_suites + [suite_meta]
+        if suite_meta.get("setup") or suite_meta.get("teardown")
+        else parent_suites
+    )
+
+    items = []
+    for test in suite.get("tests", []):
+        if chain:
+            test["suite_context"] = chain
+        items.append(test)
     for sub in suite.get("suites", []):
-        items.extend(extract_analyzable_items(sub))
+        items.extend(extract_analyzable_items(sub, chain))
     return items
 
 
@@ -62,7 +81,6 @@ def remove_redundant_fields(data: list[dict]) -> list[dict]:
 
 def get_robot_results_from_file_as_dict(
     file_path: Path,
-    log_level: LogLevels,
     include_tags: list[str] | None = None,
     exclude_tags: list[str] | None = None,
 ) -> list[dict]:
@@ -72,7 +90,6 @@ def get_robot_results_from_file_as_dict(
 
     Args:
         file_path: Path to output.xml.
-        log_level: Log level for parsing.
         include_tags: RF tag patterns to include (e.g., ['smoke*', 'critical']).
         exclude_tags: RF tag patterns to exclude (e.g., ['wip', 'bug-*']).
 

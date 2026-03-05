@@ -1,7 +1,6 @@
 from result_companion.core.parsers.result_parser import (
     get_robot_results_from_file_as_dict,
 )
-from result_companion.core.utils.log_levels import LogLevels
 
 TAGGED_TESTS_XML = """\
 <?xml version="1.0" encoding="UTF-8"?>
@@ -24,7 +23,6 @@ def test_get_robot_results_filters_by_tags_using_rf_native(tmp_path):
 
     result = get_robot_results_from_file_as_dict(
         file_path=xml_file,
-        log_level=LogLevels.DEBUG,
         include_tags=["smoke"],
         exclude_tags=["wip"],
     )
