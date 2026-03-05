@@ -2,7 +2,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from result_companion.core.parsers.result_parser import (
-    extract_analyzable_items,
+    flatten_suite_tree_with_context,
     get_robot_results_from_file_as_dict,
     remove_redundant_fields,
 )
@@ -61,7 +61,7 @@ nested_suites = {
 }
 
 
-def test_extract_analyzable_items_returns_tests_from_nested_suites():
+def test_flatten_suite_tree_with_context_returns_tests_from_nested_suites():
     expected_result = [
         {
             "body": [
@@ -97,12 +97,12 @@ def test_extract_analyzable_items_returns_tests_from_nested_suites():
         },
     ]
 
-    result = extract_analyzable_items(nested_suites)
+    result = flatten_suite_tree_with_context(nested_suites)
     assert len(result) == 2
     assert result == expected_result
 
 
-def test_extract_analyzable_items_returns_tests_when_no_child_suites():
+def test_flatten_suite_tree_with_context_returns_tests_when_no_child_suites():
     test_suite = {
         "tests": [
             {
@@ -140,7 +140,7 @@ def test_extract_analyzable_items_returns_tests_when_no_child_suites():
         ]
     }
 
-    results = extract_analyzable_items(test_suite)
+    results = flatten_suite_tree_with_context(test_suite)
     assert len(results) == 2
     assert results == [
         {
@@ -178,7 +178,7 @@ def test_extract_analyzable_items_returns_tests_when_no_child_suites():
     ]
 
 
-def test_extract_analyzable_items_returns_suite_without_tests_when_setup_fails():
+def test_flatten_suite_tree_with_context_returns_suite_without_tests_when_setup_fails():
     suite = {
         "name": "Broken Suite",
         "setup": {"name": "Suite Setup", "status": "FAIL", "message": "auth expired"},
@@ -186,7 +186,7 @@ def test_extract_analyzable_items_returns_suite_without_tests_when_setup_fails()
         "suites": [],
     }
 
-    result = extract_analyzable_items(suite)
+    result = flatten_suite_tree_with_context(suite)
 
     assert len(result) == 1
     assert result[0]["name"] == "Broken Suite"
@@ -244,13 +244,13 @@ suite_with_mixed_leaf_results = {
 }
 
 
-def test_extract_analyzable_items_returns_only_root_suite_when_root_setup_fails():
+def test_flatten_suite_tree_with_context_returns_only_root_suite_when_root_setup_fails():
     suite = {
         **suite_with_mixed_leaf_results,
         "setup": {"name": "Global Setup", "status": "FAIL", "message": "infra down"},
     }
 
-    result = extract_analyzable_items(suite)
+    result = flatten_suite_tree_with_context(suite)
 
     assert len(result) == 1
     assert result[0]["name"] == "Integration-Tests"
@@ -260,8 +260,8 @@ def test_extract_analyzable_items_returns_only_root_suite_when_root_setup_fails(
     assert result[0]["setup"]["message"] == "infra down"
 
 
-def test_extract_analyzable_items_returns_suite_not_tests_when_leaf_setup_fails():
-    result = extract_analyzable_items(suite_with_mixed_leaf_results)
+def test_flatten_suite_tree_with_context_returns_suite_not_tests_when_leaf_setup_fails():
+    result = flatten_suite_tree_with_context(suite_with_mixed_leaf_results)
 
     names = [item["name"] for item in result]
     assert len(result) == 4
@@ -286,7 +286,7 @@ def test_extract_analyzable_items_returns_suite_not_tests_when_leaf_setup_fails(
     assert snowflake_test["suite_context"][0]["setup"]["status"] == "PASS"
 
 
-def test_extract_analyzable_items_propagates_two_levels_of_suite_context():
+def test_flatten_suite_tree_with_context_propagates_two_levels_of_suite_context():
     suite = {
         "name": "Root",
         "status": "FAIL",
@@ -321,7 +321,7 @@ def test_extract_analyzable_items_propagates_two_levels_of_suite_context():
         ],
     }
 
-    result = extract_analyzable_items(suite)
+    result = flatten_suite_tree_with_context(suite)
 
     expected = [
         {

@@ -6,14 +6,13 @@ from result_companion.core.results.visitors import UniqueNameResultVisitor
 from result_companion.core.utils.logging_config import logger
 
 
-def extract_analyzable_items(
+def flatten_suite_tree_with_context(
     suite: dict, parent_suites: list[dict] | None = None
 ) -> list[dict]:
-    """Walks suite tree returning items to analyze.
+    """Flattens nested suite tree into analyzable items with ancestor context.
 
-    Suite setup fails -> returns suite itself (skip children).
-    Suite setup passes -> recurses into sub-suites and tests.
-    Propagates parent suite setups/teardowns as context.
+    Fail-fast: suite setup failure returns the suite itself, skipping children.
+    Each item carries suite_context — chain of ancestor setups/teardowns.
     """
     if parent_suites is None:
         parent_suites = []
@@ -37,7 +36,7 @@ def extract_analyzable_items(
             test["suite_context"] = chain
         items.append(test)
     for sub in suite.get("suites", []):
-        items.extend(extract_analyzable_items(sub, chain))
+        items.extend(flatten_suite_tree_with_context(sub, chain))
     return items
 
 
@@ -111,6 +110,6 @@ def get_robot_results_from_file_as_dict(
 
     result.visit(UniqueNameResultVisitor())
     all_results = result.suite.to_dict()
-    all_results = extract_analyzable_items(all_results)
+    all_results = flatten_suite_tree_with_context(all_results)
     all_results = remove_redundant_fields(all_results)
     return all_results
