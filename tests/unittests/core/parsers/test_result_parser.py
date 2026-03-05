@@ -2,20 +2,20 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from result_companion.core.parsers.result_parser import (
+    extract_analyzable_items,
     get_robot_results_from_file_as_dict,
     remove_redundant_fields,
-    search_for_test_cases,
 )
 from result_companion.core.utils.log_levels import LogLevels
 
-neasted_suites = {
+nested_suites = {
     "name": "E2E",
     "suites": [
         {
-            "name": "Neasted Suite",
+            "name": "Nested Suite",
             "suites": [
                 {
-                    "name": "Test Neasted",
+                    "name": "Nested Suite Level 2",
                     "tests": [
                         {
                             "body": [
@@ -26,7 +26,7 @@ neasted_suites = {
                                     "status": "PASS",
                                 }
                             ],
-                            "name": "Test Neasted Test Case",
+                            "name": "Nested Test Case",
                             "status": "PASS",
                         }
                     ],
@@ -62,7 +62,7 @@ neasted_suites = {
 }
 
 
-def test_search_for_all_tests_recursively():
+def test_extract_analyzable_items_returns_tests_from_nested_suites():
     expected_result = [
         {
             "body": [
@@ -73,7 +73,7 @@ def test_search_for_all_tests_recursively():
                     "status": "PASS",
                 }
             ],
-            "name": "Test Neasted Test Case",
+            "name": "Nested Test Case",
             "status": "PASS",
         },
         {
@@ -98,12 +98,12 @@ def test_search_for_all_tests_recursively():
         },
     ]
 
-    result = search_for_test_cases(neasted_suites)
+    result = extract_analyzable_items(nested_suites)
     assert len(result) == 2
     assert result == expected_result
 
 
-def test_should_search_for_tests_where_there_are_no_test_suites():
+def test_extract_analyzable_items_returns_tests_when_no_child_suites():
     test_suite = {
         "tests": [
             {
@@ -115,7 +115,7 @@ def test_should_search_for_tests_where_there_are_no_test_suites():
                         "status": "PASS",
                     }
                 ],
-                "name": "Test Neasted Test Case",
+                "name": "Nested Test Case",
                 "status": "PASS",
             },
             {
@@ -141,7 +141,7 @@ def test_should_search_for_tests_where_there_are_no_test_suites():
         ]
     }
 
-    results = search_for_test_cases(test_suite)
+    results = extract_analyzable_items(test_suite)
     assert len(results) == 2
     assert results == [
         {
@@ -153,7 +153,7 @@ def test_should_search_for_tests_where_there_are_no_test_suites():
                     "status": "PASS",
                 }
             ],
-            "name": "Test Neasted Test Case",
+            "name": "Nested Test Case",
             "status": "PASS",
         },
         {
@@ -179,7 +179,108 @@ def test_should_search_for_tests_where_there_are_no_test_suites():
     ]
 
 
-def test_removing_redundant_fields():
+def test_extract_analyzable_items_returns_suite_without_tests_when_setup_fails():
+    suite = {
+        "name": "Broken Suite",
+        "setup": {"name": "Suite Setup", "status": "FAIL", "message": "auth expired"},
+        "tests": [{"name": "Should Not Appear", "status": "FAIL"}],
+        "suites": [],
+    }
+
+    result = extract_analyzable_items(suite)
+
+    assert len(result) == 1
+    assert result[0]["name"] == "Broken Suite"
+    assert "tests" not in result[0]
+    assert "suites" not in result[0]
+    assert result[0]["setup"]["status"] == "FAIL"
+
+
+suite_with_mixed_leaf_results = {
+    "name": "Integration-Tests",
+    "status": "FAIL",
+    "suites": [
+        {
+            "name": "Etl",
+            "id": "s1-s1",
+            "status": "FAIL",
+            "suites": [
+                {
+                    "name": "Snowflake-Execution-Passing",
+                    "id": "s1-s1-s1",
+                    "status": "PASS",
+                    "setup": {"name": "Suite Setup", "status": "PASS"},
+                    "tests": [
+                        {
+                            "name": "Config File Should Exist Passing Test",
+                            "status": "PASS",
+                        },
+                        {"name": "Query Snowflake Passing Test", "status": "PASS"},
+                    ],
+                },
+                {
+                    "name": "Databricks-Execution-Setup-Fails",
+                    "id": "s1-s1-s2",
+                    "status": "FAIL",
+                    "setup": {
+                        "name": "Setup Databricks",
+                        "status": "FAIL",
+                        "message": "token expired",
+                    },
+                    "tests": [
+                        {"name": "Delta Write Test Failing Test", "status": "FAIL"},
+                    ],
+                },
+                {
+                    "name": "Sagemaker-Execution-Passing",
+                    "id": "s1-s1-s3",
+                    "status": "PASS",
+                    "tests": [
+                        {"name": "Sagemaker Run Passing Test", "status": "PASS"},
+                    ],
+                },
+            ],
+        }
+    ],
+}
+
+
+def test_extract_analyzable_items_returns_only_root_suite_when_root_setup_fails():
+    suite = {
+        **suite_with_mixed_leaf_results,
+        "setup": {"name": "Global Setup", "status": "FAIL", "message": "infra down"},
+    }
+
+    result = extract_analyzable_items(suite)
+
+    assert len(result) == 1
+    assert result[0]["name"] == "Integration-Tests"
+    assert result[0]["setup"]["status"] == "FAIL"
+    assert "tests" not in result[0]
+    assert "suites" not in result[0]
+    assert result[0]["setup"]["message"] == "infra down"
+
+
+def test_extract_analyzable_items_returns_suite_not_tests_when_leaf_setup_fails():
+    result = extract_analyzable_items(suite_with_mixed_leaf_results)
+
+    names = [item["name"] for item in result]
+    assert len(result) == 4
+    assert "Config File Should Exist Passing Test" in names
+    assert "Query Snowflake Passing Test" in names
+    assert "Databricks-Execution-Setup-Fails" in names
+    assert "Sagemaker Run Passing Test" in names
+    assert "Delta Write Test Failing Test" not in names
+
+    delta_suite = next(
+        r for r in result if r["name"] == "Databricks-Execution-Setup-Fails"
+    )
+    assert delta_suite["setup"]["status"] == "FAIL"
+    assert "tests" not in delta_suite
+    assert delta_suite["setup"]["message"] == "token expired"
+
+
+def test_remove_redundant_fields_strips_robot_internal_fields():
     data = {
         "body": [],
         "message": "error here",
