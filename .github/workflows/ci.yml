@@ -46,7 +46,7 @@ jobs:
       - name: Run unit tests
         run: poetry run pytest -vv tests/unittests/
 
-      - name: Run integration tests
+      - name: Run integration tests (e2e skipped — require external services)
         run: poetry run pytest -vv tests/integration/
 
       - name: Run unit tests with coverage

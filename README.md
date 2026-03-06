@@ -188,8 +188,17 @@ poetry install --with=dev
 # Install pre-commit hooks
 poetry run pre-commit install
 
-# Run tests
-make test
+# Run unit tests
+poetry run pytest tests/unittests/
+
+# Run integration tests (e2e skipped automatically)
+poetry run pytest tests/integration/
+
+# Run e2e tests only (require real Copilot CLI / Ollama running locally)
+poetry run pytest tests/integration/ -m e2e
+
+# Run all integration tests including e2e
+poetry run pytest tests/integration/ -m "e2e or not e2e"
 ```
 
 ## License

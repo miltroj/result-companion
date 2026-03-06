@@ -50,7 +50,7 @@ pre-commit = "^4.1.0"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 markers = [
-    "e2e: end-to-end tests requiring real Copilot CLI connection",
+    "e2e: end-to-end tests requiring external services (skipped by default, set -m e2e to run)",
 ]
 
 [build-system]
