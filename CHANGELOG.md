@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.8] - 2026-03-06
+
+### Changed
+- Suite setup failure now surfaces the suite itself for analysis instead of individual tests, exposing the root cause directly
+- Tests carry a `suite_context` chain (ancestor setups/teardowns) so the LLM has full execution context
+- HTML report: LLM block prepended inside test children; suite elements processed alongside tests in polling interval
+
+[0.0.8]: https://github.com/miltroj/result-companion/releases/tag/v0.0.8
+
 ## [0.0.7] - 2026-03-02
 
 ### Fixed
