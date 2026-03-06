@@ -38,8 +38,8 @@ result-companion = "result_companion.entrypoints.cli.cli_app:app"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.10.0"
-flake8 = "^7.1.1"
 isort = "^5.13.2"
+ruff = "^0.2.0"
 mypy = "^1.13.0"
 pytest = "^8.3.3"
 pytest-mock = "^3.14.0"
