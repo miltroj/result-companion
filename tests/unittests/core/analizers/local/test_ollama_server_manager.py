@@ -119,13 +119,11 @@ class TestServerStatus:
 
     def test_is_running_false(self, monkeypatch, server_url):
         """Test that is_running returns False when server request fails."""
-        monkeypatch.setattr(
-            requests,
-            "get",
-            lambda url, timeout: exec(
-                "raise requests.exceptions.RequestException('Server not reachable')"
-            ),
-        )
+
+        def raise_request_exception(url, timeout):
+            raise requests.exceptions.RequestException("Server not reachable")
+
+        monkeypatch.setattr(requests, "get", raise_request_exception)
 
         manager = OllamaServerManager(server_url=server_url)
         assert manager.is_running() is False
@@ -148,23 +146,17 @@ class TestServerStartup:
 
     def test_start_not_installed(self, monkeypatch, server_url):
         """Test that start() raises OllamaNotInstalled when executable is not found."""
-        # Server is not running
-        monkeypatch.setattr(
-            requests,
-            "get",
-            lambda url, timeout: exec(
-                "raise requests.exceptions.RequestException('Not running')"
-            ),
-        )
 
-        # Command not found
-        monkeypatch.setattr(
-            subprocess,
-            "Popen",
-            lambda cmd, stdout, preexec_fn, stderr: exec(
-                "raise FileNotFoundError('Command not found')"
-            ),
-        )
+        # Server is not running
+        def raise_request_exception(url, timeout):
+            raise requests.exceptions.RequestException("Not running")
+
+        monkeypatch.setattr(requests, "get", raise_request_exception)
+
+        def raise_file_not_found(cmd, stdout, preexec_fn, stderr):
+            raise FileNotFoundError("Command not found")
+
+        monkeypatch.setattr(subprocess, "Popen", raise_file_not_found)
 
         manager = OllamaServerManager(server_url=server_url)
         with pytest.raises(OllamaNotInstalled):
@@ -172,14 +164,12 @@ class TestServerStartup:
 
     def test_start_timeout(self, monkeypatch, server_url, mock_popen):
         """Test that start() raises OllamaServerNotRunning when server doesn't start in time."""
+
         # Server never starts
-        monkeypatch.setattr(
-            requests,
-            "get",
-            lambda url, timeout: exec(
-                "raise requests.exceptions.RequestException('Not running')"
-            ),
-        )
+        def raise_request_exception(url, timeout):
+            raise requests.exceptions.RequestException("Not running")
+
+        monkeypatch.setattr(requests, "get", raise_request_exception)
 
         manager = OllamaServerManager(
             server_url=server_url, start_timeout=0.1, wait_for_start=0.01
