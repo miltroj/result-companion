@@ -40,11 +40,8 @@ jobs:
       - name: Install dependencies
         run: poetry install --with=dev
 
-      - name: Run Black check
-        run: poetry run black --check .
-
-      - name: Run isort check
-        run: poetry run isort --check --profile black .
+      - name: Run ruff check
+        run: poetry run ruff check .
 
       - name: Run unit tests
         run: poetry run pytest -vv tests/unittests/
