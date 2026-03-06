@@ -35,6 +35,10 @@ Quick-start configurations for different LLM providers and use cases.
     - [Chunking for Large Tests](#chunking-for-large-tests)
   - [Complete Example](#complete-example)
   - [Environment Variables Reference](#environment-variables-reference)
+  - [Programmatic API](#programmatic-api)
+    - [Options](#options)
+    - [Working with Results](#working-with-results)
+    - [Async Usage](#async-usage)
   - [Additional Resources](#additional-resources)
 
 ## GitHub Copilot (Recommended for Users With Copilot)
@@ -556,6 +560,75 @@ export AWS_REGION="us-west-2"
 export AWS_ACCESS_KEY_ID="..."
 export AWS_SECRET_ACCESS_KEY="..."
 ```
+
+## Programmatic API
+
+Use `analyze()` directly from Python instead of the CLI:
+
+```python
+from result_companion import analyze
+
+result = analyze("output.xml", config="my_config.yaml")
+```
+
+`result` is an [`AnalysisResult`](../result_companion/core/results/analysis_result.py) with:
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `llm_results` | `dict[str, str]` | Test name → LLM analysis |
+| `test_names` | `list[str]` | Analyzed test names |
+| `summary` | `str \| None` | Overall failure summary |
+| `text_report` | `str` (property) | Rendered plain-text report |
+
+### Options
+
+All CLI flags are available as keyword arguments:
+
+```python
+result = analyze(
+    "output.xml",
+    config="my_config.yaml",
+    include_tags=["smoke"],
+    summarize_failures=True,
+    test_case_concurrency=3,
+)
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `config` | `None` | Path to YAML config file |
+| `include_passing` | `False` | Include PASS tests |
+| `include_tags` | `None` | RF tag patterns to include |
+| `exclude_tags` | `None` | RF tag patterns to exclude |
+| `summarize_failures` | `False` | Generate overall failure summary |
+| `test_case_concurrency` | `None` | Override config parallelism |
+| `chunk_concurrency` | `None` | Override chunk parallelism |
+| `dryrun` | `False` | Skip LLM calls |
+| `quiet` | `True` | Suppress logs and progress |
+
+### Working with Results
+
+```python
+result = analyze("output.xml")
+
+for name, analysis in result.llm_results.items():
+    print(f"=== {name} ===\n{analysis}\n")
+
+# Write text report to file
+Path("rc_summary.txt").write_text(result.text_report)
+```
+
+### Async Usage
+
+For existing async contexts (web frameworks, pipelines):
+
+```python
+from result_companion.api import _analyze
+
+result = await _analyze("output.xml", config="my_config.yaml")
+```
+
+---
 
 ## Additional Resources
 
