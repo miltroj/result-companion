@@ -4,25 +4,29 @@ from typing import Any
 
 from litellm import acompletion
 
-# Lazy-loaded Copilot handler to avoid import if not needed
-_copilot_handler = None
+_copilot_registered = False
 
 
-def _get_copilot_handler():
-    """Returns Copilot handler, initializing lazily."""
-    global _copilot_handler
-    if _copilot_handler is None:
-        from result_companion.core.analizers.remote.copilot import CopilotLLM
+def _ensure_copilot_registered():
+    """Registers Copilot handler lazily."""
+    global _copilot_registered
+    if not _copilot_registered:
+        from result_companion.core.analizers.remote.copilot import (
+            register_copilot_provider,
+        )
 
-        _copilot_handler = CopilotLLM()
-    return _copilot_handler
+        register_copilot_provider()
+        _copilot_registered = True
 
 
-async def _smart_acompletion(messages: list[dict], **llm_params: Any):
-    """Routes to Copilot SDK or LiteLLM based on model prefix.
+async def _smart_acompletion(
+    messages: list[dict], num_retries: int = 3, **llm_params: Any
+):
+    """Routes to Copilot SDK or LiteLLM using native retry capabilities.
 
     Args:
         messages: List of message dicts.
+        num_retries: Number of times to retry transient errors (handled by LiteLLM).
         **llm_params: LLM parameters including model.
 
     Returns:
@@ -31,7 +35,6 @@ async def _smart_acompletion(messages: list[dict], **llm_params: Any):
     model = llm_params.get("model", "")
 
     if model.startswith("copilot_sdk/"):
-        handler = _get_copilot_handler()
-        return await handler.acompletion(model=model, messages=messages)
+        _ensure_copilot_registered()
 
-    return await acompletion(messages=messages, **llm_params)
+    return await acompletion(messages=messages, num_retries=num_retries, **llm_params)
