@@ -182,11 +182,8 @@ For bugs or feature requests, open an issue on GitHub.
 ## Development Setup
 
 ```bash
-# Install with dev dependencies
-poetry install --with=dev
-
-# Install pre-commit hooks
-poetry run pre-commit install
+make install                # install with dev dependencies
+poetry run pre-commit install  # one-time: install pre-commit hooks
 
 make test-unit              # unit tests only
 make test-integration      # integration tests (e2e skipped automatically)
