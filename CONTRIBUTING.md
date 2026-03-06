@@ -113,6 +113,16 @@ Provide the following:
 - One test = one scenario
 - Descriptive test names: `test_<function>_<scenario>_<expected>`
 
+### Robot Framework Fixtures
+
+[`fixtures/robot/`](fixtures/robot/) contains Robot Framework suites used to generate `output.xml` files for manual and UAT testing. Run them with `robot`, not pytest — they are not part of CI.
+
+```bash
+robot fixtures/robot/suite_setup_teardown/
+```
+
+Add new suites here when you need to verify how result-companion handles a specific RF execution scenario.
+
 ## Documentation Requirements
 
 Documentation is mandatory for:

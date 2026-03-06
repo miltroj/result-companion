@@ -3,25 +3,41 @@ from pathlib import Path
 from robot.api import ExecutionResult
 
 from result_companion.core.results.visitors import UniqueNameResultVisitor
-from result_companion.core.utils.log_levels import LogLevels
 from result_companion.core.utils.logging_config import logger
 
 
-def search_for_test_cases(
-    tests: dict | list, accumulated: list | None = None
+def flatten_suite_tree_with_context(
+    suite: dict, parent_suites: list[dict] | None = None
 ) -> list[dict]:
-    """Recursively extracts test cases from nested suite structure."""
-    if accumulated is None:
-        accumulated = []
-    if isinstance(tests, list):
-        for el in tests:
-            search_for_test_cases(el, accumulated)
-    elif isinstance(tests, dict):
-        if tests.get("tests"):
-            accumulated.extend(tests["tests"])
-        elif tests.get("suites"):
-            search_for_test_cases(tests["suites"], accumulated)
-    return accumulated
+    """Flattens nested suite tree into analyzable items with ancestor context.
+
+    Fail-fast: suite setup failure returns the suite itself, skipping children.
+    Each item carries suite_context — chain of ancestor setups/teardowns.
+    """
+    if parent_suites is None:
+        parent_suites = []
+
+    if suite.get("setup", {}).get("status") == "FAIL":
+        item = {k: v for k, v in suite.items() if k not in ("tests", "suites")}
+        if parent_suites:
+            item["suite_context"] = parent_suites
+        return [item]
+
+    suite_meta = {k: suite[k] for k in ("name", "setup", "teardown") if k in suite}
+    chain = (
+        parent_suites + [suite_meta]
+        if suite_meta.get("setup") or suite_meta.get("teardown")
+        else parent_suites
+    )
+
+    items = []
+    for test in suite.get("tests", []):
+        if chain:
+            test["suite_context"] = chain
+        items.append(test)
+    for sub in suite.get("suites", []):
+        items.extend(flatten_suite_tree_with_context(sub, chain))
+    return items
 
 
 def remove_redundant_fields(data: list[dict]) -> list[dict]:
@@ -64,7 +80,6 @@ def remove_redundant_fields(data: list[dict]) -> list[dict]:
 
 def get_robot_results_from_file_as_dict(
     file_path: Path,
-    log_level: LogLevels,
     include_tags: list[str] | None = None,
     exclude_tags: list[str] | None = None,
 ) -> list[dict]:
@@ -74,7 +89,6 @@ def get_robot_results_from_file_as_dict(
 
     Args:
         file_path: Path to output.xml.
-        log_level: Log level for parsing.
         include_tags: RF tag patterns to include (e.g., ['smoke*', 'critical']).
         exclude_tags: RF tag patterns to exclude (e.g., ['wip', 'bug-*']).
 
@@ -96,6 +110,6 @@ def get_robot_results_from_file_as_dict(
 
     result.visit(UniqueNameResultVisitor())
     all_results = result.suite.to_dict()
-    all_results = search_for_test_cases(all_results)
+    all_results = flatten_suite_tree_with_context(all_results)
     all_results = remove_redundant_fields(all_results)
     return all_results

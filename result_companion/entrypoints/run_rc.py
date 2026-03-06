@@ -105,7 +105,6 @@ async def _main(
 
     test_cases = get_robot_results_from_file_as_dict(
         file_path=output,
-        log_level=LogLevels.DEBUG,
         include_tags=final_include,
         exclude_tags=final_exclude,
     )
