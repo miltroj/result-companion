@@ -211,29 +211,3 @@ def load_config(config_path: Path | None = None) -> DefaultConfigModel:
     config = config_loader.load_config(user_config_file=config_path)
     logger.debug(f"{config=}")
     return config
-
-
-# TODO: remove this code
-# Example usage in a CLI application
-if __name__ == "__main__":
-    import argparse
-    from pathlib import Path
-
-    # Define default config path (assumes it's in the package directory)
-    PACKAGE_DIR = Path(__file__).resolve().parent
-    DEFAULT_CONFIG_PATH = PACKAGE_DIR / "config" / "config.yaml"
-
-    parser = argparse.ArgumentParser(description="CLI Application with Config")
-    parser.add_argument(
-        "--config", type=str, help="Path to the YAML configuration file (optional)."
-    )
-    args = parser.parse_args()
-
-    config_loader = ConfigLoader(default_config_file=str(DEFAULT_CONFIG_PATH))
-    try:
-        config = config_loader.load_config(user_config_file=args.config)
-        print(f"Config loaded successfully: {config}")
-        # Use the `config.prompt` in your CLI application logic
-        print(f"Prompt: {config.prompt}")
-    except Exception as e:
-        print(f"Failed to load configuration: {e}")
