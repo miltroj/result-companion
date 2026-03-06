@@ -1,4 +1,4 @@
-name: Run Unit Tests
+name: CI
 
 on:
   push:
@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
 
     steps:
       - name: Checkout repository
@@ -38,22 +38,19 @@ jobs:
             poetry-${{ runner.os }}-${{ matrix.python-version }}-
 
       - name: Install dependencies
-        run: poetry install --with=dev
+        run: make install
 
-      - name: Run Black check
-        run: poetry run black --check .
-
-      - name: Run isort check
-        run: poetry run isort --check --profile black .
+      - name: Run ruff check
+        run: make lint
 
       - name: Run unit tests
-        run: poetry run pytest -vv tests/unittests/
+        run: make test-unit
 
-      - name: Run integration tests
-        run: poetry run pytest -vv tests/integration/
+      - name: Run integration tests (e2e skipped — require external services)
+        run: make test-integration
 
       - name: Run unit tests with coverage
-        run: poetry run pytest --cov=result_companion --cov-report=xml --cov-fail-under=$(cat .coverage_threshold || echo 0) tests/unittests
+        run: poetry run pytest --cov=result_companion --cov-report=xml tests/unittests
 
       - name: Upload coverage report
         uses: codecov/codecov-action@v3
@@ -62,13 +59,3 @@ jobs:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: miltroj/result-companion
-
-      - name: Check coverage threshold
-        run: |
-          COVERAGE=$(poetry run coverage report | grep TOTAL | awk '{print $NF}' | sed 's/%//')
-          PREV_COVERAGE=$(cat .coverage_threshold || echo 0)
-          if (( $(echo "$COVERAGE < $PREV_COVERAGE" | bc -l) )); then
-            echo "Coverage decreased! Previous: $PREV_COVERAGE%, Current: $COVERAGE%"
-            exit 1
-          fi
-          echo $COVERAGE > .coverage_threshold

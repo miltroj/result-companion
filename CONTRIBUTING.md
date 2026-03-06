@@ -23,7 +23,7 @@ See the [README](README.md) for basic installation instructions. For development
 ```bash
 git clone https://github.com/miltroj/result-companion.git
 cd result-companion
-poetry install --with=dev
+make install
 ```
 
 ## Code Standards
@@ -52,7 +52,7 @@ Before submitting a PR, verify:
 - [ ] Code coverage maintained/improved
 - [ ] Documentation updated (if applicable)
 - [ ] Linting passes (`poetry run ruff check .`)
-- [ ] Formatting applied (`poetry run black .`)
+- [ ] Formatting applied (`make format`)
 
 ## Pull Request Process
 

@@ -18,17 +18,16 @@ class UniqueNameResultVisitor(ResultVisitor):
         else:
             self.test_names[test.name] = 1
 
+    def _rename_test(self, test):
+        if self.test_names.get(test.name, 0) > 1:
+            logger.debug(f"Renaming test '{test.name}' to '{test.name} {test.id}'")
+            test.name = f"{test.name} {test.id}"
+
     def end_suite(self, suite):
         """Called when suite processing is complete."""
         for test in suite.tests:
-            if test.name in self.test_names and self.test_names[test.name] > 1:
-                logger.debug(f"Renaming test '{test.name}' to '{test.name} {test.id}'")
-                test.name = f"{test.name} {test.id}"
+            self._rename_test(test)
 
         for child_suite in suite.suites:
             for test in child_suite.tests:
-                if test.name in self.test_names and self.test_names[test.name] > 1:
-                    logger.debug(
-                        f"Renaming test '{test.name}' to '{test.name} {test.id}'"
-                    )
-                    test.name = f"{test.name} {test.id}"
+                self._rename_test(test)

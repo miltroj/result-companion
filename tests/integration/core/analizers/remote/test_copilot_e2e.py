@@ -8,20 +8,9 @@ from result_companion.core.analizers.remote.copilot import CopilotLLM
 pytestmark = pytest.mark.e2e
 
 
-def copilot_cli_available() -> bool:
-    """Checks if Copilot CLI is available in PATH."""
-    import shutil
-
-    return shutil.which("copilot") is not None
-
-
 class TestCopilotE2E:
     """End-to-end tests for CopilotLLM with real Copilot SDK."""
 
-    @pytest.mark.skipif(
-        not copilot_cli_available(),
-        reason="Copilot CLI not found in PATH",
-    )
     @pytest.mark.asyncio
     async def test_simple_prompt_returns_response(self):
         """Tests basic prompt-response flow with real Copilot."""

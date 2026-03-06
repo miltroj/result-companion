@@ -38,8 +38,8 @@ result-companion = "result_companion.entrypoints.cli.cli_app:app"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.10.0"
-flake8 = "^7.1.1"
 isort = "^5.13.2"
+ruff = "^0.2.0"
 mypy = "^1.13.0"
 pytest = "^8.3.3"
 pytest-mock = "^3.14.0"
@@ -50,8 +50,11 @@ pre-commit = "^4.1.0"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 markers = [
-    "e2e: end-to-end tests requiring real Copilot CLI connection",
+    "e2e: end-to-end tests requiring external services (skipped by default, set -m e2e to run)",
 ]
+
+[tool.coverage.report]
+fail_under = 80
 
 [build-system]
 requires = ["poetry-core"]

@@ -182,14 +182,13 @@ For bugs or feature requests, open an issue on GitHub.
 ## Development Setup
 
 ```bash
-# Install with dev dependencies
-poetry install --with=dev
+make install                # install with dev dependencies
+poetry run pre-commit install  # one-time: install pre-commit hooks
 
-# Install pre-commit hooks
-poetry run pre-commit install
-
-# Run tests
-make test
+make test-unit              # unit tests only
+make test-integration      # integration tests (e2e skipped automatically)
+make test-e2e              # e2e only (requires Copilot CLI / Ollama locally)
+make test-integration-all  # all integration tests including e2e
 ```
 
 ## License
