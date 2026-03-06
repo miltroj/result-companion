@@ -1,9 +1,9 @@
-.PHONY: install test test-unit test-integration test-coverage test-e2e validate lint format help
+.PHONY: install test test-unit test-integration test-integration-all test-coverage test-e2e validate lint format help
 
 install:  ## Install dependencies with dev packages
 	poetry install --with=dev
 
-test: test-unit test-integration  ## Run all tests
+test: test-unit test-integration-all  ## Run all tests
 
 test-unit:  ## Run unit tests
 	poetry run pytest -vv tests/unittests/
@@ -14,15 +14,17 @@ test-integration:  ## Run integration tests
 test-coverage:  ## Run unit tests with coverage
 	poetry run pytest --cov=result_companion tests/unittests
 
-test-e2e:  ## Run Robot Framework e2e tests
-	poetry run robot --loglevel TRACE tests/integration/e2e/
+test-e2e:  ## Run e2e tests (require real Copilot CLI / Ollama)
+	poetry run pytest -vv tests/integration/ -m e2e
+
+test-integration-all:  ## Run all integration tests including e2e
+	poetry run pytest -vv tests/integration/ -m "e2e or not e2e"
 
 validate:  ## Validate developer setup with local Ollama
 	poetry run result-companion analyze -o examples/run_test/output.xml -r log_with_results.html
 
 lint:  ## Run linting checks
-	poetry run black --check .
-	poetry run isort --check --profile black .
+	poetry run ruff check .
 
 format:  ## Format code
 	poetry run black .
