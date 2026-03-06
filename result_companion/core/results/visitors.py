@@ -19,7 +19,7 @@ class UniqueNameResultVisitor(ResultVisitor):
             self.test_names[test.name] = 1
 
     def _rename_test(self, test):
-        if test.name in self.test_names and self.test_names[test.name] > 1:
+        if self.test_names[test.name] > 1:
             logger.debug(f"Renaming test '{test.name}' to '{test.name} {test.id}'")
             test.name = f"{test.name} {test.id}"
 
