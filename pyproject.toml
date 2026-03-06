@@ -53,6 +53,9 @@ markers = [
     "e2e: end-to-end tests requiring external services (skipped by default, set -m e2e to run)",
 ]
 
+[tool.coverage.report]
+fail_under = 80
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

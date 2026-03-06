@@ -12,7 +12,7 @@ test-integration:  ## Run integration tests
 	poetry run pytest -vv tests/integration/
 
 test-coverage:  ## Run unit tests with coverage
-	poetry run pytest --cov=result_companion tests/unittests
+	poetry run pytest --cov=result_companion --cov-report=term-missing tests/unittests
 
 test-e2e:  ## Run e2e tests (require real Copilot CLI / Ollama)
 	poetry run pytest -vv tests/integration/ -m e2e
