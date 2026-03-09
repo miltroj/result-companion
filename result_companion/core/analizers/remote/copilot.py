@@ -159,12 +159,7 @@ class CopilotLLM(CustomLLM):
             self._started = True
 
     def _resolve_cli_path(self) -> str | None:
-        """Resolves an explicit Copilot CLI path, or None to use the SDK bundled binary.
-
-        Only resolves when explicitly configured via cli_path argument or
-        COPILOT_CLI_PATH env var. Falls back to None so the SDK uses its own
-        bundled binary, which is guaranteed to be compatible.
-        """
+        """Resolves an explicit Copilot CLI path, or None to use the SDK bundled binary."""
         if self._cli_url:
             return None
         cli_path = self._cli_path or os.getenv("COPILOT_CLI_PATH")
