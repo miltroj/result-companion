@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Optional
 
 import litellm
-from copilot import CopilotClient
+from copilot import CopilotClient, PermissionHandler
 from litellm import CustomLLM
 from litellm.types.utils import ModelResponse
 
@@ -73,7 +73,12 @@ class SessionPool:
             if not self._available.empty():
                 session = self._available.get_nowait()
             elif self._created < self._pool_size:
-                session = await self._client.create_session({"model": self._model})
+                session = await self._client.create_session(
+                    {
+                        "model": self._model,
+                        "on_permission_request": PermissionHandler.approve_all,
+                    }
+                )
                 self._created += 1
 
         if session is None:
@@ -154,16 +159,23 @@ class CopilotLLM(CustomLLM):
             self._started = True
 
     def _resolve_cli_path(self) -> str | None:
-        """Resolves Copilot CLI path or raises if missing."""
+        """Resolves an explicit Copilot CLI path, or None to use the SDK bundled binary.
+
+        Only resolves when explicitly configured via cli_path argument or
+        COPILOT_CLI_PATH env var. Falls back to None so the SDK uses its own
+        bundled binary, which is guaranteed to be compatible.
+        """
         if self._cli_url:
             return None
-        cli_path = self._cli_path or os.getenv("COPILOT_CLI_PATH") or "copilot"
-        resolved = shutil.which(cli_path)
-        if not resolved and os.path.isabs(cli_path) and os.path.isfile(cli_path):
-            resolved = cli_path
+        cli_path = self._cli_path or os.getenv("COPILOT_CLI_PATH")
+        if not cli_path:
+            return None
+        resolved = shutil.which(cli_path) or (
+            cli_path if os.path.isabs(cli_path) and os.path.isfile(cli_path) else None
+        )
         if not resolved:
             raise FileNotFoundError(
-                "Copilot CLI not found. Install GitHub Copilot CLI or set COPILOT_CLI_PATH."
+                f"Copilot CLI not found at '{cli_path}'. Check COPILOT_CLI_PATH or cli_path."
             )
         return resolved
 
