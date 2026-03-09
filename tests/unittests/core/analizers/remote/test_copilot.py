@@ -286,6 +286,16 @@ class FakeCopilotClient:
 class TestSessionPool:
     """Tests for SessionPool class."""
 
+    @pytest.fixture(autouse=True)
+    def patch_permission_handler(self, monkeypatch):
+        class FakePermissionHandler:
+            approve_all = staticmethod(lambda *_: None)
+
+        monkeypatch.setattr(
+            "result_companion.core.analizers.remote.copilot.PermissionHandler",
+            FakePermissionHandler,
+        )
+
     @pytest.mark.asyncio
     async def test_acquire_creates_session_when_pool_empty(self):
         client = FakeCopilotClient()

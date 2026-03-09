@@ -71,7 +71,7 @@ Before submitting a PR, verify:
 Include the following information:
 
 **Required:**
-- Python version (e.g., 3.10, 3.11)
+- Python version (e.g., 3.11, 3.12, 3.13)
 - Operating system (Linux/macOS/Windows)
 - Result Companion version
 - Steps to reproduce
