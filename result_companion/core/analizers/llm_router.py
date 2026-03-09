@@ -4,19 +4,18 @@ from typing import Any
 
 from litellm import acompletion
 
-_copilot_registered = False
+# Lazy-loaded Copilot handler to avoid import if not needed
+_copilot_handler = None
 
 
-def _ensure_copilot_registered():
-    """Registers Copilot handler lazily."""
-    global _copilot_registered
-    if not _copilot_registered:
-        from result_companion.core.analizers.remote.copilot import (
-            register_copilot_provider,
-        )
+def _get_copilot_handler():
+    """Returns Copilot handler, initializing lazily."""
+    global _copilot_handler
+    if _copilot_handler is None:
+        from result_companion.core.analizers.remote.copilot import CopilotLLM
 
-        register_copilot_provider()
-        _copilot_registered = True
+        _copilot_handler = CopilotLLM()
+    return _copilot_handler
 
 
 async def _smart_acompletion(
@@ -35,6 +34,9 @@ async def _smart_acompletion(
     model = llm_params.get("model", "")
 
     if model.startswith("copilot_sdk/"):
-        _ensure_copilot_registered()
+        handler = _get_copilot_handler()
+        return await handler.acompletion(
+            messages=messages, num_retries=num_retries, **llm_params
+        )
 
     return await acompletion(messages=messages, num_retries=num_retries, **llm_params)
