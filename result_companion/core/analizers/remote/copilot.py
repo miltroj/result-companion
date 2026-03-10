@@ -1,7 +1,6 @@
 """LiteLLM adapter for GitHub Copilot SDK."""
 
 import asyncio
-import logging
 import os
 import shutil
 import stat
@@ -13,7 +12,9 @@ from copilot import CopilotClient, PermissionHandler
 from litellm import CustomLLM
 from litellm.types.utils import ModelResponse
 
-logger = logging.getLogger(__name__)
+from result_companion.core.utils.logging_config import get_progress_logger
+
+logger = get_progress_logger("COPILOT")
 
 
 def messages_to_prompt(messages: list[dict[str, str]]) -> str:
@@ -118,6 +119,8 @@ class CopilotLLM(CustomLLM):
         timeout: int = 300,
         cli_path: Optional[str] = None,
         cli_url: Optional[str] = None,
+        max_retries: int = 3,
+        retry_base_delay: float = 10.0,
     ):
         super().__init__()
         self._default_model = model
@@ -125,9 +128,12 @@ class CopilotLLM(CustomLLM):
         self._timeout = timeout
         self._cli_path = cli_path
         self._cli_url = cli_url
+        self._max_retries = max_retries
+        self._retry_base_delay = retry_base_delay
         self._client: Optional[CopilotClient] = None
         self._pool: Optional[SessionPool] = None
         self._started = False
+        self._has_succeeded = False
         self._init_lock: Optional[asyncio.Lock] = None
 
     async def _ensure_started(self, model: str) -> None:
@@ -180,6 +186,76 @@ class CopilotLLM(CustomLLM):
             return model.split("/", 1)[1]
         return model or self._default_model
 
+    def _is_rate_limit_error(self, error: Exception) -> bool:
+        """Checks if an exception is a Copilot rate limit error."""
+        return "rate limit" in str(error).lower()
+
+    async def _send_prompt(self, prompt: str) -> Any:
+        """Sends a single prompt through the session pool.
+
+        Args:
+            prompt: The formatted prompt string.
+
+        Returns:
+            Copilot session response.
+        """
+        async with self._pool.acquire() as session:
+            return await session.send_and_wait(
+                {"prompt": prompt}, timeout=self._timeout
+            )
+
+    async def _handle_rate_limit(self, error: Exception, attempt: int) -> None:
+        """Handles a rate limit error: fails fast or waits with backoff.
+
+        Args:
+            error: The caught rate limit exception.
+            attempt: Current attempt number (0-based).
+
+        Raises:
+            RuntimeError: If no prior request ever succeeded.
+        """
+        if not self._has_succeeded:
+            raise RuntimeError(
+                "Rate limited on first request — likely exceeding Copilot's "
+                "token limit. Reduce max_content_tokens in result-companion config."
+            ) from error
+        if attempt >= self._max_retries:
+            return
+        delay = self._retry_base_delay * (2**attempt)
+        logger.warning(
+            "Rate limited (attempt %d/%d), retrying in %.0fs...",
+            attempt,
+            self._max_retries,
+            delay,
+        )
+        await asyncio.sleep(delay)
+
+    async def _send_with_retry(self, prompt: str) -> Any:
+        """Sends prompt with exponential backoff on rate limits.
+
+        Args:
+            prompt: The formatted prompt string.
+
+        Returns:
+            Copilot session response.
+
+        Raises:
+            RuntimeError: If rate limited on first-ever request (likely token limit).
+            Exception: Re-raises last rate limit error after all retries exhausted.
+        """
+        last_error: Exception | None = None
+        for attempt in range(self._max_retries + 1):
+            try:
+                response = await self._send_prompt(prompt)
+                self._has_succeeded = True
+                return response
+            except Exception as e:
+                if not self._is_rate_limit_error(e):
+                    raise
+                last_error = e
+                await self._handle_rate_limit(e, attempt)
+        raise last_error
+
     async def acompletion(
         self,
         model: str,
@@ -200,10 +276,7 @@ class CopilotLLM(CustomLLM):
         await self._ensure_started(actual_model)
 
         prompt = messages_to_prompt(messages)
-        async with self._pool.acquire() as session:
-            response = await session.send_and_wait(
-                {"prompt": prompt}, timeout=self._timeout
-            )
+        response = await self._send_with_retry(prompt)
 
         content = response.data.content if response and response.data else ""
 
