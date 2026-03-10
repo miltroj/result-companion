@@ -190,6 +190,46 @@ class CopilotLLM(CustomLLM):
         """Checks if an exception is a Copilot rate limit error."""
         return "rate limit" in str(error).lower()
 
+    async def _send_prompt(self, prompt: str) -> Any:
+        """Sends a single prompt through the session pool.
+
+        Args:
+            prompt: The formatted prompt string.
+
+        Returns:
+            Copilot session response.
+        """
+        async with self._pool.acquire() as session:
+            return await session.send_and_wait(
+                {"prompt": prompt}, timeout=self._timeout
+            )
+
+    async def _handle_rate_limit(self, error: Exception, attempt: int) -> None:
+        """Handles a rate limit error: fails fast or waits with backoff.
+
+        Args:
+            error: The caught rate limit exception.
+            attempt: Current attempt number (0-based).
+
+        Raises:
+            RuntimeError: If no prior request ever succeeded.
+        """
+        if not self._has_succeeded:
+            raise RuntimeError(
+                "Rate limited on first request — likely exceeding Copilot's "
+                "token limit. Reduce max_content_tokens in result-companion config."
+            ) from error
+        if attempt >= self._max_retries:
+            return
+        delay = self._retry_base_delay * (2**attempt)
+        logger.warning(
+            "Rate limited (attempt %d/%d), retrying in %.0fs...",
+            attempt,
+            self._max_retries,
+            delay,
+        )
+        await asyncio.sleep(delay)
+
     async def _send_with_retry(self, prompt: str) -> Any:
         """Sends prompt with exponential backoff on rate limits.
 
@@ -200,36 +240,20 @@ class CopilotLLM(CustomLLM):
             Copilot session response.
 
         Raises:
-            Exception: Re-raises last rate limit error after all retries exhausted,
-                or any non-rate-limit error immediately.
+            RuntimeError: If rate limited on first-ever request (likely token limit).
+            Exception: Re-raises last rate limit error after all retries exhausted.
         """
         last_error: Exception | None = None
-        for attempt in range(1, self._max_retries + 1):
+        for attempt in range(self._max_retries + 1):
             try:
-                async with self._pool.acquire() as session:
-                    response = await session.send_and_wait(
-                        {"prompt": prompt}, timeout=self._timeout
-                    )
+                response = await self._send_prompt(prompt)
                 self._has_succeeded = True
                 return response
             except Exception as e:
                 if not self._is_rate_limit_error(e):
                     raise
-                if not self._has_succeeded:
-                    raise RuntimeError(
-                        "Rate limited on first request — likely exceeding Copilot's "
-                        "token limit. Reduce max_content_tokens in config."
-                    ) from e
                 last_error = e
-                if attempt < self._max_retries:
-                    delay = self._retry_base_delay * (2**attempt)
-                    logger.warning(
-                        "Rate limited (attempt %d/%d), retrying in %.0fs...",
-                        attempt + 1,
-                        self._max_retries + 1,
-                        delay,
-                    )
-                    await asyncio.sleep(delay)
+                await self._handle_rate_limit(e, attempt)
         raise last_error
 
     async def acompletion(

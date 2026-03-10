@@ -4,6 +4,7 @@ import asyncio
 import os
 import stat
 from contextlib import asynccontextmanager
+from typing import Any
 
 import litellm
 import pytest
@@ -238,6 +239,200 @@ class TestEnsureExecutable:
         ensure_executable(str(file_path))
 
         assert os.stat(file_path).st_mode == original_mode
+
+
+class TestRateLimitDetection:
+    """Tests for _is_rate_limit_error."""
+
+    def test_detects_copilot_rate_limit_message(self):
+        handler = CopilotLLM()
+        error = Exception(
+            "Sorry, you've hit a rate limit that restricts the number of "
+            "Copilot model requests"
+        )
+
+        assert handler._is_rate_limit_error(error) is True
+
+    def test_ignores_token_limit_error(self):
+        handler = CopilotLLM()
+        error = Exception("prompt token count of 143855 exceeds the limit of 128000")
+
+        assert handler._is_rate_limit_error(error) is False
+
+    def test_ignores_unrelated_error(self):
+        handler = CopilotLLM()
+
+        assert handler._is_rate_limit_error(ConnectionError("timeout")) is False
+
+    def test_is_case_insensitive(self):
+        handler = CopilotLLM()
+
+        assert handler._is_rate_limit_error(Exception("RATE LIMIT exceeded")) is True
+
+
+class TestSendPrompt:
+    """Tests for _send_prompt."""
+
+    @pytest.mark.asyncio
+    async def test_delegates_prompt_and_timeout_to_session(self):
+        captured = {}
+
+        class StubSession:
+            async def send_and_wait(self, options: dict, timeout: int = 300) -> str:
+                captured["options"] = options
+                captured["timeout"] = timeout
+                return "response"
+
+        class StubPool:
+            @asynccontextmanager
+            async def acquire(self):
+                yield StubSession()
+
+        handler = CopilotLLM(timeout=42)
+        handler._pool = StubPool()
+
+        result = await handler._send_prompt("hello")
+
+        assert result == "response"
+        assert captured == {"options": {"prompt": "hello"}, "timeout": 42}
+
+
+class TestHandleRateLimit:
+    """Tests for _handle_rate_limit code paths."""
+
+    @pytest.mark.asyncio
+    async def test_fails_fast_when_no_prior_success(self):
+        handler = CopilotLLM()
+        original = Exception("rate limit hit")
+
+        with pytest.raises(RuntimeError, match="first request") as exc_info:
+            await handler._handle_rate_limit(original, attempt=1)
+
+        assert exc_info.value.__cause__ is original
+
+    @pytest.mark.asyncio
+    async def test_skips_sleep_on_last_attempt(self):
+        handler = CopilotLLM(max_retries=3)
+        handler._has_succeeded = True
+        slept = []
+
+        original_sleep = asyncio.sleep
+
+        async def tracking_sleep(delay: float) -> None:
+            slept.append(delay)
+
+        asyncio.sleep = tracking_sleep
+        try:
+            await handler._handle_rate_limit(Exception("rate limit"), attempt=3)  # last
+        finally:
+            asyncio.sleep = original_sleep
+
+        assert slept == []
+
+    @pytest.mark.asyncio
+    async def test_waits_with_exponential_backoff(self):
+        handler = CopilotLLM(max_retries=3, retry_base_delay=10.0)
+        handler._has_succeeded = True
+        slept = []
+
+        original_sleep = asyncio.sleep
+
+        async def tracking_sleep(delay: float) -> None:
+            slept.append(delay)
+
+        asyncio.sleep = tracking_sleep
+        try:
+            await handler._handle_rate_limit(Exception("rate limit"), attempt=0)
+            await handler._handle_rate_limit(Exception("rate limit"), attempt=1)
+            await handler._handle_rate_limit(Exception("rate limit"), attempt=2)
+        finally:
+            asyncio.sleep = original_sleep
+
+        assert slept == [10.0, 20.0, 40.0]
+
+
+class TestSendWithRetry:
+    """Tests for _send_with_retry orchestration."""
+
+    def _make_handler(self, responses: list, **kwargs) -> CopilotLLM:
+        """Creates a CopilotLLM with a fake _send_prompt that returns from a list.
+
+        Args:
+            responses: Items to return in order. Exceptions are raised.
+            **kwargs: Passed to CopilotLLM constructor.
+
+        Returns:
+            Configured CopilotLLM instance.
+        """
+        it = iter(responses)
+
+        async def fake_send(prompt: str) -> Any:
+            value = next(it)
+            if isinstance(value, Exception):
+                raise value
+            return value
+
+        handler = CopilotLLM(retry_base_delay=0.0, **kwargs)
+        handler._has_succeeded = True
+        handler._send_prompt = fake_send
+        return handler
+
+    @pytest.mark.asyncio
+    async def test_returns_on_first_success(self):
+        handler = self._make_handler(["ok"])
+
+        result = await handler._send_with_retry("hello")
+
+        assert result == "ok"
+
+    @pytest.mark.asyncio
+    async def test_retries_on_rate_limit_then_succeeds(self):
+        handler = self._make_handler(
+            [
+                Exception("rate limit"),
+                "ok",
+            ],
+            max_retries=3,
+        )
+
+        result = await handler._send_with_retry("hello")
+
+        assert result == "ok"
+
+    @pytest.mark.asyncio
+    async def test_raises_immediately_on_non_rate_limit_error(self):
+        handler = self._make_handler(
+            [
+                ConnectionError("network down"),
+                "ok",
+            ]
+        )
+
+        with pytest.raises(ConnectionError, match="network down"):
+            await handler._send_with_retry("hello")
+
+    @pytest.mark.asyncio
+    async def test_fails_fast_on_rate_limit_without_prior_success(self):
+        handler = self._make_handler([Exception("rate limit")])
+        handler._has_succeeded = False
+
+        with pytest.raises(RuntimeError, match="first request"):
+            await handler._send_with_retry("hello")
+
+    @pytest.mark.asyncio
+    async def test_raises_last_error_after_all_retries_exhausted(self):
+        handler = self._make_handler(
+            [
+                Exception("rate limit 1"),
+                Exception("rate limit 2"),
+                Exception("rate limit 3"),
+                Exception("rate limit 4"),
+            ],
+            max_retries=3,
+        )
+
+        with pytest.raises(Exception, match="rate limit 4"):
+            await handler._send_with_retry("hello")
 
 
 class FakeSession:
