@@ -107,6 +107,8 @@ result-companion analyze -o output.xml -c examples/configs/copilot_config.yaml
 | "Connection error" | Run `copilot` to re-authenticate |
 | "Failed to list models" | Check network access to `*.githubcopilot.com` |
 | CLI not found | Verify installation: `which copilot` |
+| "Sorry, you've hit a rate limit" | Copilot enforces per-user request limits that tighten during peak hours. Result Companion retries automatically with backoff (10s → 20s → 40s). Lower concurrency with `--test-concurrency 1 --chunk-concurrency 1` or run off-peak |
+| "prompt token count exceeds the limit" | Input too large for the model's context window. Reduce `max_content_tokens` in config (e.g. `25000`). If rate limit fires on the very first request, Result Companion fails fast pointing to this setting |
 
 ---
 
