@@ -4,7 +4,7 @@ from typing import Any
 
 from litellm import acompletion
 
-# Lazy-loaded Copilot handler to avoid import if not needed
+# TODO: Replace global singleton with dependency injection (pass handler to callers).
 _copilot_handler = None
 
 
