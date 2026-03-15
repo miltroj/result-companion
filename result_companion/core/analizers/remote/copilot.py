@@ -193,7 +193,7 @@ class CopilotLLM(CustomLLM):
         auth = await client.get_auth_status()
         if not auth.isAuthenticated:
             raise RuntimeError(
-                "Copilot CLI is not authenticated. Run: copilot auth login"
+                'Copilot CLI is not authenticated. Run: copilot -i "/login"'
             )
         logger.debug(f"Copilot authenticated as {auth.login}")
 
