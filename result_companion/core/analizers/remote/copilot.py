@@ -172,17 +172,10 @@ class CopilotLLM(CustomLLM):
                 )
             try:
                 await self._check_auth(client)
-                status = await client.get_status()
-                logger.debug(
-                    "Copilot CLI v%s (protocol %s)",
-                    status.version,
-                    status.protocolVersion,
-                )
-                models = await client.list_models()
-                logger.debug("Available models: %s", [m.id for m in models])
             except Exception:
                 await self._stop_client(client)
                 raise
+            await self._log_diagnostics(client)
 
             self._client = client
             self._pool = SessionPool(self._client, model, self._pool_size)
@@ -196,6 +189,18 @@ class CopilotLLM(CustomLLM):
                 'Copilot CLI is not authenticated. Run: copilot -i "/login"'
             )
         logger.debug(f"Copilot authenticated as {auth.login}")
+
+    async def _log_diagnostics(self, client: CopilotClient) -> None:
+        """Logs CLI version and available models. Non-fatal on failure."""
+        try:
+            status = await client.get_status()
+            logger.debug(
+                f"Copilot CLI v{status.version} (protocol {status.protocolVersion})",
+            )
+            models = await client.list_models()
+            logger.debug(f"Available models: {[m.id for m in models]}")
+        except Exception as exc:
+            logger.warning(f"Could not fetch Copilot diagnostics: {exc}")
 
     async def _stop_client(self, client: CopilotClient) -> None:
         """Stops a client, suppressing errors."""
