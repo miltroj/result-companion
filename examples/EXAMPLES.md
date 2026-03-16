@@ -350,11 +350,11 @@ result-companion analyze -o output.xml --print-text-report
 result-companion analyze -o output.xml --no-html-report --text-report rc_summary.txt
 ```
 
-Optional global synthesis across all failed tests. Adds an "Overall Failure Summary" section to `rc_log.html` and includes it in text output when `--text-report` or `--print-text-report` is used:
+An overall failure synthesis runs by default and adds an "Overall Failure Summary" section to `rc_log.html` and text output. Disable with `--no-overall-summary`:
 
 ```bash
-result-companion analyze -o output.xml --overall-summary
-result-companion analyze -o output.xml --text-report rc_summary.txt --overall-summary
+result-companion analyze -o output.xml --text-report rc_summary.txt
+result-companion analyze -o output.xml --no-overall-summary
 ```
 
 ## Agent Chat Workflows
@@ -366,7 +366,7 @@ This keeps context consistent across all failures and reduces manual triage.
 Use text output as chat context:
 
 ```bash
-result-companion analyze -o output.xml --text-report rc_summary.txt --overall-summary --no-html-report
+result-companion analyze -o output.xml --text-report rc_summary.txt --no-html-report
 ```
 
 Prompt starters:
@@ -388,7 +388,7 @@ Customize prompts via `llm_config`:
 | `question_prompt` | Main analysis prompt for each test |
 | `chunking.chunk_analysis_prompt` | Prompt for analyzing individual chunks (large tests) |
 | `chunking.final_synthesis_prompt` | Prompt for combining chunk summaries |
-| `summary_prompt_template` | Prompt template for `--overall-summary` output (`{analyses}` placeholder) |
+| `summary_prompt_template` | Prompt template for overall summary output (`{analyses}` placeholder) |
 
 ### Find Performance Issues
 

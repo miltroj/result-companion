@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.11] - 2026-03-12
+
+### Added
+- Copilot CLI startup timeout (30s) with fail-fast error on connection issues and lack of authentication
+
+### Changed
+- Overall failure summary is now **enabled by default**; disable with `--no-overall-summary`
+
+[0.0.11]: https://github.com/miltroj/result-companion/releases/tag/v0.0.11
+
 ## [0.0.10] - 2026-03-10
 
 ### Added

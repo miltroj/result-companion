@@ -158,17 +158,29 @@ class TestAnalizeEntrypoint:
         mock_run.assert_called_once()
         assert mock_run.call_args.kwargs["print_text_report"] is True
 
-    def test_cli_sets_overall_summary(self):
+    def test_cli_overall_summary_is_true_by_default(self):
         mock_run = MagicMock()
         result = self.runner.invoke(
             app,
-            [self.ENTRYPOINT, "-o", existing_xml_path, "--overall-summary"],
+            [self.ENTRYPOINT, "-o", existing_xml_path],
             obj={"analyze": mock_run},
         )
         assert result.exit_code == 0
         assert "Overall Summary: True" in result.output
         mock_run.assert_called_once()
         assert mock_run.call_args.kwargs["summarize_failures"] is True
+
+    def test_cli_no_overall_summary_disables_summary(self):
+        mock_run = MagicMock()
+        result = self.runner.invoke(
+            app,
+            [self.ENTRYPOINT, "-o", existing_xml_path, "--no-overall-summary"],
+            obj={"analyze": mock_run},
+        )
+        assert result.exit_code == 0
+        assert "Overall Summary: False" in result.output
+        mock_run.assert_called_once()
+        assert mock_run.call_args.kwargs["summarize_failures"] is False
 
     def test_cli_sets_quiet_mode_and_hides_parameter_echo(self):
         mock_run = MagicMock()
