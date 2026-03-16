@@ -6,7 +6,6 @@ import pytest
 from result_companion.core.parsers.config import DefaultConfigModel
 from result_companion.entrypoints.run_rc import (
     _main,
-    _register_copilot_if_needed,
     _run_ollama_init_strategy,
     _run_provider_init_strategies,
     run_rc,
@@ -57,57 +56,27 @@ class TestRunProviderInitStrategies:
     @pytest.fixture(autouse=True)
     def _capture_provider_init_calls(self, monkeypatch):
         ollama_calls = []
-        copilot_calls = []
 
         def _fake_run_ollama_init_strategy(model_name: str):
             ollama_calls.append(model_name)
-
-        def _fake_register_copilot_if_needed(model_name: str):
-            copilot_calls.append(model_name)
 
         monkeypatch.setattr(
             "result_companion.entrypoints.run_rc._run_ollama_init_strategy",
             _fake_run_ollama_init_strategy,
         )
-        monkeypatch.setattr(
-            "result_companion.entrypoints.run_rc._register_copilot_if_needed",
-            _fake_register_copilot_if_needed,
-        )
         self.ollama_calls = ollama_calls
-        self.copilot_calls = copilot_calls
 
     def test_runs_ollama_strategy_for_ollama_chat(self):
         _run_provider_init_strategies(
             model_name="ollama_chat/deepseek-r1:1.5b",
         )
         assert self.ollama_calls == ["ollama_chat/deepseek-r1:1.5b"]
-        assert self.copilot_calls == []
-
-    def test_runs_copilot_provider_init_strategy(self):
-        _run_provider_init_strategies(
-            model_name="copilot_sdk/gpt-5-mini",
-        )
-        assert self.copilot_calls == ["copilot_sdk/gpt-5-mini"]
-        assert self.ollama_calls == []
 
     def test_skips_for_unmapped_providers(self):
         _run_provider_init_strategies(
             model_name="openai/gpt-4o",
         )
         assert self.ollama_calls == []
-        assert self.copilot_calls == []
-
-
-class TestRegisterCopilotIfNeeded:
-    """Tests for _register_copilot_if_needed function."""
-
-    def test_registers_for_copilot_models(self):
-        with patch(
-            "result_companion.entrypoints.run_rc.register_copilot_provider"
-        ) as mocked_register:
-            _register_copilot_if_needed("copilot_sdk/gpt-4.1")
-
-        mocked_register.assert_called_once_with()
 
 
 class TestMainE2E:

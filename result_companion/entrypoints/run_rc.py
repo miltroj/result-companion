@@ -5,7 +5,6 @@ from typing import Optional
 
 from result_companion.core.analizers.factory_common import execute_llm_and_get_results
 from result_companion.core.analizers.local.ollama_runner import ollama_on_init_strategy
-from result_companion.core.analizers.remote.copilot import register_copilot_provider
 from result_companion.core.html.html_creator import create_llm_html_log
 from result_companion.core.parsers.config import load_config
 from result_companion.core.parsers.result_parser import (
@@ -29,7 +28,6 @@ def _run_provider_init_strategies(model_name: str) -> None:
     strategies = {
         "ollama": lambda: _run_ollama_init_strategy(model_name),
         "ollama_chat": lambda: _run_ollama_init_strategy(model_name),
-        "copilot_sdk": lambda: _register_copilot_if_needed(model_name),
     }
     strategy = strategies.get(provider)
     if strategy:
@@ -55,19 +53,6 @@ def _run_ollama_init_strategy(model_name: str) -> None:
 
     logger.debug(f"Running Ollama init strategy for model: {model_short}")
     ollama_on_init_strategy(model_name=model_short)
-
-
-def _register_copilot_if_needed(model_name: str) -> None:
-    """Registers Copilot SDK provider if model uses copilot_sdk prefix.
-
-    Args:
-        model_name: LiteLLM model identifier (e.g., copilot_sdk/gpt-5-mini).
-    """
-    if not model_name.startswith("copilot_sdk/"):
-        return
-
-    logger.debug(f"Registering Copilot SDK provider for model: {model_name}")
-    register_copilot_provider()
 
 
 async def _main(

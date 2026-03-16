@@ -121,6 +121,7 @@ class CopilotLLM(CustomLLM):
         cli_url: Optional[str] = None,
         max_retries: int = 3,
         retry_base_delay: float = 10.0,
+        startup_timeout: float = 30.0,
     ):
         super().__init__()
         self._default_model = model
@@ -130,6 +131,7 @@ class CopilotLLM(CustomLLM):
         self._cli_url = cli_url
         self._max_retries = max_retries
         self._retry_base_delay = retry_base_delay
+        self._startup_timeout = startup_timeout
         self._client: Optional[CopilotClient] = None
         self._pool: Optional[SessionPool] = None
         self._started = False
@@ -157,12 +159,55 @@ class CopilotLLM(CustomLLM):
             if self._cli_url:
                 opts["cli_url"] = self._cli_url
 
-            self._client = CopilotClient(opts) if opts else CopilotClient()
-            cli_path = self._client.options.get("cli_path", "")
+            client = CopilotClient(opts) if opts else CopilotClient()
+            cli_path = client.options.get("cli_path", "")
             ensure_executable(cli_path)
-            await self._client.start()
+            try:
+                await asyncio.wait_for(client.start(), timeout=self._startup_timeout)
+            except asyncio.TimeoutError:
+                raise RuntimeError(
+                    "Copilot CLI failed to start within "
+                    f"{self._startup_timeout:.0f}s. "
+                    'Try: copilot -i "/login"'
+                )
+            try:
+                await self._check_auth(client)
+            except Exception:
+                await self._stop_client(client)
+                raise
+            await self._log_diagnostics(client)
+
+            self._client = client
             self._pool = SessionPool(self._client, model, self._pool_size)
             self._started = True
+
+    async def _check_auth(self, client: CopilotClient) -> None:
+        """Raises if the Copilot CLI is not authenticated."""
+        auth = await client.get_auth_status()
+        if not auth.isAuthenticated:
+            raise RuntimeError(
+                'Copilot CLI is not authenticated. Run: copilot -i "/login"'
+            )
+        logger.debug(f"Copilot authenticated as {auth.login}")
+
+    async def _log_diagnostics(self, client: CopilotClient) -> None:
+        """Logs CLI version and available models. Non-fatal on failure."""
+        try:
+            status = await client.get_status()
+            logger.debug(
+                f"Copilot CLI v{status.version} (protocol {status.protocolVersion})",
+            )
+            models = await client.list_models()
+            logger.debug(f"Available models: {[m.id for m in models]}")
+        except Exception as exc:
+            logger.warning(f"Could not fetch Copilot diagnostics: {exc}")
+
+    async def _stop_client(self, client: CopilotClient) -> None:
+        """Stops a client, suppressing errors."""
+        try:
+            await client.stop()
+        except Exception as exc:
+            logger.debug(f"Failed to stop Copilot client: {exc}")
 
     def _resolve_cli_path(self) -> str | None:
         """Resolves an explicit Copilot CLI path, or None to use the SDK bundled binary."""
@@ -289,6 +334,7 @@ class CopilotLLM(CustomLLM):
                 }
             ],
             model=actual_model,
+            prompt=prompt,
         )
 
     def completion(
@@ -309,51 +355,3 @@ class CopilotLLM(CustomLLM):
             await self._client.stop()
             self._client = None
         self._started = False
-
-
-# Module-level instance for registration
-_copilot_handler: Optional[CopilotLLM] = None
-
-
-def register_copilot_provider(
-    model: str = "gpt-5-mini",
-    pool_size: int = 5,
-    timeout: int = 300,
-    cli_path: Optional[str] = None,
-    cli_url: Optional[str] = None,
-) -> CopilotLLM:
-    """Registers Copilot SDK as a LiteLLM provider.
-
-    Uses 'copilot_sdk' prefix to avoid conflict with LiteLLM's built-in
-    'copilot' provider (which uses the blocked API).
-
-    Args:
-        model: Default Copilot model.
-        pool_size: Number of concurrent sessions.
-        timeout: Request timeout in seconds.
-        cli_path: Optional path to Copilot CLI.
-        cli_url: Optional URL of existing CLI server.
-
-    Returns:
-        The registered handler instance.
-
-    Example:
-        register_copilot_provider()
-        response = await litellm.acompletion(
-            model="copilot_sdk/gpt-5-mini",
-            messages=[{"role": "user", "content": "Hello"}]
-        )
-    """
-    global _copilot_handler
-    _copilot_handler = CopilotLLM(
-        model=model,
-        pool_size=pool_size,
-        timeout=timeout,
-        cli_path=cli_path,
-        cli_url=cli_url,
-    )
-    # Use 'copilot_sdk' to avoid conflict with built-in 'copilot' provider
-    litellm.custom_provider_map = [
-        {"provider": "copilot_sdk", "custom_handler": _copilot_handler}
-    ]
-    return _copilot_handler

@@ -6,7 +6,6 @@ import stat
 from contextlib import asynccontextmanager
 from typing import Any
 
-import litellm
 import pytest
 
 from result_companion.core.analizers.remote.copilot import (
@@ -14,7 +13,6 @@ from result_companion.core.analizers.remote.copilot import (
     SessionPool,
     ensure_executable,
     messages_to_prompt,
-    register_copilot_provider,
 )
 
 
@@ -49,6 +47,25 @@ class TestMessagesToPrompt:
         assert ": test" in result
 
 
+class FakeStartableClient:
+    """Fake client that passes startup checks (auth, status, models)."""
+
+    def __init__(self, opts=None):
+        self.options = opts or {"cli_path": ""}
+
+    async def start(self):
+        pass
+
+    async def get_auth_status(self):
+        return type("R", (), {"isAuthenticated": True, "login": "user"})()
+
+    async def get_status(self):
+        return type("R", (), {"version": "1.0", "protocolVersion": 1})()
+
+    async def list_models(self):
+        return [type("M", (), {"id": "gpt-4.1"})()]
+
+
 class TestCopilotLLM:
     """Tests for CopilotLLM class."""
 
@@ -77,10 +94,10 @@ class TestCopilotLLM:
     async def test_ensure_started_initializes_client_and_pool(self, monkeypatch):
         calls = {"ensure_executable": [], "client_opts": None, "start": 0, "pool": 0}
 
-        class FakeClient:
+        class TrackingClient(FakeStartableClient):
             def __init__(self, opts=None):
+                super().__init__(opts)
                 calls["client_opts"] = opts
-                self.options = opts or {"cli_path": ""}
 
             async def start(self):
                 calls["start"] += 1
@@ -94,7 +111,7 @@ class TestCopilotLLM:
 
         monkeypatch.setattr(
             "result_companion.core.analizers.remote.copilot.CopilotClient",
-            FakeClient,
+            TrackingClient,
         )
         monkeypatch.setattr(
             "result_companion.core.analizers.remote.copilot.ensure_executable",
@@ -125,6 +142,98 @@ class TestCopilotLLM:
         assert handler._started is True
 
     @pytest.mark.asyncio
+    async def test_ensure_started_raises_on_startup_timeout(self, monkeypatch):
+        class HangingClient:
+            def __init__(self, opts=None):
+                self.options = opts or {"cli_path": ""}
+
+            async def start(self):
+                await asyncio.Event().wait()
+
+        monkeypatch.setattr(
+            "result_companion.core.analizers.remote.copilot.CopilotClient",
+            HangingClient,
+        )
+        monkeypatch.setattr(
+            "result_companion.core.analizers.remote.copilot.ensure_executable",
+            lambda _: None,
+        )
+
+        handler = CopilotLLM(startup_timeout=0.1)
+
+        with pytest.raises(RuntimeError, match="failed to start"):
+            await handler._ensure_started("gpt-4.1")
+
+        assert handler._started is False
+
+    @pytest.mark.asyncio
+    async def test_ensure_started_raises_when_not_authenticated(self, monkeypatch):
+        class UnauthClient:
+            def __init__(self, opts=None):
+                self.options = opts or {"cli_path": ""}
+                self.stopped = False
+
+            async def start(self):
+                pass
+
+            async def get_auth_status(self):
+                return type("R", (), {"isAuthenticated": False, "login": None})()
+
+            async def stop(self):
+                self.stopped = True
+
+        monkeypatch.setattr(
+            "result_companion.core.analizers.remote.copilot.CopilotClient",
+            UnauthClient,
+        )
+        monkeypatch.setattr(
+            "result_companion.core.analizers.remote.copilot.ensure_executable",
+            lambda _: None,
+        )
+
+        handler = CopilotLLM()
+
+        with pytest.raises(RuntimeError, match="not authenticated"):
+            await handler._ensure_started("gpt-4.1")
+
+        assert handler._started is False
+        assert handler._client is None
+
+    @pytest.mark.asyncio
+    async def test_ensure_started_uses_resolved_cli_when_no_explicit_path(
+        self, monkeypatch
+    ):
+        captured_opts = {}
+
+        class CapturingClient(FakeStartableClient):
+            def __init__(self, opts=None):
+                super().__init__(opts)
+                captured_opts.update(opts or {})
+
+        monkeypatch.setattr(
+            "result_companion.core.analizers.remote.copilot.CopilotClient",
+            CapturingClient,
+        )
+        monkeypatch.setattr(
+            "result_companion.core.analizers.remote.copilot.ensure_executable",
+            lambda _: None,
+        )
+        monkeypatch.setattr(
+            "result_companion.core.analizers.remote.copilot.SessionPool",
+            lambda *a: object(),
+        )
+        monkeypatch.setenv("COPILOT_CLI_PATH", "copilot")
+        monkeypatch.setattr(
+            "result_companion.core.analizers.remote.copilot.shutil.which",
+            lambda _: "/resolved/copilot",
+        )
+
+        handler = CopilotLLM()
+        await handler._ensure_started("gpt-4.1")
+
+        assert captured_opts["cli_path"] == "/resolved/copilot"
+
+    @pytest.mark.asyncio
     async def test_ensure_started_raises_when_cli_missing(self, monkeypatch):
         handler = CopilotLLM()
         monkeypatch.setattr(
@@ -135,6 +244,51 @@ class TestCopilotLLM:
 
         with pytest.raises(FileNotFoundError):
             await handler._ensure_started("gpt-4.1")
+
+    @pytest.mark.asyncio
+    async def test_stop_client_suppresses_errors(self):
+        class ExplodingClient:
+            async def stop(self):
+                raise RuntimeError("stop failed")
+
+        handler = CopilotLLM()
+        await handler._stop_client(ExplodingClient())
+
+    @pytest.mark.asyncio
+    async def test_log_diagnostics_suppresses_errors(self):
+        class BrokenClient:
+            async def get_status(self):
+                raise ValueError("Missing required field 'vision'")
+
+        handler = CopilotLLM()
+        await handler._log_diagnostics(BrokenClient())
+
+    @pytest.mark.asyncio
+    async def test_aclose_stops_client_and_resets_state(self):
+        class FakeClient:
+            def __init__(self):
+                self.stopped = False
+
+            async def stop(self):
+                self.stopped = True
+
+        class FakePool:
+            def __init__(self):
+                self.closed = False
+
+            async def close(self):
+                self.closed = True
+
+        handler = CopilotLLM()
+        handler._client = FakeClient()
+        handler._pool = FakePool()
+        handler._started = True
+
+        await handler.aclose()
+
+        assert handler._client is None
+        assert handler._pool is None
+        assert handler._started is False
 
     @pytest.mark.asyncio
     async def test_acompletion_returns_model_response(self, monkeypatch):
@@ -168,16 +322,6 @@ class TestCopilotLLM:
 
         assert result.model == "gpt-4.1"
         assert result.choices[0]["message"]["content"] == "hi"
-
-    def test_register_copilot_provider_sets_custom_provider_map(self, monkeypatch):
-        monkeypatch.setattr(litellm, "custom_provider_map", [])
-
-        handler = register_copilot_provider(model="gpt-4.1", pool_size=1, timeout=10)
-
-        assert isinstance(handler, CopilotLLM)
-        assert litellm.custom_provider_map == [
-            {"provider": "copilot_sdk", "custom_handler": handler}
-        ]
 
     def test_completion_wraps_async(self, monkeypatch):
         handler = CopilotLLM()
