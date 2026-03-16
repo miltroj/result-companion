@@ -100,9 +100,9 @@ def analyze(
         False, "--print-text-report", help="Print concise text report to stdout"
     ),
     overall_summary: bool = typer.Option(
-        False,
-        "--overall-summary",
-        help="Run extra LLM pass to synthesize all per-test results",
+        True,
+        "--overall-summary/--no-overall-summary",
+        help="Run extra LLM pass to synthesize all per-test results (enabled by default)",
     ),
     quiet: bool = typer.Option(
         False,
