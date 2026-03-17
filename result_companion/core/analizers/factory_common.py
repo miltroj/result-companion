@@ -61,6 +61,22 @@ def _build_llm_params(llm_factory: LLMFactoryModel) -> dict[str, Any]:
     return params
 
 
+def _format_error_result(error: Exception) -> str:
+    """Formats a per-test-case error into a user-visible result message.
+
+    Args:
+        error: The exception that occurred during analysis.
+
+    Returns:
+        Markdown-formatted error message.
+    """
+    return (
+        f"**Analysis failed**: `{type(error).__name__}: {error}`\n\n"
+        "If the error is related to request size, "
+        "consider reducing `max_content_tokens` in your config."
+    )
+
+
 async def _dryrun_result(test_case: dict) -> tuple[str, str, list]:
     """Returns placeholder without calling LLM.
 
@@ -184,9 +200,17 @@ async def execute_llm_and_get_results(
         disable_progress=quiet,
     )
 
-    for result, name, chunks in results:
+    for idx, result in enumerate(results):
+        if isinstance(result, Exception):
+            name = test_cases[idx]["name"]
+            chunk, status = test_case_stats[name]
+            header = _stats_header(status, chunk, dryrun, name)
+            llm_results[name] = header + _format_error_result(result)
+            logger.error(f"Analysis failed for '{name}': {result}")
+            continue
+        result_text, name, chunks = result
         chunk, status = test_case_stats[name]
         header = _stats_header(status, chunk, dryrun, name)
-        llm_results[name] = header + result
+        llm_results[name] = header + result_text
 
     return llm_results
