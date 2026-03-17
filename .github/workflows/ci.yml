@@ -32,10 +32,8 @@ jobs:
       - name: Load cached dependencies
         uses: actions/cache@v3
         with:
-          path: ~/.cache/pypoetry
-          key: poetry-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            poetry-${{ runner.os }}-${{ matrix.python-version }}-
+          path: ~/.cache/pypoetry/cache
+          key: poetry-v2-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
 
       - name: Install dependencies
         run: make install

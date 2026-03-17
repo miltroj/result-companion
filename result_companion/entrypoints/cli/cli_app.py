@@ -85,7 +85,7 @@ def analyze(
         readable=True,
         help="YAML Config file path",
     ),
-    report: Optional[str] = typer.Option(
+    report: Optional[Path] = typer.Option(
         None, "-r", "--report", help="Write LLM Report to HTML file"
     ),
     html_report: bool = typer.Option(
@@ -93,7 +93,7 @@ def analyze(
         "--html-report/--no-html-report",
         help="Enable or disable HTML report generation",
     ),
-    text_report: Optional[str] = typer.Option(
+    text_report: Optional[Path] = typer.Option(
         None, "--text-report", help="Write concise text summary to file"
     ),
     print_text_report: bool = typer.Option(
