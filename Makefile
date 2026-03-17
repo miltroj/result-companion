@@ -1,10 +1,7 @@
-.PHONY: install install-ci test test-unit test-integration test-integration-all test-coverage test-e2e validate lint format help
+.PHONY: install test test-unit test-integration test-integration-all test-coverage test-e2e validate lint format help
 
 install:  ## Install dependencies with dev packages
 	poetry install --with=dev
-
-install-ci:  ## Install dependencies without cache (mirrors CI behavior)
-	poetry install --with=dev --no-cache
 
 test: test-unit test-integration-all  ## Run all tests
 

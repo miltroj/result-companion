@@ -35,13 +35,11 @@ jobs:
       - name: Cache Poetry dependencies
         uses: actions/cache@v3
         with:
-          path: ~/.cache/pypoetry
+          path: ~/.cache/pypoetry/cache
           key: poetry-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            poetry-${{ runner.os }}-
 
       - name: Install dependencies
-        run: poetry install --with=dev --no-cache
+        run: poetry install --with=dev
 
       - name: Run tests
         run: poetry run pytest
