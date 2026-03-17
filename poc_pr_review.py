@@ -30,17 +30,22 @@ def build_agent_prompt(
         Formatted prompt for the Copilot agent.
     """
     action = (
-        "Print the review comment you would post (DRY RUN — do not call gh pr comment)."
+        "Print the review comment body only — do NOT run gh pr comment."
         if dry_run
-        else f"Post it as a PR comment: gh pr comment {pr_number} --repo {repo_name} --body '<your analysis>'"
+        else f'Run this shell command to post the comment: gh pr comment {pr_number} --repo {repo_name} --body "<write the actual review text here>"'
     )
     return (
         f"You are a QA assistant. Robot Framework tests failed after PR #{pr_number} in {repo_name}.\n\n"
         f"FAILURE SUMMARY (result-companion output):\n{failure_summary}\n\n"
-        f"Steps:\n"
-        f"1. Run: gh pr diff {pr_number} --repo {repo_name}\n"
-        f"2. Identify which specific changed lines caused each failure\n"
-        f"3. {action}"
+        f"Do these steps in order:\n"
+        f"1. Execute shell command: gh pr diff {pr_number} --repo {repo_name}\n"
+        f"2. Read the diff output and identify which changed lines caused the failures above\n"
+        f"3. {action}\n\n"
+        f"Format the comment as clean GitHub Markdown:\n"
+        f"- Use a `## 🔍 result-companion: Test Failure Analysis` heading\n"
+        f"- List each finding with the file and line reference as a fenced code block or inline `code` quote\n"
+        f"- Use bullet points per finding: **file**, **line**, **why it caused the failure**\n"
+        f"- End with a `## 💡 Suggested Fix` section with concrete code or steps"
     )
 
 
@@ -49,7 +54,7 @@ async def run_review(
     pr_number: int,
     failure_summary: str,
     dry_run: bool = True,
-    model: str = "gpt-4o",
+    model: str = "gpt-5-mini",
 ) -> str:
     """Runs the Copilot agent to analyze a PR diff against test failures and comment.
 
@@ -65,12 +70,27 @@ async def run_review(
     """
     prompt = build_agent_prompt(repo_name, pr_number, failure_summary, dry_run)
 
+    async def on_pre_tool_use(input, _invocation):
+        print(f"[tool →] {input['toolName']}  args={input.get('toolArgs', {})}")
+        return {"permissionDecision": "allow"}
+
+    async def on_post_tool_use(input, _invocation):
+        result_preview = str(input.get("toolResult", ""))[:300]
+        print(f"[tool ←] {input['toolName']}  result={result_preview}")
+
     print(f"[poc] Starting Copilot client (model={model})...")
     client = CopilotClient()
     await client.start()
     try:
         session = await client.create_session(
-            {"model": model, "on_permission_request": PermissionHandler.approve_all}
+            {
+                "model": model,
+                "on_permission_request": PermissionHandler.approve_all,
+                "hooks": {
+                    "on_pre_tool_use": on_pre_tool_use,
+                    "on_post_tool_use": on_post_tool_use,
+                },
+            }
         )
         print(f"[poc] Session created. Sending prompt ({len(prompt)} chars)...")
         response = await session.send_and_wait({"prompt": prompt}, timeout=300)
@@ -83,19 +103,18 @@ async def run_review(
 
 if __name__ == "__main__":
     FAILURE_SUMMARY = """
-    Test: Login Feature Regression
-    Failed keyword: Page Should Contain Element
-    Error: Element not found: css=.login-button
-    Root cause (LLM): The login button CSS selector was changed, breaking the existing test.
+    Test: POC regression test
+    Failed keyword: Should Login To Github
+    Error: Invalid credentials
     """
 
     print("[poc] Reviewing PR (dry_run=True)...")
     result = asyncio.run(
         run_review(
             repo_name="miltroj/result-companion",
-            pr_number=63,
+            pr_number=65,
             failure_summary=FAILURE_SUMMARY,
-            dry_run=True,  # flip to False to actually post the comment
+            dry_run=False,  # flip to False to actually post the comment
         )
     )
     print(f"\n[poc] Agent response:\n{result}")
