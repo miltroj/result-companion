@@ -32,7 +32,7 @@ def build_agent_prompt(
     action = (
         "Print the review comment body only — do NOT run gh pr comment."
         if dry_run
-        else f'Run this shell command to post the comment: gh pr comment {pr_number} --repo {repo_name} --body "<write the actual review text here>"'
+        else f'Run this shell command to post the comment (prefix GH_TOKEN to avoid interactive auth): GH_TOKEN=$(gh auth token) gh pr comment {pr_number} --repo {repo_name} --body "<write the actual review text here>"'
     )
     return (
         f"You are a QA assistant. Robot Framework tests failed after PR #{pr_number} in {repo_name}.\n\n"
