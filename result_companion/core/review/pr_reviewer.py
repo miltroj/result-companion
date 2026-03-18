@@ -1,6 +1,8 @@
 """PR review: correlates test failures with code changes via Copilot agent."""
 
 import asyncio
+import subprocess
+import tempfile
 from pathlib import Path
 
 from copilot import CopilotClient, PermissionHandler
@@ -17,7 +19,6 @@ def build_review_prompt(
     repo_name: str,
     pr_number: int,
     failure_summary: str,
-    dry_run: bool,
     prompts: ReviewPromptModel,
 ) -> str:
     """Builds the Copilot agent prompt from config template and runtime values.
@@ -26,49 +27,74 @@ def build_review_prompt(
         repo_name: GitHub repo in "owner/repo" format.
         pr_number: Pull request number.
         failure_summary: Plaintext failure output from result-companion.
-        dry_run: If True, agent prints the comment instead of posting it.
         prompts: Review prompt configuration.
 
     Returns:
         Formatted prompt for the Copilot agent.
     """
-    action = (
-        prompts.dry_run_action
-        if dry_run
-        else prompts.post_action_template.format(
-            pr_number=pr_number, repo_name=repo_name
-        )
-    )
     return prompts.review_prompt.format(
         repo_name=repo_name,
         pr_number=pr_number,
         failure_summary=failure_summary,
-        action=action,
     )
 
 
-async def _run_review_async(
+def post_comment(
+    repo_name: str,
+    pr_number: int,
+    comment_body: str,
+    runner: type = subprocess,
+) -> None:
+    """Posts a comment to a GitHub PR via gh CLI.
+
+    Args:
+        repo_name: GitHub repo in "owner/repo" format.
+        pr_number: Pull request number.
+        comment_body: Markdown comment text.
+        runner: Subprocess module (injectable for testing).
+    """
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+        f.write(comment_body)
+        body_file = f.name
+
+    try:
+        logger.info(f"Posting comment to {repo_name}#{pr_number}...")
+        runner.run(
+            [
+                "gh",
+                "pr",
+                "comment",
+                str(pr_number),
+                "--repo",
+                repo_name,
+                "--body-file",
+                body_file,
+            ],
+            check=True,
+        )
+        logger.info("Comment posted successfully.")
+    finally:
+        Path(body_file).unlink(missing_ok=True)
+
+
+async def _generate_review_comment(
     repo_name: str,
     pr_number: int,
     failure_summary: str,
     config: ReviewConfigModel,
-    dry_run: bool = True,
 ) -> str:
-    """Runs Copilot agent to analyze PR diff against test failures.
+    """Runs Copilot agent with GitHub MCP to generate a review comment.
 
     Args:
         repo_name: GitHub repo in "owner/repo" format.
         pr_number: Pull request number to review.
         failure_summary: Output from result-companion analyze.
         config: Validated review configuration.
-        dry_run: If True, prints comment instead of posting to PR.
 
     Returns:
-        Agent response text.
+        Generated review comment text.
     """
-    prompt = build_review_prompt(
-        repo_name, pr_number, failure_summary, dry_run, config.review
-    )
+    prompt = build_review_prompt(repo_name, pr_number, failure_summary, config.review)
 
     async def on_pre_tool_use(tool_input, _invocation):
         logger.debug(
@@ -84,6 +110,7 @@ async def _run_review_async(
     model = config.review.model
     timeout = config.review.timeout
     logger.info(f"Starting Copilot review agent (model={model})...")
+
     client = CopilotClient()
     await client.start()
     try:
@@ -94,6 +121,13 @@ async def _run_review_async(
                 "hooks": {
                     "on_pre_tool_use": on_pre_tool_use,
                     "on_post_tool_use": on_post_tool_use,
+                },
+                "mcp_servers": {
+                    "github": {
+                        "type": "sse",
+                        "url": config.review.mcp_server_url,
+                        "tools": ["*"],
+                    },
                 },
             }
         )
@@ -128,17 +162,22 @@ def run_review(
         model: Override model from config.
 
     Returns:
-        Agent response text.
+        Generated review comment text.
     """
     config = load_review_config(config_path)
     if model:
         config.review.model = model
-    return asyncio.run(
-        _run_review_async(
+
+    comment = asyncio.run(
+        _generate_review_comment(
             repo_name=repo_name,
             pr_number=pr_number,
             failure_summary=failure_summary,
             config=config,
-            dry_run=dry_run,
         )
     )
+
+    if not dry_run and comment:
+        post_comment(repo_name, pr_number, comment)
+
+    return comment

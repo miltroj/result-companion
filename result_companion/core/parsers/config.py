@@ -209,10 +209,12 @@ class ReviewPromptModel(BaseModel):
     review_prompt: str = Field(
         min_length=5, description="Prompt template for PR review."
     )
-    dry_run_action: str = Field(description="Action text for dry-run mode.")
-    post_action_template: str = Field(description="Action template for posting to PR.")
     model: str = Field(default="gpt-5-mini", description="Copilot model to use.")
     timeout: int = Field(default=300, ge=10, description="Agent timeout in seconds.")
+    mcp_server_url: str = Field(
+        default="https://api.enterprise.githubcopilot.com/mcp/readonly",
+        description="GitHub MCP server URL for PR access.",
+    )
 
 
 class ReviewConfigModel(BaseModel):

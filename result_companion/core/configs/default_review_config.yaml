@@ -3,6 +3,7 @@ version: 1.0
 review:
   model: "gpt-5-mini"
   timeout: 300
+  mcp_server_url: "https://api.enterprise.githubcopilot.com/mcp/readonly"
 
   review_prompt: |
     You are a QA assistant. Robot Framework tests failed after
@@ -11,23 +12,12 @@ review:
     FAILURE SUMMARY (result-companion output):
     {failure_summary}
 
-    Do these steps in order:
-    1. Execute shell command: gh pr diff {pr_number} --repo {repo_name}
-    2. Read the diff output and identify which changed lines caused
-       the failures above
-    3. {action}
+    Analyze the PR changes to identify which modifications caused
+    the test failures. Output ONLY the review comment body in
+    GitHub Markdown. Do NOT run any shell commands to post comments.
 
-    Format the comment as clean GitHub Markdown:
-    - Use a `## 🔍 result-companion: Test Failure Analysis` heading
-    - List each finding with the file and line reference
-    - Use bullet points per finding: **file**, **line**,
+    Format:
+    - `## 🔍 result-companion: Test Failure Analysis` heading
+    - Bullet points per finding: **file**, **line**,
       **why it caused the failure**
-    - End with a `## 💡 Suggested Fix` section with concrete code or steps
-
-  dry_run_action: >-
-    Print the review comment body only — do NOT run gh pr comment.
-
-  post_action_template: >-
-    Run this shell command to post the comment (prefix GH_TOKEN to avoid
-    interactive auth): GH_TOKEN=$(gh auth token) gh pr comment {pr_number}
-    --repo {repo_name} --body "<write the actual review text here>"
+    - `## 💡 Suggested Fix` section with concrete code or steps
