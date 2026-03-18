@@ -188,6 +188,63 @@ def analyze(
     )
 
 
+@app.command()
+def review(
+    summary: Path = typer.Option(
+        ...,
+        "-s",
+        "--summary",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
+        help="Text summary file from 'analyze --text-report'",
+    ),
+    repo: str = typer.Option(
+        ...,
+        "--repo",
+        envvar="GITHUB_REPOSITORY",
+        help="GitHub repo (owner/repo). Defaults to GITHUB_REPOSITORY",
+    ),
+    pr: int = typer.Option(
+        ...,
+        "--pr",
+        help="Pull request number",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Print review comment instead of posting to PR",
+    ),
+    model: str = typer.Option(
+        "gpt-5-mini",
+        "--model",
+        help="Copilot model to use",
+    ),
+):
+    """Post AI test failure analysis as a PR comment."""
+    import asyncio
+
+    from result_companion.core.review import run_review
+
+    failure_summary = summary.read_text()
+    try:
+        result = asyncio.run(
+            run_review(
+                repo_name=repo,
+                pr_number=pr,
+                failure_summary=failure_summary,
+                dry_run=dry_run,
+                model=model,
+            )
+        )
+        if result:
+            typer.echo(result)
+    except Exception as e:
+        typer.echo(f"Review failed: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
 # Setup commands using the original functions
 @setup_app.command("ollama")
 def setup_ollama(
