@@ -5,6 +5,8 @@ from result_companion.core.analizers.llm_router import _smart_acompletion
 from result_companion.core.parsers.config import DefaultConfigModel
 from result_companion.core.utils.logging_config import logger
 
+_NO_FAILURES_MARKER = "Tests analyzed: 0"
+
 
 def render_text_report(
     llm_results: dict[str, str],
@@ -23,7 +25,11 @@ def render_text_report(
     """
     lines = [
         "Result Companion - Summary",
-        f"Tests analyzed: {len(analyzed_test_names)}",
+        (
+            _NO_FAILURES_MARKER
+            if not analyzed_test_names
+            else f"Tests analyzed: {len(analyzed_test_names)}"
+        ),
     ]
 
     if overall_summary:
@@ -49,6 +55,11 @@ def render_text_report(
             lines.extend(["", result.strip()])
 
     return "\n".join(lines) + "\n"
+
+
+def has_test_results(summary_text: str) -> bool:
+    """Checks whether a rendered text report contains analyzed failures."""
+    return bool(summary_text.strip()) and _NO_FAILURES_MARKER not in summary_text
 
 
 def _build_overall_summary_prompt(

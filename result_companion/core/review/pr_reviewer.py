@@ -12,6 +12,7 @@ from result_companion.core.parsers.config import (
     ReviewPromptModel,
     load_review_config,
 )
+from result_companion.core.results.text_report import has_test_results
 from result_companion.core.utils.logging_config import logger
 
 
@@ -167,6 +168,10 @@ def run_review(
     Returns:
         Generated review comment text.
     """
+    if not has_test_results(failure_summary):
+        logger.info("No test failures found — skipping review.")
+        return ""
+
     config = load_review_config(config_path)
     if model:
         config.review.model = model
