@@ -21,3 +21,5 @@ review:
     - Bullet points per finding: **file**, **line**,
       **why it caused the failure**
     - `## 💡 Suggested Fix` section with concrete code or steps
+
+    make sure to reduce boilerplate text and code to minimum.

@@ -98,14 +98,17 @@ async def _generate_review_comment(
 
     async def on_pre_tool_use(tool_input, _invocation):
         logger.debug(
-            f"[review ->] {tool_input['toolName']}"
+            f"[tool_call_start ->] {tool_input['toolName']}"
             f"  args={tool_input.get('toolArgs', {})}"
         )
         return {"permissionDecision": "allow"}
 
     async def on_post_tool_use(tool_input, _invocation):
         preview = str(tool_input.get("toolResult", ""))[:300]
-        logger.debug(f"[review <-] {tool_input['toolName']}" f"  result={preview}")
+        logger.debug(
+            f"[tool_call_end <-] {tool_input['toolName']}" f"  result={preview}"
+        )
+        return {"toolResult": tool_input.get("toolResult", "")}
 
     model = config.review.model
     timeout = config.review.timeout
