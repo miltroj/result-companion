@@ -203,11 +203,58 @@ class ConfigLoader:
         return validated_config
 
 
+class ReviewPromptModel(BaseModel):
+    """Review prompt configuration."""
+
+    review_prompt: str = Field(
+        min_length=5, description="Prompt template for PR review."
+    )
+    dry_run_action: str = Field(description="Action text for dry-run mode.")
+    post_action_template: str = Field(description="Action template for posting to PR.")
+    model: str = Field(default="gpt-5-mini", description="Copilot model to use.")
+    timeout: int = Field(default=300, ge=10, description="Agent timeout in seconds.")
+
+
+class ReviewConfigModel(BaseModel):
+    """Configuration for PR review."""
+
+    version: float
+    review: ReviewPromptModel
+
+
+def _configs_dir() -> str:
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "configs")
+
+
 def load_config(config_path: Path | None = None) -> DefaultConfigModel:
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    config_file_path = os.path.join(current_dir, "..", "configs", "default_config.yaml")
+    config_file_path = os.path.join(_configs_dir(), "default_config.yaml")
 
     config_loader = ConfigLoader(default_config_file=config_file_path)
     config = config_loader.load_config(user_config_file=config_path)
     logger.debug(f"{config=}")
     return config
+
+
+def load_review_config(
+    config_path: Path | None = None,
+) -> ReviewConfigModel:
+    """Loads review configuration with defaults and optional user overrides.
+
+    Args:
+        config_path: Optional user config YAML to merge with defaults.
+
+    Returns:
+        Validated ReviewConfigModel.
+    """
+    default_path = os.path.join(_configs_dir(), "default_review_config.yaml")
+    config_loader = ConfigLoader(default_config_file=default_path)
+    raw = config_loader._read_yaml_file(Path(default_path))
+    raw = config_loader._process_env_vars(raw)
+
+    if config_path:
+        user = config_loader._read_yaml_file(config_path)
+        user = config_loader._process_env_vars(user)
+        if "review" in user:
+            raw["review"] = {**raw.get("review", {}), **user["review"]}
+
+    return ReviewConfigModel(**raw)

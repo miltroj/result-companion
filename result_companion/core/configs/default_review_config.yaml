@@ -1,0 +1,33 @@
+version: 1.0
+
+review:
+  model: "gpt-5-mini"
+  timeout: 300
+
+  review_prompt: |
+    You are a QA assistant. Robot Framework tests failed after
+    PR #{pr_number} in {repo_name}.
+
+    FAILURE SUMMARY (result-companion output):
+    {failure_summary}
+
+    Do these steps in order:
+    1. Execute shell command: gh pr diff {pr_number} --repo {repo_name}
+    2. Read the diff output and identify which changed lines caused
+       the failures above
+    3. {action}
+
+    Format the comment as clean GitHub Markdown:
+    - Use a `## 🔍 result-companion: Test Failure Analysis` heading
+    - List each finding with the file and line reference
+    - Use bullet points per finding: **file**, **line**,
+      **why it caused the failure**
+    - End with a `## 💡 Suggested Fix` section with concrete code or steps
+
+  dry_run_action: >-
+    Print the review comment body only — do NOT run gh pr comment.
+
+  post_action_template: >-
+    Run this shell command to post the comment (prefix GH_TOKEN to avoid
+    interactive auth): GH_TOKEN=$(gh auth token) gh pr comment {pr_number}
+    --repo {repo_name} --body "<write the actual review text here>"

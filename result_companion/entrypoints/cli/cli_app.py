@@ -211,32 +211,62 @@ def review(
         "--pr",
         help="Pull request number",
     ),
+    config: Optional[Path] = typer.Option(
+        None,
+        "-c",
+        "--config",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
+        help="Review config YAML (overrides defaults)",
+    ),
     dry_run: bool = typer.Option(
         False,
         "--dry-run",
         help="Print review comment instead of posting to PR",
     ),
-    model: str = typer.Option(
-        "gpt-5-mini",
+    log_level: LogLevels = typer.Option(
+        LogLevels.INFO,
+        "-l",
+        "--log-level",
+        help="Log level verbosity",
+        case_sensitive=True,
+    ),
+    quiet: bool = typer.Option(
+        False,
+        "-q",
+        "--quiet",
+        help="Suppress logs/progress output",
+    ),
+    model: Optional[str] = typer.Option(
+        None,
         "--model",
-        help="Copilot model to use",
+        help="Override Copilot model from config",
     ),
 ):
     """Post AI test failure analysis as a PR comment."""
-    import asyncio
+    from result_companion.core.utils.logging_config import set_global_log_level
 
-    from result_companion.core.review import run_review
+    resolved_log_level = "ERROR" if quiet else str(log_level)
+    set_global_log_level(resolved_log_level)
+
+    ctx = get_current_context()
+    run = ctx.obj.get("review") if ctx.obj else None
+    if not run:
+        from result_companion.core.review.pr_reviewer import run_review
+
+        run = run_review
 
     failure_summary = summary.read_text()
     try:
-        result = asyncio.run(
-            run_review(
-                repo_name=repo,
-                pr_number=pr,
-                failure_summary=failure_summary,
-                dry_run=dry_run,
-                model=model,
-            )
+        result = run(
+            repo_name=repo,
+            pr_number=pr,
+            failure_summary=failure_summary,
+            config_path=config,
+            dry_run=dry_run,
+            model=model,
         )
         if result:
             typer.echo(result)
