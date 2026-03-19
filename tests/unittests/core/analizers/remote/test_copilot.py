@@ -1,8 +1,6 @@
 """Tests for Copilot LiteLLM adapter."""
 
 import asyncio
-import os
-import stat
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -13,7 +11,6 @@ from result_companion.core.analizers.remote.copilot import (
     SessionPool,
     messages_to_prompt,
 )
-from result_companion.core.copilot_client import ensure_executable
 
 
 class TestMessagesToPrompt:
@@ -337,52 +334,6 @@ class TestCopilotLLM:
         result = handler.completion("gpt-4.1", [{"role": "user", "content": "hi"}])
 
         assert result is expected
-
-
-class TestEnsureExecutable:
-    """Tests for ensure_executable helper."""
-
-    def test_sets_execute_bits_on_regular_file(self, tmp_path):
-        # Create a non-executable file and confirm we add execute bits.
-        file_path = tmp_path / "copilot"
-        file_path.write_text("#!/bin/sh\necho ok\n", encoding="utf-8")
-        os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
-        assert not os.access(file_path, os.X_OK)
-
-        ensure_executable(str(file_path))
-
-        assert os.access(file_path, os.X_OK)
-
-    def test_skips_relative_path(self, tmp_path):
-        # Relative paths should be ignored to avoid mutating unknown locations.
-        file_path = tmp_path / "copilot"
-        file_path.write_text("echo ok\n", encoding="utf-8")
-        os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR)
-        original_mode = os.stat(file_path).st_mode
-
-        ensure_executable("copilot")
-
-        assert os.stat(file_path).st_mode == original_mode
-
-    def test_skips_when_already_executable(self, tmp_path):
-        # If the file is already executable, the mode should remain unchanged.
-        file_path = tmp_path / "copilot"
-        file_path.write_text("#!/bin/sh\necho ok\n", encoding="utf-8")
-        os.chmod(
-            file_path,
-            stat.S_IRUSR
-            | stat.S_IWUSR
-            | stat.S_IXUSR
-            | stat.S_IRGRP
-            | stat.S_IXGRP
-            | stat.S_IROTH
-            | stat.S_IXOTH,
-        )
-        original_mode = os.stat(file_path).st_mode
-
-        ensure_executable(str(file_path))
-
-        assert os.stat(file_path).st_mode == original_mode
 
 
 class TestRateLimitDetection:

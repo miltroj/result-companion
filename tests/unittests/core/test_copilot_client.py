@@ -1,11 +1,14 @@
 """Tests for shared Copilot client helpers."""
 
 import asyncio
+import os
+import stat
 
 import pytest
 
 from result_companion.core.copilot_client import (
     build_copilot_client_options,
+    ensure_executable,
     resolve_copilot_cli_path,
     start_copilot_client,
     stop_copilot_client,
@@ -68,6 +71,50 @@ class TestResolveCopilotCliPath:
             "cli_path": "copilot",
             "cli_url": "http://localhost:4141",
         }
+
+
+class TestEnsureExecutable:
+    """Tests for executable permission fix-up."""
+
+    def test_sets_execute_bits_on_regular_file(self, tmp_path):
+        file_path = tmp_path / "copilot"
+        file_path.write_text("#!/bin/sh\necho ok\n", encoding="utf-8")
+        os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
+
+        assert not os.access(file_path, os.X_OK)
+
+        ensure_executable(str(file_path))
+
+        assert os.access(file_path, os.X_OK)
+
+    def test_skips_relative_path(self, tmp_path):
+        file_path = tmp_path / "copilot"
+        file_path.write_text("echo ok\n", encoding="utf-8")
+        os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR)
+        original_mode = os.stat(file_path).st_mode
+
+        ensure_executable("copilot")
+
+        assert os.stat(file_path).st_mode == original_mode
+
+    def test_skips_when_already_executable(self, tmp_path):
+        file_path = tmp_path / "copilot"
+        file_path.write_text("#!/bin/sh\necho ok\n", encoding="utf-8")
+        os.chmod(
+            file_path,
+            stat.S_IRUSR
+            | stat.S_IWUSR
+            | stat.S_IXUSR
+            | stat.S_IRGRP
+            | stat.S_IXGRP
+            | stat.S_IROTH
+            | stat.S_IXOTH,
+        )
+        original_mode = os.stat(file_path).st_mode
+
+        ensure_executable(str(file_path))
+
+        assert os.stat(file_path).st_mode == original_mode
 
 
 class TestStartCopilotClient:
