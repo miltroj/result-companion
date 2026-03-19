@@ -2,6 +2,7 @@ version: 1.0
 
 review:
   model: "gpt-5-mini"
+  # model: "claude-sonnet-4.5"
   timeout: 300
   mcp_server_url: "https://api.enterprise.githubcopilot.com/mcp/readonly"
 
@@ -22,4 +23,7 @@ review:
       **why it caused the failure**
     - `## 💡 Suggested Fix` section with concrete code or steps
 
-    make sure to reduce boilerplate text and code to minimum.
+    Make sure to focus on the root cause and the suggested fix.
+    State the root cause in the first sentence and the suggested fix in the second sentence.
+    In case its not explicit what the root cause is state that it is not clear and suggest to investigate further.
+    Make sure to reduce boilerplate text and code to minimum.
