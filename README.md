@@ -57,12 +57,12 @@ result-companion review -s rc_summary.txt --repo owner/repo --pr 65
 ```mermaid
 sequenceDiagram
     participant tests as SystemTests
-    participant analyze as result-companionAnalyze
-    participant review as result-companionReview
+    participant analyze as result-companion Analyze
+    participant review as result-companion Review
     participant copilot as CopilotAgent
-    participant mcp as GitHubMCPReadOnly
-    participant gh as ghPrComment
-    participant pr as PullRequest
+    participant mcp as GitHubMCP
+    participant gh as gh Pr Comment
+    participant pr as Pull Request
 
     tests->>analyze: output.xml
     analyze->>review: rc_summary.txt
