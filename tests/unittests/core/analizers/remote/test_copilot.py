@@ -11,9 +11,9 @@ import pytest
 from result_companion.core.analizers.remote.copilot import (
     CopilotLLM,
     SessionPool,
-    ensure_executable,
     messages_to_prompt,
 )
+from result_companion.core.copilot_client import ensure_executable
 
 
 class TestMessagesToPrompt:
@@ -114,7 +114,7 @@ class TestCopilotLLM:
             TrackingClient,
         )
         monkeypatch.setattr(
-            "result_companion.core.analizers.remote.copilot.ensure_executable",
+            "result_companion.core.copilot_client.ensure_executable",
             fake_ensure_executable,
         )
         monkeypatch.setattr(
@@ -122,7 +122,7 @@ class TestCopilotLLM:
             fake_pool,
         )
         monkeypatch.setattr(
-            "result_companion.core.analizers.remote.copilot.shutil.which",
+            "result_companion.core.copilot_client.shutil.which",
             lambda _: "/tmp/copilot",
         )
 
@@ -155,7 +155,7 @@ class TestCopilotLLM:
             HangingClient,
         )
         monkeypatch.setattr(
-            "result_companion.core.analizers.remote.copilot.ensure_executable",
+            "result_companion.core.copilot_client.ensure_executable",
             lambda _: None,
         )
 
@@ -187,7 +187,7 @@ class TestCopilotLLM:
             UnauthClient,
         )
         monkeypatch.setattr(
-            "result_companion.core.analizers.remote.copilot.ensure_executable",
+            "result_companion.core.copilot_client.ensure_executable",
             lambda _: None,
         )
 
@@ -215,7 +215,7 @@ class TestCopilotLLM:
             CapturingClient,
         )
         monkeypatch.setattr(
-            "result_companion.core.analizers.remote.copilot.ensure_executable",
+            "result_companion.core.copilot_client.ensure_executable",
             lambda _: None,
         )
         monkeypatch.setattr(
@@ -224,7 +224,7 @@ class TestCopilotLLM:
         )
         monkeypatch.setenv("COPILOT_CLI_PATH", "copilot")
         monkeypatch.setattr(
-            "result_companion.core.analizers.remote.copilot.shutil.which",
+            "result_companion.core.copilot_client.shutil.which",
             lambda _: "/resolved/copilot",
         )
 
@@ -237,7 +237,7 @@ class TestCopilotLLM:
     async def test_ensure_started_raises_when_cli_missing(self, monkeypatch):
         handler = CopilotLLM()
         monkeypatch.setattr(
-            "result_companion.core.analizers.remote.copilot.shutil.which",
+            "result_companion.core.copilot_client.shutil.which",
             lambda _: None,
         )
         monkeypatch.setenv("COPILOT_CLI_PATH", "/missing/copilot")

@@ -17,6 +17,8 @@ from result_companion.entrypoints.cli.cli_app import (
 )
 
 existing_xml_path = Path(__file__).parent / "empty.xml"
+repo_root = Path(__file__).resolve().parents[4]
+failure_summary_path = repo_root / "failure.txt"
 IMPORT_PATH = "result_companion.entrypoints.cli.cli_app"
 
 
@@ -194,6 +196,63 @@ class TestAnalizeEntrypoint:
         assert "Log Level: " not in result.output
         mock_run.assert_called_once()
         assert mock_run.call_args.kwargs["quiet"] is True
+
+
+class TestReviewEntrypoint:
+    ENTRYPOINT = "review"
+
+    def setup_method(self):
+        self.runner = CliRunner()
+
+    def test_cli_passes_review_options_and_prints_comment(self):
+        mock_run = MagicMock(return_value="review body")
+
+        result = self.runner.invoke(
+            app,
+            [
+                self.ENTRYPOINT,
+                "-s",
+                str(failure_summary_path),
+                "--repo",
+                "owner/repo",
+                "--pr",
+                "65",
+                "--dry-run",
+                "--model",
+                "gpt-5",
+            ],
+            obj={"review": mock_run},
+        )
+
+        assert result.exit_code == 0
+        assert "review body" in result.output
+        mock_run.assert_called_once()
+        assert mock_run.call_args.kwargs["repo_name"] == "owner/repo"
+        assert mock_run.call_args.kwargs["pr_number"] == 65
+        assert (
+            mock_run.call_args.kwargs["failure_summary"]
+            == failure_summary_path.read_text()
+        )
+        assert mock_run.call_args.kwargs["dry_run"] is True
+        assert mock_run.call_args.kwargs["model"] == "gpt-5"
+
+    def test_cli_exits_with_error_when_review_fails(self):
+        result = self.runner.invoke(
+            app,
+            [
+                self.ENTRYPOINT,
+                "-s",
+                str(failure_summary_path),
+                "--repo",
+                "owner/repo",
+                "--pr",
+                "65",
+            ],
+            obj={"review": MagicMock(side_effect=RuntimeError("boom"))},
+        )
+
+        assert result.exit_code == 1
+        assert "Review failed: boom" in result.output
 
 
 class TestInstallOllamaModel:

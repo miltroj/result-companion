@@ -211,6 +211,9 @@ class ReviewPromptModel(BaseModel):
     )
     model: str = Field(default="gpt-5-mini", description="Copilot model to use.")
     timeout: int = Field(default=300, ge=10, description="Agent timeout in seconds.")
+    startup_timeout: int = Field(
+        default=30, ge=1, description="Copilot CLI startup timeout in seconds."
+    )
     mcp_server_url: str = Field(
         default="https://api.enterprise.githubcopilot.com/mcp/readonly",
         description="GitHub MCP server URL for PR access.",

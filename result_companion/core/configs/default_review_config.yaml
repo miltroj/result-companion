@@ -4,6 +4,7 @@ review:
   model: "gpt-5-mini"
   # model: "claude-sonnet-4.5"
   timeout: 300
+  startup_timeout: 30
   mcp_server_url: "https://api.enterprise.githubcopilot.com/mcp/readonly"
 
   review_prompt: |

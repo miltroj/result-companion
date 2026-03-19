@@ -3,10 +3,16 @@
 import asyncio
 import subprocess
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from copilot import CopilotClient, PermissionHandler
 
+from result_companion.core.copilot_client import (
+    start_copilot_client,
+    stop_copilot_client,
+)
 from result_companion.core.parsers.config import (
     ReviewConfigModel,
     ReviewPromptModel,
@@ -44,7 +50,7 @@ def post_comment(
     repo_name: str,
     pr_number: int,
     comment_body: str,
-    runner: type = subprocess,
+    runner: Any = subprocess,
 ) -> None:
     """Posts a comment to a GitHub PR via gh CLI.
 
@@ -76,6 +82,33 @@ def post_comment(
         logger.info("Comment posted successfully.")
     finally:
         Path(body_file).unlink(missing_ok=True)
+
+
+def ensure_gh_auth(runner: Any = subprocess) -> None:
+    """Validates that the GitHub CLI is installed and authenticated.
+
+    Args:
+        runner: Subprocess-like module used for command execution.
+
+    Raises:
+        RuntimeError: If `gh` is missing or not authenticated.
+    """
+    try:
+        result = runner.run(
+            ["gh", "auth", "status"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            "GitHub CLI is not installed. Install `gh` before posting review comments."
+        ) from exc
+
+    if result.returncode == 0:
+        return
+
+    raise RuntimeError("GitHub CLI is not authenticated. Run: gh auth login")
 
 
 async def _generate_review_comment(
@@ -116,25 +149,29 @@ async def _generate_review_comment(
     logger.info(f"Starting Copilot review agent (model={model})...")
 
     client = CopilotClient()
-    await client.start()
+    await start_copilot_client(
+        client,
+        startup_timeout=config.review.startup_timeout,
+    )
     try:
-        session = await client.create_session(
-            {
-                "model": model,
-                "on_permission_request": PermissionHandler.approve_all,
-                "hooks": {
-                    "on_pre_tool_use": on_pre_tool_use,
-                    "on_post_tool_use": on_post_tool_use,
-                },
-                "mcp_servers": {
-                    "github": {
-                        "type": "sse",
-                        "url": config.review.mcp_server_url,
-                        "tools": ["*"],
-                    },
+        session_config: dict[str, Any] = {
+            "model": model,
+            "on_permission_request": PermissionHandler.approve_all,
+            "hooks": {
+                "on_pre_tool_use": on_pre_tool_use,
+                "on_post_tool_use": on_post_tool_use,
+            },
+        }
+        if config.review.mcp_server_url:
+            session_config["mcp_servers"] = {
+                "github": {
+                    "type": "sse",
+                    "url": config.review.mcp_server_url,
+                    "tools": ["*"],
                 },
             }
-        )
+
+        session = await client.create_session(session_config)
         logger.info(
             f"Copilot session created. Sending prompt" f" ({len(prompt)} chars)..."
         )
@@ -144,7 +181,7 @@ async def _generate_review_comment(
             return response.data.content
         return ""
     finally:
-        await client.stop()
+        await stop_copilot_client(client)
 
 
 def run_review(
@@ -154,6 +191,9 @@ def run_review(
     config_path: Path | None = None,
     dry_run: bool = True,
     model: str | None = None,
+    comment_runner: Callable[..., Any] | None = None,
+    gh_runner: Any = subprocess,
+    comment_poster: Callable[..., None] = post_comment,
 ) -> str:
     """Sync entry point for PR review.
 
@@ -164,6 +204,9 @@ def run_review(
         config_path: Optional user config YAML override.
         dry_run: If True, prints comment instead of posting to PR.
         model: Override model from config.
+        comment_runner: Injectable comment generator for tests.
+        gh_runner: Injectable subprocess-like module for gh checks.
+        comment_poster: Injectable PR comment poster for tests.
 
     Returns:
         Generated review comment text.
@@ -176,16 +219,22 @@ def run_review(
     if model:
         config.review.model = model
 
+    if not dry_run:
+        ensure_gh_auth(gh_runner)
+
+    generator = comment_runner or _generate_review_comment
     comment = asyncio.run(
-        _generate_review_comment(
+        generator(
             repo_name=repo_name,
             pr_number=pr_number,
             failure_summary=failure_summary,
             config=config,
         )
     )
+    if not comment.strip():
+        raise RuntimeError("Copilot review returned an empty comment.")
 
     if not dry_run and comment:
-        post_comment(repo_name, pr_number, comment)
+        comment_poster(repo_name, pr_number, comment, runner=gh_runner)
 
     return comment
