@@ -17,8 +17,6 @@ from result_companion.entrypoints.cli.cli_app import (
 )
 
 existing_xml_path = Path(__file__).parent / "empty.xml"
-repo_root = Path(__file__).resolve().parents[4]
-failure_summary_path = repo_root / "failure.txt"
 IMPORT_PATH = "result_companion.entrypoints.cli.cli_app"
 
 
@@ -204,7 +202,9 @@ class TestReviewEntrypoint:
     def setup_method(self):
         self.runner = CliRunner()
 
-    def test_cli_passes_review_options_and_prints_comment(self):
+    def test_cli_passes_review_options_and_prints_comment(self, tmp_path):
+        failure_summary_path = tmp_path / "failure.txt"
+        failure_summary_path.write_text("Test failure summary", encoding="utf-8")
         mock_run = MagicMock(return_value="review body")
 
         result = self.runner.invoke(
@@ -229,14 +229,13 @@ class TestReviewEntrypoint:
         mock_run.assert_called_once()
         assert mock_run.call_args.kwargs["repo_name"] == "owner/repo"
         assert mock_run.call_args.kwargs["pr_number"] == 65
-        assert (
-            mock_run.call_args.kwargs["failure_summary"]
-            == failure_summary_path.read_text()
-        )
+        assert mock_run.call_args.kwargs["failure_summary"] == "Test failure summary"
         assert mock_run.call_args.kwargs["dry_run"] is True
         assert mock_run.call_args.kwargs["model"] == "gpt-5"
 
-    def test_cli_exits_with_error_when_review_fails(self):
+    def test_cli_exits_with_error_when_review_fails(self, tmp_path):
+        failure_summary_path = tmp_path / "failure.txt"
+        failure_summary_path.write_text("Test failure summary", encoding="utf-8")
         result = self.runner.invoke(
             app,
             [
