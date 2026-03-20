@@ -2,7 +2,6 @@ version: 1.0
 
 review:
   model: "gpt-5-mini"
-  # model: "claude-sonnet-4.5"
   timeout: 300
   startup_timeout: 30
   mcp_server_url: "https://api.enterprise.githubcopilot.com/mcp/readonly"
@@ -18,13 +17,20 @@ review:
     the test failures. Output ONLY the review comment body in
     GitHub Markdown. Do NOT run any shell commands to post comments.
 
-    Format:
-    - `## 🔍 result-companion: Test Failure Analysis` heading
-    - Bullet points per finding: **file**, **line**,
-      **why it caused the failure**
-    - `## 💡 Suggested Fix` section with concrete code or steps
+    Before writing the comment, use MCP to fetch the PR head commit SHA
+    so you can construct accurate file links.
 
-    Make sure to focus on the root cause and the suggested fix.
-    State the root cause in the first sentence and the suggested fix in the second sentence.
-    In case its not explicit what the root cause is state that it is not clear and suggest to investigate further.
-    Make sure to reduce boilerplate text and code to minimum.
+    Format the comment exactly as follows:
+
+    ## 🔍 result-companion: Test Failure Analysis
+
+    - **Root cause:** <one sentence. If unclear, say "unclear — investigate further">
+    - **Location:** [`path/to/file:35`](https://github.com/{repo_name}/blob/<head_sha>/path/to/file#L35) — <why this change caused the failure>
+
+    ## 💡 Suggested Fix
+
+    <concrete code snippet or numbered steps. No filler sentences.>
+
+    Rules:
+    - Every file reference must be a clickable GitHub blob link using the PR head SHA.
+    - No boilerplate. Each sentence must add information.
