@@ -735,3 +735,99 @@ class TestSessionPool:
         await pool.close()
 
         assert pool._created == 0
+
+
+class TestEnsureStartedEarlyReturn:
+    """Tests for _ensure_started early-return guard."""
+
+    @pytest.mark.asyncio
+    async def test_skips_initialization_when_already_started(self):
+        handler = CopilotLLM()
+        handler._started = True
+        handler._client = object()
+        handler._pool = object()
+
+        await handler._ensure_started("gpt-4.1")
+
+        assert handler._started is True
+
+    @pytest.mark.asyncio
+    async def test_second_call_is_noop(self, monkeypatch):
+        start_count = 0
+
+        class CountingClient(FakeStartableClient):
+            async def start(self):
+                nonlocal start_count
+                start_count += 1
+
+        monkeypatch.setattr(
+            "result_companion.core.analizers.remote.copilot.CopilotClient",
+            CountingClient,
+        )
+        monkeypatch.setattr(
+            "result_companion.core.copilot_client.ensure_executable", lambda _: None
+        )
+        monkeypatch.setattr(
+            "result_companion.core.copilot_client.shutil.which",
+            lambda _: "/bin/copilot",
+        )
+        monkeypatch.setattr(
+            "result_companion.core.analizers.remote.copilot.SessionPool",
+            lambda *a: object(),
+        )
+
+        handler = CopilotLLM(cli_path="/bin/copilot")
+        await handler._ensure_started("gpt-4.1")
+        await handler._ensure_started("gpt-4.1")
+
+        assert start_count == 1
+
+
+class TestCheckAuth:
+    """Tests for _check_auth delegation."""
+
+    @pytest.mark.asyncio
+    async def test_passes_when_authenticated(self):
+        client = FakeStartableClient()
+        handler = CopilotLLM()
+
+        await handler._check_auth(client)
+
+    @pytest.mark.asyncio
+    async def test_raises_when_not_authenticated(self):
+        class UnauthClient:
+            async def get_auth_status(self):
+                return type("R", (), {"isAuthenticated": False, "login": None})()
+
+        handler = CopilotLLM()
+        with pytest.raises(RuntimeError, match="not authenticated"):
+            await handler._check_auth(UnauthClient())
+
+
+class TestResolveCliPath:
+    """Tests for _resolve_cli_path delegation."""
+
+    def test_returns_none_when_cli_url_set(self):
+        handler = CopilotLLM(cli_url="http://localhost:8080")
+        assert handler._resolve_cli_path() is None
+
+    def test_returns_none_when_no_path_or_url(self, monkeypatch):
+        monkeypatch.delenv("COPILOT_CLI_PATH", raising=False)
+        handler = CopilotLLM()
+        assert handler._resolve_cli_path() is None
+
+    def test_resolves_explicit_cli_path(self, monkeypatch):
+        monkeypatch.setattr(
+            "result_companion.core.copilot_client.shutil.which",
+            lambda _: "/usr/bin/copilot",
+        )
+        handler = CopilotLLM(cli_path="copilot")
+        assert handler._resolve_cli_path() == "/usr/bin/copilot"
+
+    def test_raises_when_cli_path_not_found(self, monkeypatch):
+        monkeypatch.setattr(
+            "result_companion.core.copilot_client.shutil.which", lambda _: None
+        )
+        handler = CopilotLLM(cli_path="/nonexistent/copilot")
+        with pytest.raises(FileNotFoundError):
+            handler._resolve_cli_path()
