@@ -20,18 +20,18 @@ The read/write split is intentional:
 
 You need both CLIs installed and authenticated:
 
+macOS:
+
 ```bash
 brew install gh
 brew install copilot-cli
-
-gh auth login
-copilot -i "/login"
 ```
 
-If `copilot` is installed outside `PATH`, set:
+Linux — see [gh installation](https://github.com/cli/cli/blob/trunk/docs/install_linux.md) and [copilot-cli releases](https://github.com/github/gh-copilot/releases).
 
 ```bash
-export COPILOT_CLI_PATH="/absolute/path/to/copilot"
+gh auth login
+copilot -i "/login"
 ```
 
 ## Local Usage
