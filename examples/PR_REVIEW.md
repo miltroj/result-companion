@@ -1,8 +1,7 @@
 # PR Review Guide
 
 `result-companion review` turns the text summary from `analyze` into a PR review comment.
-It is intentionally limited to the GitHub Copilot flow. It does not work with Ollama,
-OpenAI, or other LiteLLM providers.
+Currently limited to the GitHub Copilot flow (lowest-friction native agent integration). Support for other providers may be added in future versions.
 
 ## What It Does
 
