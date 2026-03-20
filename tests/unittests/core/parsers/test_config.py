@@ -486,6 +486,57 @@ def test_load_config_with_user_override(tmp_path):
     assert config.llm_factory.model == "openai/gpt-4"
 
 
+# --- ConfigLoader.load_as ---
+
+
+class SimpleModel(ReviewConfigModel):
+    pass
+
+
+def make_default_yaml(tmp_path: Path, model: str = "gpt-default") -> Path:
+    path = tmp_path / "default.yaml"
+    path.write_text(
+        f"version: 1.0\nreview:\n  review_prompt: 'Default prompt.'\n  model: {model}\n"
+    )
+    return path
+
+
+def test_load_as_returns_defaults_when_no_user_config(tmp_path):
+    default = make_default_yaml(tmp_path)
+    config = ConfigLoader(default_config_file=default).load_as(ReviewConfigModel)
+    assert config.review.model == "gpt-default"
+    assert config.review.review_prompt == "Default prompt."
+
+
+def test_load_as_merges_user_dict_key(tmp_path):
+    default = make_default_yaml(tmp_path)
+    user = tmp_path / "user.yaml"
+    user.write_text("review:\n  model: overridden-model\n")
+    config = ConfigLoader(default_config_file=default).load_as(ReviewConfigModel, user)
+    assert config.review.model == "overridden-model"
+    assert config.review.review_prompt == "Default prompt."
+
+
+def test_load_as_overrides_scalar_key(tmp_path):
+    default = make_default_yaml(tmp_path)
+    user = tmp_path / "user.yaml"
+    user.write_text("version: 9.9\n")
+    config = ConfigLoader(default_config_file=default).load_as(ReviewConfigModel, user)
+    assert config.version == 9.9
+    assert config.review.model == "gpt-default"
+
+
+def test_load_as_expands_env_vars(tmp_path):
+    default = make_default_yaml(tmp_path)
+    user = tmp_path / "user.yaml"
+    user.write_text("review:\n  review_prompt: 'Hello ${LOAD_AS_TEST_VAR}.'\n")
+    with mock.patch.dict(os.environ, {"LOAD_AS_TEST_VAR": "world"}):
+        config = ConfigLoader(default_config_file=default).load_as(
+            ReviewConfigModel, user
+        )
+    assert config.review.review_prompt == "Hello world."
+
+
 # --- load_review_config ---
 
 

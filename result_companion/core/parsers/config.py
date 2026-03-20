@@ -2,11 +2,14 @@ import os
 import re
 from enum import Enum
 from pathlib import Path
+from typing import TypeVar
 
 import yaml
 from pydantic import BaseModel, Field, ValidationError, model_serializer
 
 from result_companion.core.utils.logging_config import logger
+
+T = TypeVar("T", bound=BaseModel)
 
 
 class TokenizerTypes(str, Enum):
@@ -202,6 +205,30 @@ class ConfigLoader:
             raise
         return validated_config
 
+    def load_as(self, model_class: type[T], user_config_file: Path | None = None) -> T:
+        """Loads and merges config into any Pydantic model.
+
+        Args:
+            model_class: Pydantic model to validate against.
+            user_config_file: Optional user YAML to merge with defaults.
+
+        Returns:
+            Validated instance of model_class.
+        """
+        raw = self._process_env_vars(self._read_yaml_file(self.default_config_file))
+        if user_config_file:
+            user = self._process_env_vars(self._read_yaml_file(user_config_file))
+            for key, value in user.items():
+                if (
+                    key in raw
+                    and isinstance(raw[key], dict)
+                    and isinstance(value, dict)
+                ):
+                    raw[key] = {**raw[key], **value}
+                else:
+                    raw[key] = value
+        return model_class(**raw)
+
 
 class ReviewPromptModel(BaseModel):
     """Review prompt configuration."""
@@ -233,16 +260,14 @@ def _configs_dir() -> str:
 
 def load_config(config_path: Path | None = None) -> DefaultConfigModel:
     config_file_path = os.path.join(_configs_dir(), "default_config.yaml")
-
+    # TODO: unify with load_review_config
     config_loader = ConfigLoader(default_config_file=config_file_path)
     config = config_loader.load_config(user_config_file=config_path)
     logger.debug(f"{config=}")
     return config
 
 
-def load_review_config(
-    config_path: Path | None = None,
-) -> ReviewConfigModel:
+def load_review_config(config_path: Path | None = None) -> ReviewConfigModel:
     """Loads review configuration with defaults and optional user overrides.
 
     Args:
@@ -252,14 +277,6 @@ def load_review_config(
         Validated ReviewConfigModel.
     """
     default_path = os.path.join(_configs_dir(), "default_review_config.yaml")
-    config_loader = ConfigLoader(default_config_file=default_path)
-    raw = config_loader._read_yaml_file(Path(default_path))
-    raw = config_loader._process_env_vars(raw)
-
-    if config_path:
-        user = config_loader._read_yaml_file(config_path)
-        user = config_loader._process_env_vars(user)
-        if "review" in user:
-            raw["review"] = {**raw.get("review", {}), **user["review"]}
-
-    return ReviewConfigModel(**raw)
+    return ConfigLoader(default_config_file=default_path).load_as(
+        ReviewConfigModel, config_path
+    )
