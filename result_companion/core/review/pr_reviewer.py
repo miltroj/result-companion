@@ -189,7 +189,7 @@ def run_review(
     pr_number: int,
     failure_summary: str,
     config_path: Path | None = None,
-    dry_run: bool = True,
+    preview: bool = True,
     model: str | None = None,
     comment_runner: Callable[..., Any] | None = None,
     gh_runner: Any = subprocess,
@@ -202,7 +202,7 @@ def run_review(
         pr_number: Pull request number to review.
         failure_summary: Output from result-companion analyze.
         config_path: Optional user config YAML override.
-        dry_run: If True, prints comment instead of posting to PR.
+        preview: If True, prints comment instead of posting to PR.
         model: Override model from config.
         comment_runner: Injectable comment generator for tests.
         gh_runner: Injectable subprocess-like module for gh checks.
@@ -219,7 +219,7 @@ def run_review(
     if model:
         config.review.model = model
 
-    if not dry_run:
+    if not preview:
         ensure_gh_auth(gh_runner)
 
     generator = comment_runner or _generate_review_comment
@@ -234,7 +234,7 @@ def run_review(
     if not comment.strip():
         raise RuntimeError("Copilot review returned an empty comment.")
 
-    if not dry_run and comment:
+    if not preview and comment:
         comment_poster(repo_name, pr_number, comment, runner=gh_runner)
 
     return comment

@@ -217,7 +217,7 @@ class TestReviewEntrypoint:
                 "owner/repo",
                 "--pr",
                 "65",
-                "--dry-run",
+                "--preview",
                 "--model",
                 "gpt-5",
             ],
@@ -230,7 +230,7 @@ class TestReviewEntrypoint:
         assert mock_run.call_args.kwargs["repo_name"] == "owner/repo"
         assert mock_run.call_args.kwargs["pr_number"] == 65
         assert mock_run.call_args.kwargs["failure_summary"] == "Test failure summary"
-        assert mock_run.call_args.kwargs["dry_run"] is True
+        assert mock_run.call_args.kwargs["preview"] is True
         assert mock_run.call_args.kwargs["model"] == "gpt-5"
 
     def test_cli_exits_with_error_when_review_fails(self, tmp_path):

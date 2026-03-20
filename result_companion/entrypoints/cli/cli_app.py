@@ -221,10 +221,10 @@ def review(
         readable=True,
         help="Review config YAML (overrides defaults)",
     ),
-    dry_run: bool = typer.Option(
+    preview: bool = typer.Option(
         False,
-        "--dry-run",
-        help="Print review comment instead of posting to PR",
+        "--preview",
+        help="Print review comment instead of posting to PR (Copilot still runs)",
     ),
     log_level: LogLevels = typer.Option(
         LogLevels.INFO,
@@ -265,7 +265,7 @@ def review(
             pr_number=pr,
             failure_summary=failure_summary,
             config_path=config,
-            dry_run=dry_run,
+            preview=preview,
             model=model,
         )
         if result:

@@ -45,7 +45,7 @@ result-companion review \
   -s rc_summary.txt \
   --repo owner/repo \
   --pr 65 \
-  --dry-run
+  --preview
 
 # 3. Post the review comment to the PR
 result-companion review \
@@ -54,7 +54,7 @@ result-companion review \
   --pr 65
 ```
 
-`--dry-run` still calls Copilot. It only skips the `gh pr comment` step.
+`--preview` still calls Copilot. It only skips the `gh pr comment` step.
 
 If the summary contains no analyzed failures, review is skipped.
 

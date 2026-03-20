@@ -110,14 +110,14 @@ class TestRunReview:
                 repo_name="owner/repo",
                 pr_number=5,
                 failure_summary="real failure",
-                dry_run=False,
+                preview=False,
                 comment_runner=fake_comment_runner,
                 gh_runner=FakeGhRunner(returncode=1),
             )
 
         assert called["generated"] is False
 
-    def test_skips_gh_check_during_dry_run(self, monkeypatch):
+    def test_skips_gh_check_during_preview(self, monkeypatch):
         async def fake_comment_runner(**kwargs) -> str:
             return "review body"
 
@@ -130,14 +130,14 @@ class TestRunReview:
             repo_name="owner/repo",
             pr_number=5,
             failure_summary="real failure",
-            dry_run=True,
+            preview=True,
             comment_runner=fake_comment_runner,
             gh_runner=FakeGhRunner(returncode=1),
         )
 
         assert result == "review body"
 
-    def test_posts_comment_when_not_dry_run(self, monkeypatch):
+    def test_posts_comment_when_not_preview(self, monkeypatch):
         posted = {}
 
         async def fake_comment_runner(**kwargs) -> str:
@@ -164,7 +164,7 @@ class TestRunReview:
             repo_name="owner/repo",
             pr_number=5,
             failure_summary="real failure",
-            dry_run=False,
+            preview=False,
             comment_runner=fake_comment_runner,
             gh_runner=gh_runner,
             comment_poster=fake_comment_poster,
@@ -190,6 +190,6 @@ class TestRunReview:
                 repo_name="owner/repo",
                 pr_number=5,
                 failure_summary="real failure",
-                dry_run=True,
+                preview=True,
                 comment_runner=fake_comment_runner,
             )
