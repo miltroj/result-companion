@@ -1,8 +1,6 @@
 """Tests for Copilot LiteLLM adapter."""
 
 import asyncio
-import os
-import stat
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -11,7 +9,6 @@ import pytest
 from result_companion.core.analizers.remote.copilot import (
     CopilotLLM,
     SessionPool,
-    ensure_executable,
     messages_to_prompt,
 )
 
@@ -114,7 +111,7 @@ class TestCopilotLLM:
             TrackingClient,
         )
         monkeypatch.setattr(
-            "result_companion.core.analizers.remote.copilot.ensure_executable",
+            "result_companion.core.copilot_client.ensure_executable",
             fake_ensure_executable,
         )
         monkeypatch.setattr(
@@ -122,7 +119,7 @@ class TestCopilotLLM:
             fake_pool,
         )
         monkeypatch.setattr(
-            "result_companion.core.analizers.remote.copilot.shutil.which",
+            "result_companion.core.copilot_client.shutil.which",
             lambda _: "/tmp/copilot",
         )
 
@@ -155,7 +152,7 @@ class TestCopilotLLM:
             HangingClient,
         )
         monkeypatch.setattr(
-            "result_companion.core.analizers.remote.copilot.ensure_executable",
+            "result_companion.core.copilot_client.ensure_executable",
             lambda _: None,
         )
 
@@ -187,7 +184,7 @@ class TestCopilotLLM:
             UnauthClient,
         )
         monkeypatch.setattr(
-            "result_companion.core.analizers.remote.copilot.ensure_executable",
+            "result_companion.core.copilot_client.ensure_executable",
             lambda _: None,
         )
 
@@ -215,7 +212,7 @@ class TestCopilotLLM:
             CapturingClient,
         )
         monkeypatch.setattr(
-            "result_companion.core.analizers.remote.copilot.ensure_executable",
+            "result_companion.core.copilot_client.ensure_executable",
             lambda _: None,
         )
         monkeypatch.setattr(
@@ -224,7 +221,7 @@ class TestCopilotLLM:
         )
         monkeypatch.setenv("COPILOT_CLI_PATH", "copilot")
         monkeypatch.setattr(
-            "result_companion.core.analizers.remote.copilot.shutil.which",
+            "result_companion.core.copilot_client.shutil.which",
             lambda _: "/resolved/copilot",
         )
 
@@ -237,7 +234,7 @@ class TestCopilotLLM:
     async def test_ensure_started_raises_when_cli_missing(self, monkeypatch):
         handler = CopilotLLM()
         monkeypatch.setattr(
-            "result_companion.core.analizers.remote.copilot.shutil.which",
+            "result_companion.core.copilot_client.shutil.which",
             lambda _: None,
         )
         monkeypatch.setenv("COPILOT_CLI_PATH", "/missing/copilot")
@@ -337,52 +334,6 @@ class TestCopilotLLM:
         result = handler.completion("gpt-4.1", [{"role": "user", "content": "hi"}])
 
         assert result is expected
-
-
-class TestEnsureExecutable:
-    """Tests for ensure_executable helper."""
-
-    def test_sets_execute_bits_on_regular_file(self, tmp_path):
-        # Create a non-executable file and confirm we add execute bits.
-        file_path = tmp_path / "copilot"
-        file_path.write_text("#!/bin/sh\necho ok\n", encoding="utf-8")
-        os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
-        assert not os.access(file_path, os.X_OK)
-
-        ensure_executable(str(file_path))
-
-        assert os.access(file_path, os.X_OK)
-
-    def test_skips_relative_path(self, tmp_path):
-        # Relative paths should be ignored to avoid mutating unknown locations.
-        file_path = tmp_path / "copilot"
-        file_path.write_text("echo ok\n", encoding="utf-8")
-        os.chmod(file_path, stat.S_IRUSR | stat.S_IWUSR)
-        original_mode = os.stat(file_path).st_mode
-
-        ensure_executable("copilot")
-
-        assert os.stat(file_path).st_mode == original_mode
-
-    def test_skips_when_already_executable(self, tmp_path):
-        # If the file is already executable, the mode should remain unchanged.
-        file_path = tmp_path / "copilot"
-        file_path.write_text("#!/bin/sh\necho ok\n", encoding="utf-8")
-        os.chmod(
-            file_path,
-            stat.S_IRUSR
-            | stat.S_IWUSR
-            | stat.S_IXUSR
-            | stat.S_IRGRP
-            | stat.S_IXGRP
-            | stat.S_IROTH
-            | stat.S_IXOTH,
-        )
-        original_mode = os.stat(file_path).st_mode
-
-        ensure_executable(str(file_path))
-
-        assert os.stat(file_path).st_mode == original_mode
 
 
 class TestRateLimitDetection:
@@ -784,3 +735,37 @@ class TestSessionPool:
         await pool.close()
 
         assert pool._created == 0
+
+
+class TestEnsureStartedEarlyReturn:
+    """Tests for _ensure_started early-return guard."""
+
+    @pytest.mark.asyncio
+    async def test_skips_initialization_when_already_started(self):
+        handler = CopilotLLM()
+        handler._started = True
+        handler._client = object()
+        handler._pool = object()
+
+        await handler._ensure_started("gpt-4.1")
+
+        assert handler._started is True
+
+
+class TestCheckAuth:
+    """Tests for _check_auth delegation."""
+
+    @pytest.mark.asyncio
+    async def test_passes_when_authenticated(self):
+        client = FakeStartableClient()
+        handler = CopilotLLM()
+
+        await handler._check_auth(client)
+
+
+class TestResolveCliPath:
+    """Tests for _resolve_cli_path delegation."""
+
+    def test_returns_none_when_cli_url_set(self):
+        handler = CopilotLLM(cli_url="http://localhost:8080")
+        assert handler._resolve_cli_path() is None

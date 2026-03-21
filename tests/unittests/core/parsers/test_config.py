@@ -12,7 +12,10 @@ from result_companion.core.parsers.config import (
     ConfigLoader,
     DefaultConfigModel,
     LLMFactoryModel,
+    ReviewConfigModel,
     TokenizerModel,
+    load_config,
+    load_review_config,
 )
 
 prompt_template = {"prompt_template": "{question} {cotext}"}
@@ -432,3 +435,141 @@ def test_user_config_can_override_chunking_prompts(mocker):
         config.llm_config.chunking.final_synthesis_prompt
         == "Custom synthesize: {summary}"
     )
+
+
+# --- ReviewConfigModel ---
+
+
+def test_review_config_model_valid():
+    config = ReviewConfigModel(
+        version=1.0,
+        review={"review_prompt": "Analyze PR #{pr_number} failures."},
+    )
+    assert config.version == 1.0
+    assert config.review.review_prompt == "Analyze PR #{pr_number} failures."
+
+
+def test_review_config_model_uses_defaults():
+    config = ReviewConfigModel(
+        version=2.0,
+        review={"review_prompt": "Review this PR please."},
+    )
+    assert config.review.model == "gpt-5-mini"
+    assert config.review.timeout == 300
+    assert config.review.startup_timeout == 30
+    assert "githubcopilot.com" in config.review.mcp_server_url
+
+
+def test_review_config_model_missing_review_raises():
+    with pytest.raises(ValidationError):
+        ReviewConfigModel(version=1.0)
+
+
+def test_review_config_model_short_prompt_raises():
+    with pytest.raises(ValidationError):
+        ReviewConfigModel(version=1.0, review={"review_prompt": "Hi"})
+
+
+# --- load_config ---
+
+
+def test_load_config_returns_default_config():
+    config = load_config()
+    assert isinstance(config, DefaultConfigModel)
+    assert config.version >= 1.0
+
+
+def test_load_config_with_user_override(tmp_path):
+    user_yaml = tmp_path / "user.yaml"
+    user_yaml.write_text("llm_factory:\n  model: openai/gpt-4\n  parameters: {}\n")
+    config = load_config(config_path=user_yaml)
+    assert config.llm_factory.model == "openai/gpt-4"
+
+
+# --- ConfigLoader.load_as ---
+
+
+class SimpleModel(ReviewConfigModel):
+    pass
+
+
+def make_default_yaml(tmp_path: Path, model: str = "gpt-default") -> Path:
+    path = tmp_path / "default.yaml"
+    path.write_text(
+        f"version: 1.0\nreview:\n  review_prompt: 'Default prompt.'\n  model: {model}\n"
+    )
+    return path
+
+
+def test_load_as_returns_defaults_when_no_user_config(tmp_path):
+    default = make_default_yaml(tmp_path)
+    config = ConfigLoader(default_config_file=default).load_as(ReviewConfigModel)
+    assert config.review.model == "gpt-default"
+    assert config.review.review_prompt == "Default prompt."
+
+
+def test_load_as_merges_user_dict_key(tmp_path):
+    default = make_default_yaml(tmp_path)
+    user = tmp_path / "user.yaml"
+    user.write_text("review:\n  model: overridden-model\n")
+    config = ConfigLoader(default_config_file=default).load_as(ReviewConfigModel, user)
+    assert config.review.model == "overridden-model"
+    assert config.review.review_prompt == "Default prompt."
+
+
+def test_load_as_overrides_scalar_key(tmp_path):
+    default = make_default_yaml(tmp_path)
+    user = tmp_path / "user.yaml"
+    user.write_text("version: 9.9\n")
+    config = ConfigLoader(default_config_file=default).load_as(ReviewConfigModel, user)
+    assert config.version == 9.9
+    assert config.review.model == "gpt-default"
+
+
+def test_load_as_expands_env_vars(tmp_path):
+    default = make_default_yaml(tmp_path)
+    user = tmp_path / "user.yaml"
+    user.write_text("review:\n  review_prompt: 'Hello ${LOAD_AS_TEST_VAR}.'\n")
+    with mock.patch.dict(os.environ, {"LOAD_AS_TEST_VAR": "world"}):
+        config = ConfigLoader(default_config_file=default).load_as(
+            ReviewConfigModel, user
+        )
+    assert config.review.review_prompt == "Hello world."
+
+
+# --- load_review_config ---
+
+
+def test_load_review_config_returns_defaults():
+    config = load_review_config()
+    assert isinstance(config, ReviewConfigModel)
+    assert config.version >= 1.0
+    assert len(config.review.review_prompt) > 5
+
+
+def test_load_review_config_with_user_override(tmp_path):
+    user_yaml = tmp_path / "review_user.yaml"
+    user_yaml.write_text(
+        "review:\n  review_prompt: 'Custom review prompt for PR.'\n  model: claude-sonnet-4\n"
+    )
+    config = load_review_config(config_path=user_yaml)
+    assert config.review.review_prompt == "Custom review prompt for PR."
+    assert config.review.model == "claude-sonnet-4"
+    assert config.review.timeout == 300
+
+
+def test_load_review_config_user_without_review_key_keeps_defaults(tmp_path):
+    user_yaml = tmp_path / "no_review.yaml"
+    user_yaml.write_text("version: 2.0\n")
+    config = load_review_config(config_path=user_yaml)
+    assert config.review.model == "gpt-5-mini"
+
+
+def test_load_review_config_env_var_expansion(tmp_path):
+    user_yaml = tmp_path / "env_review.yaml"
+    user_yaml.write_text(
+        "review:\n  review_prompt: 'Prompt with ${RC_TEST_VAR} inside.'\n"
+    )
+    with mock.patch.dict(os.environ, {"RC_TEST_VAR": "expanded_value"}):
+        config = load_review_config(config_path=user_yaml)
+    assert "expanded_value" in config.review.review_prompt

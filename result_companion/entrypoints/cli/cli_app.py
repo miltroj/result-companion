@@ -188,6 +188,99 @@ def analyze(
     )
 
 
+@app.command()
+def review(
+    summary: Path = typer.Option(
+        ...,
+        "-s",
+        "--summary",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
+        help="Text summary file from 'analyze --text-report'",
+    ),
+    repo: str = typer.Option(
+        ...,
+        "--repo",
+        envvar="GITHUB_REPOSITORY",
+        help="GitHub repo (owner/repo). Defaults to GITHUB_REPOSITORY",
+    ),
+    pr: int = typer.Option(
+        ...,
+        "--pr",
+        help="Pull request number",
+    ),
+    config: Optional[Path] = typer.Option(
+        None,
+        "-c",
+        "--config",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
+        help="Review config YAML (overrides defaults)",
+    ),
+    preview: bool = typer.Option(
+        False,
+        "--preview",
+        help="Print review comment instead of posting to PR (Copilot still runs)",
+    ),
+    notify_on_pass: bool = typer.Option(
+        False,
+        "--notify-on-pass",
+        help="Post a short all-clear comment when no test failures are found",
+    ),
+    log_level: LogLevels = typer.Option(
+        LogLevels.INFO,
+        "-l",
+        "--log-level",
+        help="Log level verbosity",
+        case_sensitive=True,
+    ),
+    quiet: bool = typer.Option(
+        False,
+        "-q",
+        "--quiet",
+        help="Suppress logs/progress output",
+    ),
+    model: Optional[str] = typer.Option(
+        None,
+        "--model",
+        help="Override Copilot model from config",
+    ),
+):
+    """Post AI test failure analysis as a PR comment."""
+    from result_companion.core.utils.logging_config import set_global_log_level
+
+    resolved_log_level = "ERROR" if quiet else str(log_level)
+    set_global_log_level(resolved_log_level)
+
+    ctx = get_current_context()
+    run = ctx.obj.get("review") if ctx.obj else None
+    if not run:
+        from result_companion.core.review.pr_reviewer import run_review
+
+        run = run_review
+
+    failure_summary = summary.read_text()
+    try:
+        result = run(
+            repo_name=repo,
+            pr_number=pr,
+            failure_summary=failure_summary,
+            config_path=config,
+            preview=preview,
+            notify_on_pass=notify_on_pass,
+            model=model,
+        )
+        if result:
+            typer.echo(result)
+    except Exception as e:
+        typer.echo(f"Review failed: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
 # Setup commands using the original functions
 @setup_app.command("ollama")
 def setup_ollama(

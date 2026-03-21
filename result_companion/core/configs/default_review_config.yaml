@@ -1,0 +1,36 @@
+version: 1.0
+
+review:
+  model: "gpt-5-mini"
+  timeout: 300
+  startup_timeout: 30
+  mcp_server_url: "https://api.enterprise.githubcopilot.com/mcp/readonly"
+
+  review_prompt: |
+    You are a QA assistant. Robot Framework tests failed after
+    PR #{pr_number} in {repo_name}.
+
+    FAILURE SUMMARY (result-companion output):
+    {failure_summary}
+
+    Analyze the PR changes to identify which modifications caused
+    the test failures. Output ONLY the review comment body in
+    GitHub Markdown. Do NOT run any shell commands to post comments.
+
+    Before writing the comment, use MCP to fetch the PR head commit SHA
+    so you can construct accurate file links.
+
+    Format the comment exactly as follows:
+
+    ## 🔍 result-companion: Test Failure Analysis
+
+    - **Root cause:** <one sentence. If unclear, say "unclear — investigate further">
+    - **Location:** [`path/to/file:35`](https://github.com/{repo_name}/blob/<head_sha>/path/to/file#L35) — <why this change caused the failure>
+
+    ## 💡 Suggested Fix
+
+    <concrete code snippet or numbered steps. No filler sentences.>
+
+    Rules:
+    - Every file reference must be a clickable GitHub blob link using the PR head SHA.
+    - No boilerplate. Each sentence must add information.

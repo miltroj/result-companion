@@ -39,6 +39,79 @@ result-companion analyze -o output.xml --print-text-report
 result-companion analyze -o output.xml --no-overall-summary
 ```
 
+## Copilot Review Agent
+
+If you already use GitHub Copilot, Result Companion can turn failed system-test output
+into an automatic PR review comment. This helps development teams catch potential
+regressions earlier by highlighting which code changes likely introduced the failure and
+what should be fixed first:
+
+```bash
+result-companion analyze -o output.xml --text-report rc_summary.txt
+result-companion review -s rc_summary.txt --repo owner/repo --pr 65
+```
+
+See [`examples/PR_REVIEW.md`](examples/PR_REVIEW.md) for flags, edge cases, and GitHub Actions usage.
+
+<details>
+<summary>Review Flow</summary>
+
+```mermaid
+sequenceDiagram
+    participant tests as SystemTests
+    participant analyze as result-companion Analyze
+    participant review as result-companion Review
+    participant copilot as CopilotAgent
+    participant mcp as GitHubMCP
+    participant gh as gh Pr Comment
+    participant pr as Pull Request
+
+    tests->>analyze: output.xml
+    analyze->>review: rc_summary.txt
+    review->>copilot: failure summary and PR reference
+    copilot->>mcp: read PR diff and files
+    mcp-->>copilot: changed code context
+    copilot-->>review: regression findings and suggested fix
+    review->>gh: post PR comment
+    gh->>pr: publish comment
+```
+
+</details>
+
+This feature is currently Copilot-only and posts through `gh`. It does not auto-attach
+`rc_log.html`.
+See [`examples/PR_REVIEW.md`](examples/PR_REVIEW.md) for setup, auth, usage, and common
+failure modes.
+
+<details>
+<summary>Example generated PR comment — <a href="https://github.com/miltroj/result-companion/pull/65#issuecomment-4100454015">PR #65</a></summary>
+
+## 🔍 result-companion: Test Failure Analysis
+
+**Root cause:** unclear — investigate further
+
+- **Location:** [`poc_pr_review.py:6`](https://github.com/miltroj/result-companion/blob/investigate_code_review_functionality/poc_pr_review.py#L6) — file docstring and example usage reference interactive `gh auth login` which, if executed in CI without a token, can trigger GitHub 403/forbidden responses
+- **Location:** [`poc_pr_review.py:35`](https://github.com/miltroj/result-companion/blob/investigate_code_review_functionality/poc_pr_review.py#L35) — the prompt/action builder constructs shell commands that would run `gh pr comment` without using a non-interactive token, risking authentication failures in CI
+
+## 💡 Suggested Fix
+
+Replace interactive GH auth and posting with a token-based non-interactive command:
+
+```python
+action = (
+    "Print the review comment body only — do NOT run gh pr comment."
+    if preview
+    else (
+        f'echo "$GITHUB_TOKEN" | gh auth login --with-token && '
+        f'gh pr comment {pr_number} --repo {repo_name} --body "<review text>"'
+    )
+)
+```
+
+Ensure CI provides `GITHUB_TOKEN` secret and keep `preview=True` by default in CI invocation.
+
+</details>
+
 ## Quick Start
 
 ### Option 1: GitHub Copilot (Easiest for Users With Copilot)

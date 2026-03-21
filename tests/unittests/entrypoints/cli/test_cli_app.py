@@ -196,6 +196,87 @@ class TestAnalizeEntrypoint:
         assert mock_run.call_args.kwargs["quiet"] is True
 
 
+class TestReviewEntrypoint:
+    ENTRYPOINT = "review"
+
+    def setup_method(self):
+        self.runner = CliRunner()
+
+    def test_cli_passes_review_options_and_prints_comment(self, tmp_path):
+        failure_summary_path = tmp_path / "failure.txt"
+        failure_summary_path.write_text("Test failure summary", encoding="utf-8")
+        mock_run = MagicMock(return_value="review body")
+
+        result = self.runner.invoke(
+            app,
+            [
+                self.ENTRYPOINT,
+                "-s",
+                str(failure_summary_path),
+                "--repo",
+                "owner/repo",
+                "--pr",
+                "65",
+                "--preview",
+                "--model",
+                "gpt-5",
+            ],
+            obj={"review": mock_run},
+        )
+
+        assert result.exit_code == 0
+        assert "review body" in result.output
+        mock_run.assert_called_once()
+        assert mock_run.call_args.kwargs["repo_name"] == "owner/repo"
+        assert mock_run.call_args.kwargs["pr_number"] == 65
+        assert mock_run.call_args.kwargs["failure_summary"] == "Test failure summary"
+        assert mock_run.call_args.kwargs["preview"] is True
+        assert mock_run.call_args.kwargs["model"] == "gpt-5"
+
+    def test_cli_passes_notify_on_pass_flag(self, tmp_path):
+        failure_summary_path = tmp_path / "failure.txt"
+        failure_summary_path.write_text("Tests analyzed: 0\n", encoding="utf-8")
+        mock_run = MagicMock(return_value="✅ All passed.")
+
+        result = self.runner.invoke(
+            app,
+            [
+                self.ENTRYPOINT,
+                "-s",
+                str(failure_summary_path),
+                "--repo",
+                "owner/repo",
+                "--pr",
+                "65",
+                "--notify-on-pass",
+            ],
+            obj={"review": mock_run},
+        )
+
+        assert result.exit_code == 0
+        assert mock_run.call_args.kwargs["notify_on_pass"] is True
+
+    def test_cli_exits_with_error_when_review_fails(self, tmp_path):
+        failure_summary_path = tmp_path / "failure.txt"
+        failure_summary_path.write_text("Test failure summary", encoding="utf-8")
+        result = self.runner.invoke(
+            app,
+            [
+                self.ENTRYPOINT,
+                "-s",
+                str(failure_summary_path),
+                "--repo",
+                "owner/repo",
+                "--pr",
+                "65",
+            ],
+            obj={"review": MagicMock(side_effect=RuntimeError("boom"))},
+        )
+
+        assert result.exit_code == 1
+        assert "Review failed: boom" in result.output
+
+
 class TestInstallOllamaModel:
 
     def setup_method(self):
