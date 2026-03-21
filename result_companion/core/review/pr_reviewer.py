@@ -184,12 +184,16 @@ async def _generate_review_comment(
         await stop_copilot_client(client)
 
 
+_ALL_PASSED_COMMENT = "✅ **result-companion:** All Robot Framework tests passed."
+
+
 def run_review(
     repo_name: str,
     pr_number: int,
     failure_summary: str,
     config_path: Path | None = None,
     preview: bool = True,
+    notify_on_pass: bool = False,
     model: str | None = None,
     comment_runner: Callable[..., Any] | None = None,
     gh_runner: Any = subprocess,
@@ -203,6 +207,7 @@ def run_review(
         failure_summary: Output from result-companion analyze.
         config_path: Optional user config YAML override.
         preview: If True, prints comment instead of posting to PR.
+        notify_on_pass: If True, posts a short all-clear comment when no failures found.
         model: Override model from config.
         comment_runner: Injectable comment generator for tests.
         gh_runner: Injectable subprocess-like module for gh checks.
@@ -212,8 +217,13 @@ def run_review(
         Generated review comment text.
     """
     if not has_test_results(failure_summary):
-        logger.info("No test failures found — skipping review.")
-        return ""
+        if not notify_on_pass:
+            logger.info("No test failures found — skipping review.")
+            return ""
+        if not preview:
+            ensure_gh_auth(gh_runner)
+            comment_poster(repo_name, pr_number, _ALL_PASSED_COMMENT, runner=gh_runner)
+        return _ALL_PASSED_COMMENT
 
     config = load_review_config(config_path)
     if model:

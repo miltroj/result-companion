@@ -226,6 +226,11 @@ def review(
         "--preview",
         help="Print review comment instead of posting to PR (Copilot still runs)",
     ),
+    notify_on_pass: bool = typer.Option(
+        False,
+        "--notify-on-pass",
+        help="Post a short all-clear comment when no test failures are found",
+    ),
     log_level: LogLevels = typer.Option(
         LogLevels.INFO,
         "-l",
@@ -266,6 +271,7 @@ def review(
             failure_summary=failure_summary,
             config_path=config,
             preview=preview,
+            notify_on_pass=notify_on_pass,
             model=model,
         )
         if result:

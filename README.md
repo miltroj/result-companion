@@ -51,6 +51,8 @@ result-companion analyze -o output.xml --text-report rc_summary.txt
 result-companion review -s rc_summary.txt --repo owner/repo --pr 65
 ```
 
+See [`examples/PR_REVIEW.md`](examples/PR_REVIEW.md) for flags, edge cases, and GitHub Actions usage.
+
 <details>
 <summary>Review Flow</summary>
 

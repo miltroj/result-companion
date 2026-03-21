@@ -51,11 +51,26 @@ result-companion review \
   -s rc_summary.txt \
   --repo owner/repo \
   --pr 65
+
+# 4. Post an all-clear comment when all tests pass
+result-companion review \
+  -s rc_summary.txt \
+  --repo owner/repo \
+  --pr 65 \
+  --notify-on-pass
 ```
 
 `--preview` still calls Copilot. It only skips the `gh pr comment` step.
 
-If the summary contains no analyzed failures, review is skipped.
+## Behaviour by Scenario
+
+| Failures | `--notify-on-pass` | `--preview` | What happens |
+|:-:|:-:|:-:|---|
+| ✅ | any | ❌ | Copilot runs → comment posted to PR |
+| ✅ | any | ✅ | Copilot runs → comment printed, nothing posted |
+| ❌ | ❌ | any | Skipped silently |
+| ❌ | ✅ | ❌ | All-clear comment posted (no Copilot call) |
+| ❌ | ✅ | ✅ | All-clear comment printed, nothing posted |
 
 ## GitHub Actions
 

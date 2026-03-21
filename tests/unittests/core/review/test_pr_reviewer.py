@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from result_companion.core.review.pr_reviewer import (
+    _ALL_PASSED_COMMENT,
     build_review_prompt,
     ensure_gh_auth,
     run_review,
@@ -193,3 +194,43 @@ class TestRunReview:
                 preview=True,
                 comment_runner=fake_comment_runner,
             )
+
+    def test_notify_on_pass_returns_all_passed_comment_in_preview(self):
+        result = run_review(
+            repo_name="owner/repo",
+            pr_number=5,
+            failure_summary="Tests analyzed: 0\n",
+            notify_on_pass=True,
+            preview=True,
+        )
+
+        assert result == _ALL_PASSED_COMMENT
+
+    def test_notify_on_pass_posts_comment_when_not_preview(self):
+        posted = {}
+
+        def fake_poster(repo_name, pr_number, comment_body, runner):
+            posted["comment_body"] = comment_body
+
+        result = run_review(
+            repo_name="owner/repo",
+            pr_number=5,
+            failure_summary="Tests analyzed: 0\n",
+            notify_on_pass=True,
+            preview=False,
+            gh_runner=FakeGhRunner(returncode=0),
+            comment_poster=fake_poster,
+        )
+
+        assert result == _ALL_PASSED_COMMENT
+        assert posted["comment_body"] == _ALL_PASSED_COMMENT
+
+    def test_notify_on_pass_false_skips_on_no_failures(self):
+        result = run_review(
+            repo_name="owner/repo",
+            pr_number=5,
+            failure_summary="Tests analyzed: 0\n",
+            notify_on_pass=False,
+        )
+
+        assert result == ""

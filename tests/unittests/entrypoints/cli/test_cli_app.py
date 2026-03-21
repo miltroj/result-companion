@@ -233,6 +233,29 @@ class TestReviewEntrypoint:
         assert mock_run.call_args.kwargs["preview"] is True
         assert mock_run.call_args.kwargs["model"] == "gpt-5"
 
+    def test_cli_passes_notify_on_pass_flag(self, tmp_path):
+        failure_summary_path = tmp_path / "failure.txt"
+        failure_summary_path.write_text("Tests analyzed: 0\n", encoding="utf-8")
+        mock_run = MagicMock(return_value="✅ All passed.")
+
+        result = self.runner.invoke(
+            app,
+            [
+                self.ENTRYPOINT,
+                "-s",
+                str(failure_summary_path),
+                "--repo",
+                "owner/repo",
+                "--pr",
+                "65",
+                "--notify-on-pass",
+            ],
+            obj={"review": mock_run},
+        )
+
+        assert result.exit_code == 0
+        assert mock_run.call_args.kwargs["notify_on_pass"] is True
+
     def test_cli_exits_with_error_when_review_fails(self, tmp_path):
         failure_summary_path = tmp_path / "failure.txt"
         failure_summary_path.write_text("Test failure summary", encoding="utf-8")
