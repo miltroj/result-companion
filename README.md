@@ -77,7 +77,7 @@ sequenceDiagram
 </details>
 
 This feature is currently Copilot-only and posts through `gh`. It does not auto-attach
-`rc_log.html`; share that separately as a CI artifact or hosted file if reviewers need it.
+`rc_log.html`.
 See [`examples/PR_REVIEW.md`](examples/PR_REVIEW.md) for setup, auth, usage, and common
 failure modes.
 
