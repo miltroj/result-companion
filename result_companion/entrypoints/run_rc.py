@@ -95,6 +95,7 @@ async def _main(
         include_tags=final_include,
         exclude_tags=final_exclude,
     )
+    all_test_cases = test_cases
 
     # Filter passing tests (RF doesn't have this natively)
     should_include_passing = (
@@ -155,6 +156,9 @@ async def _main(
             llm_results=llm_results,
             analyzed_test_names=analyzed_test_names,
             overall_summary=overall_summary,
+            model=parsed_config.llm_factory.model,
+            source_file=str(output),
+            all_test_cases=all_test_cases,
         )
         Path(json_report).write_text(json_output)
         logger.info(f"JSON report created: {Path(json_report).resolve()}")

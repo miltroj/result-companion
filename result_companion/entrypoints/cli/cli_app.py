@@ -269,7 +269,14 @@ def review(
 
         run = run_review
 
-    report = AnalyzeReport.from_json(summary.read_text())
+    try:
+        report = AnalyzeReport.from_json(summary.read_text())
+    except (ValueError, KeyError, TypeError) as e:
+        typer.echo(
+            f"Invalid summary file '{summary}': expected JSON from 'analyze --json-report'. ({e})",
+            err=True,
+        )
+        raise typer.Exit(code=1)
     try:
         result = run(
             repo_name=repo,

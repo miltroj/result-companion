@@ -80,13 +80,13 @@ class TestEnsureGhAuth:
 
 def make_empty_report() -> AnalyzeReport:
     """Creates report with no test failures."""
-    return AnalyzeReport(test_count=0, analyzed_tests=[])
+    return AnalyzeReport(failed_test_count=0, analyzed_tests=[])
 
 
 def make_failure_report() -> AnalyzeReport:
     """Creates report with one test failure."""
     return AnalyzeReport(
-        test_count=1,
+        failed_test_count=1,
         analyzed_tests=["test_fail"],
         per_test_results={"test_fail": "real failure"},
     )

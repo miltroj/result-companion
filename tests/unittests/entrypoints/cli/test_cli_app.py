@@ -220,15 +220,17 @@ class TestReviewEntrypoint:
     def setup_method(self):
         self.runner = CliRunner()
 
-    def _write_json_report(self, tmp_path, test_count=1, tests=None, results=None):
+    def _write_json_report(
+        self, tmp_path, failed_test_count=1, tests=None, results=None
+    ):
         """Helper to write a JSON report file."""
         import json
 
         data = {
-            "test_count": test_count,
-            "analyzed_tests": tests or (["test_fail"] if test_count else []),
+            "failed_test_count": failed_test_count,
+            "analyzed_tests": tests or (["test_fail"] if failed_test_count else []),
             "per_test_results": results
-            or ({"test_fail": "error"} if test_count else {}),
+            or ({"test_fail": "error"} if failed_test_count else {}),
             "overall_summary": None,
         }
         path = tmp_path / "summary.json"
@@ -262,12 +264,12 @@ class TestReviewEntrypoint:
         assert mock_run.call_args.kwargs["repo_name"] == "owner/repo"
         assert mock_run.call_args.kwargs["pr_number"] == 65
         report = mock_run.call_args.kwargs["report"]
-        assert report.test_count == 1
+        assert report.failed_test_count == 1
         assert mock_run.call_args.kwargs["preview"] is True
         assert mock_run.call_args.kwargs["model"] == "gpt-5"
 
     def test_cli_passes_notify_on_pass_flag(self, tmp_path):
-        summary_path = self._write_json_report(tmp_path, test_count=0)
+        summary_path = self._write_json_report(tmp_path, failed_test_count=0)
         mock_run = MagicMock(return_value="✅ All passed.")
 
         result = self.runner.invoke(
@@ -291,7 +293,7 @@ class TestReviewEntrypoint:
     def test_cli_parses_json_report_with_failures(self, tmp_path):
         summary_path = self._write_json_report(
             tmp_path,
-            test_count=1,
+            failed_test_count=1,
             tests=["test_login"],
             results={"test_login": "403 error"},
         )
@@ -313,9 +315,22 @@ class TestReviewEntrypoint:
 
         assert result.exit_code == 0
         report = mock_run.call_args.kwargs["report"]
-        assert report.test_count == 1
+        assert report.failed_test_count == 1
         assert report.analyzed_tests == ["test_login"]
         assert report.per_test_results["test_login"] == "403 error"
+
+    def test_cli_exits_with_error_on_invalid_json_input(self, tmp_path):
+        bad_file = tmp_path / "failure.txt"
+        bad_file.write_text("plain text, not JSON", encoding="utf-8")
+
+        result = self.runner.invoke(
+            app,
+            [self.ENTRYPOINT, "-s", str(bad_file), "--repo", "o/r", "--pr", "1"],
+            obj={},
+        )
+
+        assert result.exit_code == 1
+        assert "Invalid summary file" in result.output
 
     def test_cli_exits_with_error_when_review_fails(self, tmp_path):
         summary_path = self._write_json_report(tmp_path)
