@@ -11,6 +11,7 @@ from result_companion.core.parsers.result_parser import (
     get_robot_results_from_file_as_dict,
 )
 from result_companion.core.results.text_report import (
+    render_json_report,
     render_text_report,
     summarize_failures_with_llm,
 )
@@ -68,6 +69,7 @@ async def _main(
     dryrun: bool = False,
     html_report: bool = True,
     text_report: Optional[str] = None,
+    json_report: Optional[str] = None,
     print_text_report: bool = False,
     summarize_failures: bool = False,
     quiet: bool = False,
@@ -148,6 +150,15 @@ async def _main(
         if print_text_report:
             print(text_output)
 
+    if json_report:
+        json_output = render_json_report(
+            llm_results=llm_results,
+            analyzed_test_names=analyzed_test_names,
+            overall_summary=overall_summary,
+        )
+        Path(json_report).write_text(json_output)
+        logger.info(f"JSON report created: {Path(json_report).resolve()}")
+
     stop = time.time()
     logger.debug(f"Execution time: {stop - start}")
 
@@ -171,6 +182,7 @@ def run_rc(
     dryrun: bool = False,
     html_report: bool = True,
     text_report: Optional[str] = None,
+    json_report: Optional[str] = None,
     print_text_report: bool = False,
     summarize_failures: bool = False,
     quiet: bool = False,
@@ -190,6 +202,7 @@ def run_rc(
         dryrun: If True, skip LLM calls.
         html_report: Whether to generate HTML report.
         text_report: Optional text summary output path.
+        json_report: Optional JSON report output path.
         print_text_report: Whether to print text report to stdout.
         summarize_failures: Whether to ask LLM for overall failure summary.
         quiet: Whether to suppress logs and progress output.
@@ -206,6 +219,7 @@ def run_rc(
                 report=report,
                 html_report=html_report,
                 text_report=text_report,
+                json_report=json_report,
                 print_text_report=print_text_report,
                 summarize_failures=summarize_failures,
                 quiet=quiet,

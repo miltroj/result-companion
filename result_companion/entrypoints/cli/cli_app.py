@@ -96,6 +96,9 @@ def analyze(
     text_report: Optional[str] = typer.Option(
         None, "--text-report", help="Write concise text summary to file"
     ),
+    json_report: Optional[str] = typer.Option(
+        None, "--json-report", help="Write structured JSON report to file"
+    ),
     print_text_report: bool = typer.Option(
         False, "--print-text-report", help="Print concise text report to stdout"
     ),
@@ -149,6 +152,7 @@ def analyze(
         typer.echo(f"Report: {report}")
         typer.echo(f"HTML Report: {html_report}")
         typer.echo(f"Text Report: {text_report}")
+        typer.echo(f"JSON Report: {json_report}")
         typer.echo(f"Print Text Report: {print_text_report}")
         typer.echo(f"Overall Summary: {overall_summary}")
         typer.echo(f"Include Passing: {include_passing}")
@@ -182,6 +186,7 @@ def analyze(
         dryrun=dryrun,
         html_report=html_report,
         text_report=text_report,
+        json_report=json_report,
         print_text_report=print_text_report,
         summarize_failures=overall_summary,
         quiet=quiet,
@@ -198,7 +203,7 @@ def review(
         file_okay=True,
         dir_okay=False,
         readable=True,
-        help="Text summary file from 'analyze --text-report'",
+        help="JSON report file from 'analyze --json-report'",
     ),
     repo: str = typer.Option(
         ...,
@@ -251,6 +256,7 @@ def review(
     ),
 ):
     """Post AI test failure analysis as a PR comment."""
+    from result_companion.core.results.text_report import AnalyzeReport
     from result_companion.core.utils.logging_config import set_global_log_level
 
     resolved_log_level = "ERROR" if quiet else str(log_level)
@@ -263,12 +269,12 @@ def review(
 
         run = run_review
 
-    failure_summary = summary.read_text()
+    report = AnalyzeReport.from_json(summary.read_text())
     try:
         result = run(
             repo_name=repo,
             pr_number=pr,
-            failure_summary=failure_summary,
+            report=report,
             config_path=config,
             preview=preview,
             notify_on_pass=notify_on_pass,

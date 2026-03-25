@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 
 import pytest
@@ -10,7 +11,9 @@ from result_companion.core.parsers.config import (
     TokenizerModel,
 )
 from result_companion.core.results.text_report import (
+    AnalyzeReport,
     _build_overall_summary_prompt,
+    render_json_report,
     summarize_failures_with_llm,
 )
 
@@ -68,6 +71,74 @@ def patch_smart_acompletion(monkeypatch):
         )
 
     return _apply
+
+
+class TestAnalyzeReport:
+    """Tests for AnalyzeReport dataclass."""
+
+    def test_roundtrip_json(self):
+        report = AnalyzeReport(
+            test_count=2,
+            analyzed_tests=["test_a", "test_b"],
+            per_test_results={"test_a": "Error A", "test_b": "Error B"},
+            overall_summary="Two failures.",
+        )
+
+        restored = AnalyzeReport.from_json(report.to_json())
+
+        assert restored == report
+
+    def test_to_text_matches_render_text_report(self):
+        report = AnalyzeReport(
+            test_count=1,
+            analyzed_tests=["test_x"],
+            per_test_results={"test_x": "Timeout error"},
+            overall_summary="Summary here",
+        )
+
+        text = report.to_text()
+
+        assert "test_x" in text
+        assert "Timeout error" in text
+        assert "Summary here" in text
+
+    def test_has_failures_true_when_tests_present(self):
+        report = AnalyzeReport(test_count=1, analyzed_tests=["t"])
+
+        assert report.has_failures() is True
+
+    def test_has_failures_false_when_empty(self):
+        report = AnalyzeReport(test_count=0, analyzed_tests=[])
+
+        assert report.has_failures() is False
+
+
+class TestRenderJsonReport:
+    """Tests for render_json_report function."""
+
+    def test_produces_valid_json_with_all_fields(self):
+        result = render_json_report(
+            llm_results={"test_1": "Error details"},
+            analyzed_test_names=["test_1"],
+            overall_summary="Root cause.",
+        )
+        parsed = json.loads(result)
+
+        assert parsed["test_count"] == 1
+        assert parsed["analyzed_tests"] == ["test_1"]
+        assert parsed["per_test_results"]["test_1"] == "Error details"
+        assert parsed["overall_summary"] == "Root cause."
+
+    def test_empty_results_produces_zero_count(self):
+        result = render_json_report(
+            llm_results={},
+            analyzed_test_names=[],
+            overall_summary=None,
+        )
+        parsed = json.loads(result)
+
+        assert parsed["test_count"] == 0
+        assert parsed["overall_summary"] is None
 
 
 class TestBuildOverallSummaryPrompt:

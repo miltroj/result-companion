@@ -253,6 +253,7 @@ class TestRunRC:
                 report="/tmp/report.html",
                 html_report=True,
                 text_report=None,
+                json_report=None,
                 print_text_report=False,
                 summarize_failures=False,
                 quiet=False,

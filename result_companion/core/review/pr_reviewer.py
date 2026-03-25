@@ -18,7 +18,7 @@ from result_companion.core.parsers.config import (
     ReviewPromptModel,
     load_review_config,
 )
-from result_companion.core.results.text_report import has_test_results
+from result_companion.core.results.text_report import AnalyzeReport
 from result_companion.core.utils.logging_config import logger
 
 
@@ -190,7 +190,7 @@ _ALL_PASSED_COMMENT = "✅ **result-companion:** All Robot Framework tests passe
 def run_review(
     repo_name: str,
     pr_number: int,
-    failure_summary: str,
+    report: AnalyzeReport,
     config_path: Path | None = None,
     preview: bool = True,
     notify_on_pass: bool = False,
@@ -204,7 +204,7 @@ def run_review(
     Args:
         repo_name: GitHub repo in "owner/repo" format.
         pr_number: Pull request number to review.
-        failure_summary: Output from result-companion analyze.
+        report: Structured analyze report from result-companion.
         config_path: Optional user config YAML override.
         preview: If True, prints comment instead of posting to PR.
         notify_on_pass: If True, posts a short all-clear comment when no failures found.
@@ -216,7 +216,7 @@ def run_review(
     Returns:
         Generated review comment text.
     """
-    if not has_test_results(failure_summary):
+    if not report.has_failures():
         if not notify_on_pass:
             logger.info("No test failures found — skipping review.")
             return ""
@@ -237,7 +237,7 @@ def run_review(
         generator(
             repo_name=repo_name,
             pr_number=pr_number,
-            failure_summary=failure_summary,
+            failure_summary=report.to_text(),
             config=config,
         )
     )

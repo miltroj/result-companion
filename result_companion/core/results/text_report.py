@@ -1,3 +1,5 @@
+import json
+from dataclasses import asdict, dataclass, field
 from typing import Optional
 
 from result_companion.core.analizers.factory_common import _build_llm_params
@@ -6,6 +8,35 @@ from result_companion.core.parsers.config import DefaultConfigModel
 from result_companion.core.utils.logging_config import logger
 
 _NO_FAILURES_MARKER = "Tests analyzed: 0"
+
+
+@dataclass
+class AnalyzeReport:
+    """Structured output from result-companion analyze."""
+
+    test_count: int
+    analyzed_tests: list[str]
+    per_test_results: dict[str, str] = field(default_factory=dict)
+    overall_summary: str | None = None
+
+    def to_json(self) -> str:
+        """Serializes report to JSON string."""
+        return json.dumps(asdict(self), indent=2)
+
+    @classmethod
+    def from_json(cls, text: str) -> "AnalyzeReport":
+        """Deserializes report from JSON string."""
+        return cls(**json.loads(text))
+
+    def to_text(self) -> str:
+        """Renders report as plain text (same format as render_text_report)."""
+        return render_text_report(
+            self.per_test_results, self.analyzed_tests, self.overall_summary
+        )
+
+    def has_failures(self) -> bool:
+        """Returns True if the report contains analyzed test failures."""
+        return self.test_count > 0
 
 
 def render_text_report(
@@ -57,9 +88,28 @@ def render_text_report(
     return "\n".join(lines) + "\n"
 
 
-def has_test_results(summary_text: str) -> bool:
-    """Checks whether a rendered text report contains analyzed failures."""
-    return bool(summary_text.strip()) and _NO_FAILURES_MARKER not in summary_text
+def render_json_report(
+    llm_results: dict[str, str],
+    analyzed_test_names: list[str],
+    overall_summary: Optional[str],
+) -> str:
+    """Builds JSON report from LLM per-test results.
+
+    Args:
+        llm_results: Mapping of test names to LLM analysis.
+        analyzed_test_names: Names of tests included in current analysis.
+        overall_summary: Optional synthesized summary.
+
+    Returns:
+        JSON string of the AnalyzeReport.
+    """
+    report = AnalyzeReport(
+        test_count=len(analyzed_test_names),
+        analyzed_tests=analyzed_test_names,
+        per_test_results=llm_results,
+        overall_summary=overall_summary,
+    )
+    return report.to_json()
 
 
 def _build_overall_summary_prompt(
