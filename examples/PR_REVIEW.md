@@ -1,12 +1,12 @@
 # PR Review Guide
 
-`result-companion review` turns the text summary from `analyze` into a PR review comment.
+`result-companion review` turns the JSON report from `analyze` into a PR review comment.
 Currently limited to the GitHub Copilot flow (lowest-friction native agent integration). Support for other providers may be added in future versions.
 
 ## What It Does
 
-1. `result-companion analyze --text-report` creates a compact failure summary.
-2. `result-companion review` sends that summary to a Copilot agent.
+1. `result-companion analyze --json-report` creates a structured failure report.
+2. `result-companion review` parses the JSON and sends a text summary to a Copilot agent.
 3. The agent reads the PR through GitHub MCP and writes a Markdown review comment.
 4. Python posts that comment with `gh pr comment`.
 
@@ -37,24 +37,24 @@ copilot -i "/login"
 
 ```bash
 # 1. Analyze Robot Framework results
-result-companion analyze -o output.xml --text-report rc_summary.txt
+result-companion analyze -o output.xml --json-report rc_summary.json
 
 # 2. Print the generated review comment without posting it
 result-companion review \
-  -s rc_summary.txt \
+  -s rc_summary.json \
   --repo owner/repo \
   --pr 65 \
   --preview
 
 # 3. Post the review comment to the PR
 result-companion review \
-  -s rc_summary.txt \
+  -s rc_summary.json \
   --repo owner/repo \
   --pr 65
 
 # 4. Post an all-clear comment when all tests pass
 result-companion review \
-  -s rc_summary.txt \
+  -s rc_summary.json \
   --repo owner/repo \
   --pr 65 \
   --notify-on-pass
@@ -78,8 +78,8 @@ result-companion review \
 
 ```yaml
 - run: |
-    result-companion analyze -o output.xml --text-report rc_summary.txt
-    result-companion review -s rc_summary.txt --pr ${{ github.event.pull_request.number }}
+    result-companion analyze -o output.xml --json-report rc_summary.json
+    result-companion review -s rc_summary.json --pr ${{ github.event.pull_request.number }}
 ```
 
 ## Configuration
@@ -125,8 +125,42 @@ If Copilot startup or auth fails:
 copilot -i "/login"
 ```
 
+If the summary file is not valid JSON (e.g. a plain text file), `review` exits with:
+
+```text
+Review failed: Invalid summary: expected JSON from 'analyze --json-report'.
+```
+
 If the generated comment is empty, `result-companion review` fails instead of silently
 posting nothing.
+
+## JSON Report Structure
+
+`--json-report` produces a structured file consumed by `review`:
+
+```json
+{
+  "failed_test_count": 1,
+  "analyzed_tests": ["Login With Valid Credentials"],
+  "per_test_results": {"Login With Valid Credentials": "Root cause: 503 from backend..."},
+  "overall_summary": "Backend service unavailable during login flow.",
+  "model": "openai/gpt-4",
+  "source_file": "output.xml",
+  "total_test_count": 12,
+  "source_hash": "a1b2c3d4e5f6"
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `failed_test_count` | Number of failed tests analyzed by LLM |
+| `analyzed_tests` | List of analyzed test names |
+| `per_test_results` | LLM analysis per test (name → text) |
+| `overall_summary` | Cross-test failure synthesis (optional) |
+| `model` | LLM model used for analysis |
+| `source_file` | Path to input `output.xml` |
+| `total_test_count` | Total tests before pass/fail filtering |
+| `source_hash` | SHA-256 prefix of raw test data (traceability) |
 
 ## Limitations
 

@@ -47,8 +47,8 @@ regressions earlier by highlighting which code changes likely introduced the fai
 what should be fixed first:
 
 ```bash
-result-companion analyze -o output.xml --text-report rc_summary.txt
-result-companion review -s rc_summary.txt --repo owner/repo --pr 65
+result-companion analyze -o output.xml --json-report rc_summary.json
+result-companion review -s rc_summary.json --repo owner/repo --pr 65
 ```
 
 See [`examples/PR_REVIEW.md`](examples/PR_REVIEW.md) for flags, edge cases, and GitHub Actions usage.
@@ -67,7 +67,7 @@ sequenceDiagram
     participant pr as Pull Request
 
     tests->>analyze: output.xml
-    analyze->>review: rc_summary.txt
+    analyze->>review: rc_summary.json
     review->>copilot: failure summary and PR reference
     copilot->>mcp: read PR diff and files
     mcp-->>copilot: changed code context
