@@ -204,10 +204,21 @@ class ConfigLoader:
 
 
 def load_config(config_path: Path | None = None) -> DefaultConfigModel:
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    config_file_path = os.path.join(current_dir, "..", "configs", "default_config.yaml")
+    """Loads RC configuration: bundled defaults + optional user overrides.
 
-    config_loader = ConfigLoader(default_config_file=config_file_path)
-    config = config_loader.load_config(user_config_file=config_path)
+    Args:
+        config_path: Optional user config file to merge on top of defaults.
+
+    Returns:
+        Validated configuration model.
+    """
+    from result_companion.core.rc_paths import (
+        BUNDLED_DEFAULT_CONFIG,
+        resolve_user_config,
+    )
+
+    user_config = resolve_user_config(cli_config=config_path)
+    config_loader = ConfigLoader(default_config_file=BUNDLED_DEFAULT_CONFIG)
+    config = config_loader.load_config(user_config_file=user_config)
     logger.debug(f"{config=}")
     return config
