@@ -7,8 +7,6 @@ from result_companion.core.analizers.llm_router import _smart_acompletion
 from result_companion.core.parsers.config import DefaultConfigModel
 from result_companion.core.utils.logging_config import logger
 
-_NO_FAILURES_MARKER = "Tests analyzed: 0"
-
 
 @dataclass
 class AnalyzeReport:
@@ -56,11 +54,7 @@ def render_text_report(
     """
     lines = [
         "Result Companion - Summary",
-        (
-            _NO_FAILURES_MARKER
-            if not analyzed_test_names
-            else f"Tests analyzed: {len(analyzed_test_names)}"
-        ),
+        f"Tests analyzed: {len(analyzed_test_names)}",
     ]
 
     if overall_summary:
