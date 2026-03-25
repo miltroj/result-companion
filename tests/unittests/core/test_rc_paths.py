@@ -1,49 +1,40 @@
 from pathlib import Path
 
-from result_companion.core.rc_paths import BUNDLED_DEFAULT_CONFIG, ensure_default_config
+from result_companion.core.rc_paths import (
+    BUNDLED_DEFAULT_CONFIG,
+    resolve_user_config,
+)
 
 
-def test_ensure_default_config_copies_bundled_on_first_run(tmp_path, monkeypatch):
-    monkeypatch.setattr("result_companion.core.rc_paths.RC_USER_DIR", tmp_path)
+def test_resolve_user_config_prefers_cli_config():
+    cli_path = Path("/some/custom/config.yaml")
 
-    result = ensure_default_config()
+    result = resolve_user_config(cli_config=cli_path)
 
-    assert result == tmp_path / "default_config.yaml"
-    assert result.exists()
-    assert result.read_text() == BUNDLED_DEFAULT_CONFIG.read_text()
+    assert result == cli_path
 
 
-def test_ensure_default_config_reuses_existing(tmp_path, monkeypatch):
-    monkeypatch.setattr("result_companion.core.rc_paths.RC_USER_DIR", tmp_path)
-    existing = tmp_path / "default_config.yaml"
-    existing.write_text("custom: true")
+def test_resolve_user_config_falls_back_to_user_dir(tmp_path, monkeypatch):
+    user_cfg = tmp_path / "config.yaml"
+    user_cfg.write_text("model: test")
+    monkeypatch.setattr("result_companion.core.rc_paths.USER_CONFIG", user_cfg)
 
-    result = ensure_default_config()
+    result = resolve_user_config(cli_config=None)
 
-    assert result.read_text() == "custom: true"
-
-
-def test_ensure_default_config_creates_nested_dir(tmp_path, monkeypatch):
-    nested = tmp_path / "deep" / "nested"
-    monkeypatch.setattr("result_companion.core.rc_paths.RC_USER_DIR", nested)
-
-    result = ensure_default_config()
-
-    assert nested.exists()
-    assert result.exists()
+    assert result == user_cfg
 
 
-def test_ensure_default_config_falls_back_to_bundled_when_root(tmp_path, monkeypatch):
-    monkeypatch.setattr("result_companion.core.rc_paths.RC_USER_DIR", tmp_path)
-    monkeypatch.setattr("result_companion.core.rc_paths._is_running_as_root", lambda: True)
+def test_resolve_user_config_returns_none_when_no_overrides(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "result_companion.core.rc_paths.USER_CONFIG", tmp_path / "nope.yaml"
+    )
 
-    result = ensure_default_config()
+    result = resolve_user_config(cli_config=None)
 
-    assert result == BUNDLED_DEFAULT_CONFIG
-    assert not (tmp_path / "default_config.yaml").exists()
+    assert result is None
 
 
 def test_bundled_default_config_exists():
-    assert BUNDLED_DEFAULT_CONFIG.exists(), (
-        f"Bundled config missing at {BUNDLED_DEFAULT_CONFIG}"
-    )
+    assert (
+        BUNDLED_DEFAULT_CONFIG.exists()
+    ), f"Bundled config missing at {BUNDLED_DEFAULT_CONFIG}"

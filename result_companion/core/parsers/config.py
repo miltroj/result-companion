@@ -204,7 +204,7 @@ class ConfigLoader:
 
 
 def load_config(config_path: Path | None = None) -> DefaultConfigModel:
-    """Loads RC configuration with defaults from the user directory.
+    """Loads RC configuration: bundled defaults + optional user overrides.
 
     Args:
         config_path: Optional user config file to merge on top of defaults.
@@ -212,10 +212,13 @@ def load_config(config_path: Path | None = None) -> DefaultConfigModel:
     Returns:
         Validated configuration model.
     """
-    from result_companion.core.rc_paths import ensure_default_config
+    from result_companion.core.rc_paths import (
+        BUNDLED_DEFAULT_CONFIG,
+        resolve_user_config,
+    )
 
-    default_config_file = ensure_default_config()
-    config_loader = ConfigLoader(default_config_file=default_config_file)
-    config = config_loader.load_config(user_config_file=config_path)
+    user_config = resolve_user_config(cli_config=config_path)
+    config_loader = ConfigLoader(default_config_file=BUNDLED_DEFAULT_CONFIG)
+    config = config_loader.load_config(user_config_file=user_config)
     logger.debug(f"{config=}")
     return config

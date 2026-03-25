@@ -133,7 +133,24 @@ llm_config:
 
 See [Custom Analysis examples](https://github.com/miltroj/result-companion/blob/main/examples/EXAMPLES.md#custom-analysis) for security audits, performance reviews, and more. The `llm_config` section also supports `chunking` prompts for large test suites.
 
-## Configuration Examples
+## Configuration
+
+Bundled defaults ship with each version and stay up-to-date automatically. To override specific settings, create `~/result-companion/config.yaml` with only the fields you want to change:
+
+```yaml
+# ~/result-companion/config.yaml
+llm_factory:
+  model: "openai/gpt-4o"
+  api_key: "${OPENAI_API_KEY}"
+```
+
+Override per-run with `--config`:
+
+```bash
+result-companion analyze -o output.xml -c my_custom_config.yaml
+```
+
+### Provider Examples
 
 Check [`examples/configs/`](https://github.com/miltroj/result-companion/tree/main/examples/configs) for ready-to-use configs:
 - **GitHub Copilot** (easiest for users with copilot)
