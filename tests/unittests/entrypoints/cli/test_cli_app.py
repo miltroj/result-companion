@@ -263,8 +263,7 @@ class TestReviewEntrypoint:
         mock_run.assert_called_once()
         assert mock_run.call_args.kwargs["repo_name"] == "owner/repo"
         assert mock_run.call_args.kwargs["pr_number"] == 65
-        report = mock_run.call_args.kwargs["report"]
-        assert report.failed_test_count == 1
+        assert isinstance(mock_run.call_args.kwargs["summary"], str)
         assert mock_run.call_args.kwargs["preview"] is True
         assert mock_run.call_args.kwargs["model"] == "gpt-5"
 
@@ -314,23 +313,27 @@ class TestReviewEntrypoint:
         )
 
         assert result.exit_code == 0
-        report = mock_run.call_args.kwargs["report"]
-        assert report.failed_test_count == 1
-        assert report.analyzed_tests == ["test_login"]
-        assert report.per_test_results["test_login"] == "403 error"
+        summary = mock_run.call_args.kwargs["summary"]
+        assert "test_login" in summary
+        assert "403 error" in summary
 
     def test_cli_exits_with_error_on_invalid_json_input(self, tmp_path):
         bad_file = tmp_path / "failure.txt"
         bad_file.write_text("plain text, not JSON", encoding="utf-8")
 
+        def bad_run(**kwargs):
+            from result_companion.core.review.pr_reviewer import run_review
+
+            return run_review(**kwargs)
+
         result = self.runner.invoke(
             app,
             [self.ENTRYPOINT, "-s", str(bad_file), "--repo", "o/r", "--pr", "1"],
-            obj={},
+            obj={"review": bad_run},
         )
 
         assert result.exit_code == 1
-        assert "Invalid summary file" in result.output
+        assert "Invalid summary" in result.output
 
     def test_cli_exits_with_error_when_review_fails(self, tmp_path):
         summary_path = self._write_json_report(tmp_path)

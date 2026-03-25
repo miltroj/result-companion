@@ -78,24 +78,24 @@ class TestEnsureGhAuth:
         assert runner.calls[0][0] == ["gh", "auth", "status"]
 
 
-def make_empty_report() -> AnalyzeReport:
-    """Creates report with no test failures."""
-    return AnalyzeReport(failed_test_count=0, analyzed_tests=[])
+def make_empty_summary() -> str:
+    """Creates JSON summary with no test failures."""
+    return AnalyzeReport(failed_test_count=0, analyzed_tests=[]).to_json()
 
 
-def make_failure_report() -> AnalyzeReport:
-    """Creates report with one test failure."""
+def make_failure_summary() -> str:
+    """Creates JSON summary with one test failure."""
     return AnalyzeReport(
         failed_test_count=1,
         analyzed_tests=["test_fail"],
         per_test_results={"test_fail": "real failure"},
-    )
+    ).to_json()
 
 
 class TestRunReview:
     """Tests for run_review orchestration."""
 
-    def test_skips_when_report_has_no_failures(self, monkeypatch):
+    def test_skips_when_no_failures(self, monkeypatch):
         monkeypatch.setattr(
             "result_companion.core.review.pr_reviewer.load_review_config",
             lambda *_: pytest.fail("config should not be loaded"),
@@ -104,10 +104,18 @@ class TestRunReview:
         result = run_review(
             repo_name="owner/repo",
             pr_number=5,
-            report=make_empty_report(),
+            summary=make_empty_summary(),
         )
 
         assert result == ""
+
+    def test_raises_on_invalid_json(self):
+        with pytest.raises(RuntimeError, match="Invalid summary"):
+            run_review(
+                repo_name="owner/repo",
+                pr_number=5,
+                summary="not json",
+            )
 
     def test_checks_gh_before_generating_comment(self, monkeypatch):
         called = {"generated": False}
@@ -125,7 +133,7 @@ class TestRunReview:
             run_review(
                 repo_name="owner/repo",
                 pr_number=5,
-                report=make_failure_report(),
+                summary=make_failure_summary(),
                 preview=False,
                 comment_runner=fake_comment_runner,
                 gh_runner=FakeGhRunner(returncode=1),
@@ -145,7 +153,7 @@ class TestRunReview:
         result = run_review(
             repo_name="owner/repo",
             pr_number=5,
-            report=make_failure_report(),
+            summary=make_failure_summary(),
             preview=True,
             comment_runner=fake_comment_runner,
             gh_runner=FakeGhRunner(returncode=1),
@@ -179,7 +187,7 @@ class TestRunReview:
         result = run_review(
             repo_name="owner/repo",
             pr_number=5,
-            report=make_failure_report(),
+            summary=make_failure_summary(),
             preview=False,
             comment_runner=fake_comment_runner,
             gh_runner=gh_runner,
@@ -205,7 +213,7 @@ class TestRunReview:
             run_review(
                 repo_name="owner/repo",
                 pr_number=5,
-                report=make_failure_report(),
+                summary=make_failure_summary(),
                 preview=True,
                 comment_runner=fake_comment_runner,
             )
@@ -214,7 +222,7 @@ class TestRunReview:
         result = run_review(
             repo_name="owner/repo",
             pr_number=5,
-            report=make_empty_report(),
+            summary=make_empty_summary(),
             notify_on_pass=True,
             preview=True,
         )
@@ -230,7 +238,7 @@ class TestRunReview:
         result = run_review(
             repo_name="owner/repo",
             pr_number=5,
-            report=make_empty_report(),
+            summary=make_empty_summary(),
             notify_on_pass=True,
             preview=False,
             gh_runner=FakeGhRunner(returncode=0),
@@ -244,7 +252,7 @@ class TestRunReview:
         result = run_review(
             repo_name="owner/repo",
             pr_number=5,
-            report=make_empty_report(),
+            summary=make_empty_summary(),
             notify_on_pass=False,
         )
 

@@ -15,7 +15,7 @@ from result_companion.core.analizers.local.ollama_server_manager import (
     resolve_server_manager,
 )
 from result_companion.core.utils.log_levels import LogLevels
-from result_companion.core.utils.logging_config import logger
+from result_companion.core.utils.logging_config import logger, set_global_log_level
 
 app = typer.Typer()
 setup_app = typer.Typer(help="Manage Ollama installation and models")
@@ -255,10 +255,6 @@ def review(
         help="Override Copilot model from config",
     ),
 ):
-    """Post AI test failure analysis as a PR comment."""
-    from result_companion.core.results.text_report import AnalyzeReport
-    from result_companion.core.utils.logging_config import set_global_log_level
-
     resolved_log_level = "ERROR" if quiet else str(log_level)
     set_global_log_level(resolved_log_level)
 
@@ -270,18 +266,10 @@ def review(
         run = run_review
 
     try:
-        report = AnalyzeReport.from_json(summary.read_text())
-    except (ValueError, KeyError, TypeError) as e:
-        typer.echo(
-            f"Invalid summary file '{summary}': expected JSON from 'analyze --json-report'. ({e})",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-    try:
         result = run(
             repo_name=repo,
             pr_number=pr,
-            report=report,
+            summary=summary.read_text(),
             config_path=config,
             preview=preview,
             notify_on_pass=notify_on_pass,

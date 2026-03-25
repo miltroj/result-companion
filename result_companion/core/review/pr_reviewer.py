@@ -190,7 +190,7 @@ _ALL_PASSED_COMMENT = "✅ **result-companion:** All Robot Framework tests passe
 def run_review(
     repo_name: str,
     pr_number: int,
-    report: AnalyzeReport,
+    summary: str,
     config_path: Path | None = None,
     preview: bool = True,
     notify_on_pass: bool = False,
@@ -204,7 +204,7 @@ def run_review(
     Args:
         repo_name: GitHub repo in "owner/repo" format.
         pr_number: Pull request number to review.
-        report: Structured analyze report from result-companion.
+        summary: Raw JSON content from 'analyze --json-report'.
         config_path: Optional user config YAML override.
         preview: If True, prints comment instead of posting to PR.
         notify_on_pass: If True, posts a short all-clear comment when no failures found.
@@ -215,7 +215,17 @@ def run_review(
 
     Returns:
         Generated review comment text.
+
+    Raises:
+        RuntimeError: If summary is not valid JSON from 'analyze --json-report'.
     """
+    try:
+        report = AnalyzeReport.from_json(summary)
+    except (ValueError, KeyError, TypeError) as e:
+        raise RuntimeError(
+            f"Invalid summary: expected JSON from 'analyze --json-report'. ({e})"
+        ) from e
+
     if not report.has_failures():
         if not notify_on_pass:
             logger.info("No test failures found — skipping review.")
