@@ -331,6 +331,77 @@ class TestRunRC:
             assert call_kwargs["quiet"] is True
 
 
+class TestMainJsonReport:
+    """Tests for JSON report generation in _main."""
+
+    @pytest.mark.asyncio
+    async def test_main_writes_json_report_with_metadata(self, tmp_path):
+        json_path = tmp_path / "report.json"
+
+        with (
+            patch("result_companion.entrypoints.run_rc.create_llm_html_log"),
+            patch(
+                "result_companion.entrypoints.run_rc.execute_llm_and_get_results"
+            ) as mocked_execute,
+            patch(
+                "result_companion.entrypoints.run_rc.get_robot_results_from_file_as_dict"
+            ) as mocked_get_results,
+            patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
+        ):
+            mocked_get_results.return_value = [
+                {"name": "test_pass", "status": "PASS", "tags": []},
+                {"name": "test_fail", "status": "FAIL", "tags": []},
+            ]
+            mocked_config.return_value = DefaultConfigModel(
+                version=1.0,
+                llm_config={
+                    "question_prompt": "question prompt",
+                    "prompt_template": "my_template {question} {context}",
+                    "chunking": {
+                        "chunk_analysis_prompt": "Analyze: {text}",
+                        "final_synthesis_prompt": "Synthesize: {summary}",
+                    },
+                    "summary_prompt_template": "{analyses}",
+                },
+                llm_factory={"model": "openai/gpt-4", "api_key": "sk-test"},
+                tokenizer={
+                    "tokenizer": "openai_tokenizer",
+                    "max_content_tokens": 1000,
+                },
+                test_filter={
+                    "include_tags": [],
+                    "exclude_tags": [],
+                    "include_passing": False,
+                },
+            )
+            mocked_execute.return_value = {"test_fail": "Root cause details"}
+
+            await _main(
+                output=Path("output.xml"),
+                log_level="DEBUG",
+                config=None,
+                report=None,
+                html_report=False,
+                text_report=None,
+                json_report=str(json_path),
+                print_text_report=False,
+                summarize_failures=False,
+                include_passing=False,
+            )
+
+        import json
+
+        data = json.loads(json_path.read_text())
+        assert data["failed_test_count"] == 1
+        assert data["analyzed_tests"] == ["test_fail"]
+        assert data["per_test_results"]["test_fail"] == "Root cause details"
+        assert data["model"] == "openai/gpt-4"
+        assert data["source_file"] == "output.xml"
+        assert data["total_test_count"] == 2
+        assert len(data["source_hash"]) == 12
+        assert data["timestamp"] is not None
+
+
 class TestMainTextAndSynthesis:
     """Tests for text output and optional global synthesis."""
 
