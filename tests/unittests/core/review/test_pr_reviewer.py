@@ -6,6 +6,7 @@ import pytest
 
 from result_companion.core.results.text_report import AnalyzeReport
 from result_companion.core.review.pr_reviewer import (
+    Spinner,
     build_review_prompt,
     ensure_gh_auth,
     run_review,
@@ -279,6 +280,32 @@ class TestRunReview:
         )
 
         assert result == ""
+
+
+class TestSpinner:
+    """Tests for Spinner context manager."""
+
+    def test_enabled_spinner_writes_to_stderr(self, capsys):
+        with Spinner("testing", enabled=True):
+            import time
+
+            time.sleep(0.15)
+        captured = capsys.readouterr()
+        assert "testing" in captured.err
+
+    def test_disabled_spinner_produces_no_output(self, capsys):
+        with Spinner("testing", enabled=False):
+            import time
+
+            time.sleep(0.15)
+        captured = capsys.readouterr()
+        assert captured.err == ""
+
+    def test_spinner_cleans_up_line_on_exit(self, capsys):
+        with Spinner("cleanup", enabled=True):
+            pass
+        captured = capsys.readouterr()
+        assert "\r\033[K" in captured.err
 
 
 class TestSaveReview:
