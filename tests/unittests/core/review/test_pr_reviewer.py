@@ -9,6 +9,7 @@ import pytest
 from result_companion.core.results.text_report import AnalyzeReport
 from result_companion.core.review.pr_reviewer import (
     Spinner,
+    _generate_review_comment,
     build_review_prompt,
     ensure_gh_auth,
     post_comment,
@@ -100,6 +101,149 @@ def make_failure_summary() -> str:
         analyzed_tests=["test_fail"],
         per_test_results={"test_fail": "real failure"},
     ).to_json()
+
+
+class FakeCopilotSession:
+    """Fake Copilot session that returns a canned response."""
+
+    def __init__(self, content: str = "review comment"):
+        self._content = content
+        self.sent_prompts: list[str] = []
+
+    async def send_and_wait(self, payload, timeout=None):
+        self.sent_prompts.append(payload["prompt"])
+        if not self._content:
+            return None
+        return SimpleNamespace(data=SimpleNamespace(content=self._content))
+
+
+class FakeCopilotClient:
+    """Fake CopilotClient with injectable session response."""
+
+    def __init__(self, content: str = "review comment"):
+        self._session = FakeCopilotSession(content)
+        self.session_configs: list[dict] = []
+        self.stopped = False
+
+    async def create_session(self, config):
+        self.session_configs.append(config)
+        return self._session
+
+
+class TestGenerateReviewComment:
+    """Tests for _generate_review_comment function."""
+
+    @pytest.fixture(autouse=True)
+    def _patch_copilot_lifecycle(self, monkeypatch):
+        async def noop_start(client, startup_timeout=30):
+            pass
+
+        async def noop_stop(client):
+            client.stopped = True
+
+        monkeypatch.setattr(
+            "result_companion.core.review.pr_reviewer.start_copilot_client",
+            noop_start,
+        )
+        monkeypatch.setattr(
+            "result_companion.core.review.pr_reviewer.stop_copilot_client",
+            noop_stop,
+        )
+
+    @pytest.mark.asyncio
+    async def test_returns_response_content(self):
+        client = FakeCopilotClient(content="found regression")
+        result = await _generate_review_comment(
+            repo_name="owner/repo",
+            pr_number=1,
+            failure_summary="test failed",
+            config=make_review_config(),
+            quiet=True,
+            client_factory=lambda: client,
+        )
+
+        assert result == "found regression"
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_on_no_response(self):
+        client = FakeCopilotClient(content="")
+        result = await _generate_review_comment(
+            repo_name="owner/repo",
+            pr_number=1,
+            failure_summary="test failed",
+            config=make_review_config(),
+            quiet=True,
+            client_factory=lambda: client,
+        )
+
+        assert result == ""
+
+    @pytest.mark.asyncio
+    async def test_includes_mcp_config_when_url_set(self):
+        client = FakeCopilotClient()
+        await _generate_review_comment(
+            repo_name="owner/repo",
+            pr_number=1,
+            failure_summary="test failed",
+            config=make_review_config(),
+            quiet=True,
+            client_factory=lambda: client,
+        )
+
+        session_cfg = client.session_configs[0]
+        assert "mcp_servers" in session_cfg
+        assert session_cfg["mcp_servers"]["github"]["url"] == "https://example.com/mcp"
+
+    @pytest.mark.asyncio
+    async def test_skips_mcp_config_when_no_url(self):
+        client = FakeCopilotClient()
+        config = make_review_config()
+        config.review.mcp_server_url = ""
+
+        await _generate_review_comment(
+            repo_name="owner/repo",
+            pr_number=1,
+            failure_summary="test failed",
+            config=config,
+            quiet=True,
+            client_factory=lambda: client,
+        )
+
+        assert "mcp_servers" not in client.session_configs[0]
+
+    @pytest.mark.asyncio
+    async def test_stops_client_even_on_error(self):
+        client = FakeCopilotClient()
+        client.create_session = lambda _: (_ for _ in ()).throw(RuntimeError("boom"))
+
+        with pytest.raises(RuntimeError, match="boom"):
+            await _generate_review_comment(
+                repo_name="owner/repo",
+                pr_number=1,
+                failure_summary="test failed",
+                config=make_review_config(),
+                quiet=True,
+                client_factory=lambda: client,
+            )
+
+        assert client.stopped is True
+
+    @pytest.mark.asyncio
+    async def test_sends_formatted_prompt(self):
+        client = FakeCopilotClient()
+        await _generate_review_comment(
+            repo_name="owner/repo",
+            pr_number=42,
+            failure_summary="login failed",
+            config=make_review_config(),
+            quiet=True,
+            client_factory=lambda: client,
+        )
+
+        prompt = client._session.sent_prompts[0]
+        assert "owner/repo" in prompt
+        assert "42" in prompt
+        assert "login failed" in prompt
 
 
 class TestRunReview:

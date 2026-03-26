@@ -156,6 +156,7 @@ async def _generate_review_comment(
     failure_summary: str,
     config: ReviewConfigModel,
     quiet: bool = False,
+    client_factory: Callable[[], Any] | None = None,
 ) -> str:
     """Runs Copilot agent with GitHub MCP to generate a review comment.
 
@@ -165,6 +166,7 @@ async def _generate_review_comment(
         failure_summary: Output from result-companion analyze.
         config: Validated review configuration.
         quiet: If True, suppresses spinner output.
+        client_factory: Injectable Copilot client constructor for testing.
 
     Returns:
         Generated review comment text.
@@ -189,7 +191,8 @@ async def _generate_review_comment(
     timeout = config.review.timeout
     logger.info(f"Starting Copilot review agent (model={model})...")
 
-    client = CopilotClient()
+    factory = client_factory or CopilotClient
+    client = factory()
     await start_copilot_client(
         client,
         startup_timeout=config.review.startup_timeout,
