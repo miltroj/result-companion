@@ -8,29 +8,46 @@ Currently limited to the GitHub Copilot flow (lowest-friction native agent integ
 1. `result-companion analyze --json-report` creates a structured failure report.
 2. `result-companion review` parses the JSON and sends a text summary to a Copilot agent.
 3. The agent reads the PR through GitHub MCP and writes a Markdown review comment.
-4. Python posts that comment with `gh pr comment`.
+4. Without `--preview`: posts the comment with `gh pr comment`. With `--preview`: prints it to stdout (and optionally saves to file via `--output`).
 
-The read/write split is intentional:
+```mermaid
+sequenceDiagram
+    participant tests as System Tests
+    participant analyze as rc analyze
+    participant review as rc review
+    participant copilot as Copilot Agent
+    participant mcp as GitHub MCP
 
-- Copilot reads PR context through GitHub MCP.
-- Python writes the final comment through `gh`.
+    tests->>analyze: output.xml
+    analyze->>review: rc_summary.json
+    review->>copilot: failure summary + PR ref
+    copilot->>mcp: read PR diff and files
+    mcp-->>copilot: changed code context
+    copilot-->>review: review comment
+
+    alt --preview / --output
+        review-->>review: print / save to file
+    else default
+        review->>mcp: gh pr comment
+    end
+```
 
 ## Prerequisites
 
-You need both CLIs installed and authenticated:
+`copilot-cli` is always required. `gh` is only needed when posting comments to a PR — `--preview` and `--output` work without it.
 
 macOS:
 
 ```bash
-brew install gh
-brew install copilot-cli
+brew install copilot-cli              # required
+brew install gh                       # only for posting to PR
 ```
 
 Linux — see [gh installation](https://github.com/cli/cli/blob/trunk/docs/install_linux.md) and [copilot-cli releases](https://github.com/github/gh-copilot/releases).
 
 ```bash
-gh auth login
 copilot -i "/login"
+gh auth login                         # only for posting to PR
 ```
 
 ## Local Usage
@@ -52,7 +69,15 @@ result-companion review \
   --repo owner/repo \
   --pr 65
 
-# 4. Post an all-clear comment when all tests pass
+# 4. Save review to a Markdown file for editing before posting
+result-companion review \
+  -s rc_summary.json \
+  --repo owner/repo \
+  --pr 65 \
+  --preview \
+  -o review.md
+
+# 5. Post an all-clear comment when all tests pass
 result-companion review \
   -s rc_summary.json \
   --repo owner/repo \
@@ -61,16 +86,18 @@ result-companion review \
 ```
 
 `--preview` still calls Copilot. It only skips the `gh pr comment` step.
+`-o review.md` saves the generated comment to a file. Works with or without `--preview`.
 
 ## Behaviour by Scenario
 
-| Failures | `--notify-on-pass` | `--preview` | What happens |
-|:-:|:-:|:-:|---|
-| ✅ | any | ❌ | Copilot runs → comment posted to PR |
-| ✅ | any | ✅ | Copilot runs → comment printed, nothing posted |
-| ❌ | ❌ | any | Skipped silently |
-| ❌ | ✅ | ❌ | All-clear comment posted (no Copilot call) |
-| ❌ | ✅ | ✅ | All-clear comment printed, nothing posted |
+| Scenario | Result Reviewer |
+|----------|--------|
+| Failures found | Copilot analyzes → comment posted to PR |
+| Failures + `--preview` | Copilot analyzes → comment printed, not posted |
+| No failures | Skipped |
+| No failures + `--notify-on-pass` | All-clear comment posted (no Copilot call) |
+
+`--preview` applies to `--notify-on-pass` too. `--output` can be added to any scenario — it saves the comment to a file without affecting other behaviour.
 
 ## GitHub Actions
 

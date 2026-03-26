@@ -49,39 +49,12 @@ what should be fixed first:
 ```bash
 result-companion analyze -o output.xml --json-report rc_summary.json
 result-companion review -s rc_summary.json --repo owner/repo --pr 65
+
+# Save to file for review/editing before posting
+result-companion review -s rc_summary.json --repo owner/repo --pr 65 --preview -o review.md
 ```
 
-See [`examples/PR_REVIEW.md`](examples/PR_REVIEW.md) for flags, edge cases, and GitHub Actions usage.
-
-<details>
-<summary>Review Flow</summary>
-
-```mermaid
-sequenceDiagram
-    participant tests as SystemTests
-    participant analyze as result-companion Analyze
-    participant review as result-companion Review
-    participant copilot as CopilotAgent
-    participant mcp as GitHubMCP
-    participant gh as gh Pr Comment
-    participant pr as Pull Request
-
-    tests->>analyze: output.xml
-    analyze->>review: rc_summary.json
-    review->>copilot: failure summary and PR reference
-    copilot->>mcp: read PR diff and files
-    mcp-->>copilot: changed code context
-    copilot-->>review: regression findings and suggested fix
-    review->>gh: post PR comment
-    gh->>pr: publish comment
-```
-
-</details>
-
-This feature is currently Copilot-only and posts through `gh`. It does not auto-attach
-`rc_log.html`.
-See [`examples/PR_REVIEW.md`](examples/PR_REVIEW.md) for setup, auth, usage, and common
-failure modes.
+See [`examples/PR_REVIEW.md`](examples/PR_REVIEW.md) for setup, flow diagram, flags, and GitHub Actions usage.
 
 <details>
 <summary>Example generated PR comment — <a href="https://github.com/miltroj/result-companion/pull/65#issuecomment-4100454015">PR #65</a></summary>
