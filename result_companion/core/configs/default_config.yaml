@@ -23,7 +23,7 @@ llm_config:
 
     **Root Cause**
     [Keyword name in quotes. Error type. Why it failed. Max 2-3 sentences]
-
+    [If its possible quote the exact error message from the log]
     Confidence: HIGH/MEDIUM/LOW
 
     **Fix**

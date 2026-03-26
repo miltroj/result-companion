@@ -10,6 +10,7 @@ from result_companion.core.review.pr_reviewer import (
     build_review_prompt,
     ensure_gh_auth,
     run_review,
+    save_review,
 )
 
 
@@ -257,3 +258,35 @@ class TestRunReview:
         )
 
         assert result == ""
+
+
+class TestSaveReview:
+    """Tests for save_review function."""
+
+    def test_writes_content_to_file(self, tmp_path):
+        out = tmp_path / "review.md"
+
+        save_review(str(out), "review body")
+
+        assert out.read_text() == "review body"
+
+    def test_warns_on_non_markdown_extension(self, tmp_path, caplog):
+        import logging
+
+        out = tmp_path / "review.txt"
+
+        with caplog.at_level(logging.WARNING):
+            save_review(str(out), "review body")
+
+        assert out.read_text() == "review body"
+        assert "not a Markdown file" in caplog.text
+
+    def test_no_warning_on_md_extension(self, tmp_path, caplog):
+        import logging
+
+        out = tmp_path / "review.md"
+
+        with caplog.at_level(logging.WARNING):
+            save_review(str(out), "content")
+
+        assert "not a Markdown file" not in caplog.text

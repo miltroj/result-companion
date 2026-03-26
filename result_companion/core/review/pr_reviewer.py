@@ -2,7 +2,10 @@
 
 import asyncio
 import subprocess
+import sys
 import tempfile
+import threading
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -20,6 +23,42 @@ from result_companion.core.parsers.config import (
 )
 from result_companion.core.results.text_report import AnalyzeReport
 from result_companion.core.utils.logging_config import logger
+
+
+class Spinner:
+    """Simple stderr spinner for long-running operations."""
+
+    _FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
+    def __init__(self, message: str = "Working", enabled: bool = True):
+        self._message = message
+        self._enabled = enabled
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def __enter__(self):
+        if self._enabled:
+            self._thread = threading.Thread(target=self._spin, daemon=True)
+            self._thread.start()
+        return self
+
+    def __exit__(self, *_):
+        if not self._enabled:
+            return
+        self._stop.set()
+        if self._thread:
+            self._thread.join()
+        sys.stderr.write("\r\033[K")
+        sys.stderr.flush()
+
+    def _spin(self):
+        idx = 0
+        while not self._stop.is_set():
+            frame = self._FRAMES[idx % len(self._FRAMES)]
+            sys.stderr.write(f"\r{frame} {self._message}")
+            sys.stderr.flush()
+            idx += 1
+            time.sleep(0.1)
 
 
 def build_review_prompt(
@@ -116,6 +155,7 @@ async def _generate_review_comment(
     pr_number: int,
     failure_summary: str,
     config: ReviewConfigModel,
+    quiet: bool = False,
 ) -> str:
     """Runs Copilot agent with GitHub MCP to generate a review comment.
 
@@ -124,6 +164,7 @@ async def _generate_review_comment(
         pr_number: Pull request number to review.
         failure_summary: Output from result-companion analyze.
         config: Validated review configuration.
+        quiet: If True, suppresses spinner output.
 
     Returns:
         Generated review comment text.
@@ -175,7 +216,8 @@ async def _generate_review_comment(
         logger.info(
             f"Copilot session created. Sending prompt" f" ({len(prompt)} chars)..."
         )
-        response = await session.send_and_wait({"prompt": prompt}, timeout=timeout)
+        with Spinner("Copilot agent is analyzing PR...", enabled=not quiet):
+            response = await session.send_and_wait({"prompt": prompt}, timeout=timeout)
         logger.info("Review response received.")
         if response and response.data:
             return response.data.content
@@ -195,6 +237,8 @@ def run_review(
     preview: bool = True,
     notify_on_pass: bool = False,
     model: str | None = None,
+    output_path: str | None = None,
+    quiet: bool = False,
     comment_runner: Callable[..., Any] | None = None,
     gh_runner: Any = subprocess,
     comment_poster: Callable[..., None] = post_comment,
@@ -209,6 +253,8 @@ def run_review(
         preview: If True, prints comment instead of posting to PR.
         notify_on_pass: If True, posts a short all-clear comment when no failures found.
         model: Override model from config.
+        output_path: Optional path to write the review comment as a file.
+        quiet: If True, suppresses spinner output.
         comment_runner: Injectable comment generator for tests.
         gh_runner: Injectable subprocess-like module for gh checks.
         comment_poster: Injectable PR comment poster for tests.
@@ -249,6 +295,7 @@ def run_review(
             pr_number=pr_number,
             failure_summary=report.to_text(),
             config=config,
+            quiet=quiet,
         )
     )
     if not comment.strip():
@@ -257,4 +304,21 @@ def run_review(
     if not preview and comment:
         comment_poster(repo_name, pr_number, comment, runner=gh_runner)
 
+    if output_path and comment:
+        save_review(output_path, comment)
+
     return comment
+
+
+def save_review(output_path: str, content: str) -> None:
+    """Writes review comment to file, warns if not Markdown.
+
+    Args:
+        output_path: Destination file path.
+        content: Review comment text.
+    """
+    out = Path(output_path)
+    if out.suffix not in (".md", ".markdown"):
+        logger.warning(f"Output file '{out.name}' is not a Markdown file (.md)")
+    out.write_text(content)
+    logger.info(f"Review written to {out.resolve()}")

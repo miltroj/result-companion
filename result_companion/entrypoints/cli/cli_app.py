@@ -254,6 +254,12 @@ def review(
         "--model",
         help="Override Copilot model from config",
     ),
+    output: Optional[str] = typer.Option(
+        None,
+        "-o",
+        "--output",
+        help="Write review comment to a Markdown file",
+    ),
 ):
     resolved_log_level = "ERROR" if quiet else str(log_level)
     set_global_log_level(resolved_log_level)
@@ -274,6 +280,8 @@ def review(
             preview=preview,
             notify_on_pass=notify_on_pass,
             model=model,
+            output_path=output,
+            quiet=quiet,
         )
         if result:
             typer.echo(result)
