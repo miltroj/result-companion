@@ -1,5 +1,7 @@
 """Tests for PR review orchestration."""
 
+import subprocess
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -9,6 +11,7 @@ from result_companion.core.review.pr_reviewer import (
     Spinner,
     build_review_prompt,
     ensure_gh_auth,
+    post_comment,
     run_review,
     save_review,
 )
@@ -306,6 +309,60 @@ class TestSpinner:
             pass
         captured = capsys.readouterr()
         assert "\r\033[K" in captured.err
+
+
+class FakePostRunner:
+    """Subprocess-like runner that records calls and supports check=True."""
+
+    def __init__(self, fail: bool = False):
+        self._fail = fail
+        self.calls: list[list[str]] = []
+
+    def run(self, command: list[str], **kwargs):
+        self.calls.append(command)
+        if self._fail and kwargs.get("check"):
+            raise subprocess.CalledProcessError(1, command)
+
+
+class TestPostComment:
+    """Tests for post_comment function."""
+
+    def test_posts_with_correct_gh_args(self):
+        runner = FakePostRunner()
+        post_comment("owner/repo", 42, "body text", runner=runner)
+
+        cmd = runner.calls[0]
+        assert cmd[:2] == ["gh", "pr"]
+        assert "42" in cmd
+        assert "owner/repo" in cmd
+
+    def test_cleans_up_temp_file_on_success(self):
+        runner = FakePostRunner()
+        post_comment("owner/repo", 1, "body", runner=runner)
+
+        body_file = runner.calls[0][runner.calls[0].index("--body-file") + 1]
+        assert not Path(body_file).exists()
+
+    def test_cleans_up_temp_file_on_failure(self):
+        runner = FakePostRunner(fail=True)
+
+        with pytest.raises(subprocess.CalledProcessError):
+            post_comment("owner/repo", 1, "body", runner=runner)
+
+        body_file = runner.calls[0][runner.calls[0].index("--body-file") + 1]
+        assert not Path(body_file).exists()
+
+    def test_writes_comment_body_to_temp_file(self):
+        written_content = {}
+
+        class CapturingRunner:
+            def run(self, command, **kwargs):
+                idx = command.index("--body-file") + 1
+                written_content["body"] = Path(command[idx]).read_text()
+
+        post_comment("owner/repo", 1, "my review", runner=CapturingRunner())
+
+        assert written_content["body"] == "my review"
 
 
 class TestSaveReview:
