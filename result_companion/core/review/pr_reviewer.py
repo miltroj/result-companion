@@ -291,6 +291,8 @@ def run_review(
         if not preview:
             ensure_gh_auth(gh_runner)
             comment_poster(repo_name, pr_number, comment, runner=gh_runner)
+        if output_path:
+            save_review(output_path, comment)
         return comment
 
     config = load_review_config(config_path)

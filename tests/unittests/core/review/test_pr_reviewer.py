@@ -257,6 +257,19 @@ class TestRunReview:
         assert "All Robot Framework tests passed" in result
         assert posted["comment_body"] == result
 
+    def test_notify_on_pass_saves_to_output_file(self, tmp_path):
+        out = tmp_path / "pass.md"
+        result = run_review(
+            repo_name="owner/repo",
+            pr_number=5,
+            summary=make_empty_summary(),
+            notify_on_pass=True,
+            preview=True,
+            output_path=str(out),
+        )
+
+        assert out.read_text() == result
+
     def test_notify_on_pass_false_skips_on_no_failures(self):
         result = run_review(
             repo_name="owner/repo",
