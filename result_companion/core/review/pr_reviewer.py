@@ -226,7 +226,18 @@ async def _generate_review_comment(
         await stop_copilot_client(client)
 
 
-_ALL_PASSED_COMMENT = "✅ **result-companion:** All Robot Framework tests passed."
+def _all_passed_comment(report: AnalyzeReport) -> str:
+    """Builds an all-clear comment with report metadata."""
+    lines = ["**result-companion:** All Robot Framework tests passed."]
+    if report.total_test_count is not None:
+        lines.append(f"- Total tests: {report.total_test_count}")
+    if report.source_file:
+        lines.append(f"- Source: `{report.source_file}`")
+    if report.source_hash:
+        lines.append(f"- Data hash: `{report.source_hash}`")
+    if report.timestamp:
+        lines.append(f"- Analyzed at: {report.timestamp}")
+    return "\n".join(lines)
 
 
 def run_review(
@@ -276,10 +287,11 @@ def run_review(
         if not notify_on_pass:
             logger.info("No test failures found — skipping review.")
             return ""
+        comment = _all_passed_comment(report)
         if not preview:
             ensure_gh_auth(gh_runner)
-            comment_poster(repo_name, pr_number, _ALL_PASSED_COMMENT, runner=gh_runner)
-        return _ALL_PASSED_COMMENT
+            comment_poster(repo_name, pr_number, comment, runner=gh_runner)
+        return comment
 
     config = load_review_config(config_path)
     if model:

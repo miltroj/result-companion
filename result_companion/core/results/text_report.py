@@ -1,6 +1,7 @@
 import hashlib
 import json
 from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from typing import Optional
 
 from result_companion.core.analizers.factory_common import _build_llm_params
@@ -27,6 +28,7 @@ class AnalyzeReport:
     source_file: str | None = None
     total_test_count: int | None = None
     source_hash: str | None = None
+    timestamp: str | None = None
 
     def to_json(self) -> str:
         """Serializes report to JSON string."""
@@ -123,6 +125,7 @@ def render_json_report(
         source_file=source_file,
         total_test_count=len(all_test_cases) if all_test_cases else None,
         source_hash=compute_source_hash(all_test_cases) if all_test_cases else None,
+        timestamp=datetime.now(timezone.utc).isoformat(),
     )
     return report.to_json()
 

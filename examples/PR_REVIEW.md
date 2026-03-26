@@ -174,7 +174,8 @@ posting nothing.
   "model": "openai/gpt-4",
   "source_file": "output.xml",
   "total_test_count": 12,
-  "source_hash": "a1b2c3d4e5f6"
+  "source_hash": "a1b2c3d4e5f6",
+  "timestamp": "2026-03-24T14:30:00+00:00"
 }
 ```
 
@@ -188,6 +189,7 @@ posting nothing.
 | `source_file` | Path to input `output.xml` |
 | `total_test_count` | Total tests before pass/fail filtering |
 | `source_hash` | SHA-256 prefix of raw test data (traceability) |
+| `timestamp` | UTC ISO-8601 timestamp of when analysis completed |
 
 ## Limitations
 

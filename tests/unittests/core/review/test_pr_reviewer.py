@@ -6,7 +6,6 @@ import pytest
 
 from result_companion.core.results.text_report import AnalyzeReport
 from result_companion.core.review.pr_reviewer import (
-    _ALL_PASSED_COMMENT,
     build_review_prompt,
     ensure_gh_auth,
     run_review,
@@ -81,7 +80,13 @@ class TestEnsureGhAuth:
 
 def make_empty_summary() -> str:
     """Creates JSON summary with no test failures."""
-    return AnalyzeReport(failed_test_count=0, analyzed_tests=[]).to_json()
+    return AnalyzeReport(
+        failed_test_count=0,
+        analyzed_tests=[],
+        total_test_count=5,
+        source_file="output.xml",
+        source_hash="abc123",
+    ).to_json()
 
 
 def make_failure_summary() -> str:
@@ -228,7 +233,10 @@ class TestRunReview:
             preview=True,
         )
 
-        assert result == _ALL_PASSED_COMMENT
+        assert "All Robot Framework tests passed" in result
+        assert "Total tests: 5" in result
+        assert "`output.xml`" in result
+        assert "`abc123`" in result
 
     def test_notify_on_pass_posts_comment_when_not_preview(self):
         posted = {}
@@ -246,8 +254,8 @@ class TestRunReview:
             comment_poster=fake_poster,
         )
 
-        assert result == _ALL_PASSED_COMMENT
-        assert posted["comment_body"] == _ALL_PASSED_COMMENT
+        assert "All Robot Framework tests passed" in result
+        assert posted["comment_body"] == result
 
     def test_notify_on_pass_false_skips_on_no_failures(self):
         result = run_review(
