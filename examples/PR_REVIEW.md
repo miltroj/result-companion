@@ -1,5 +1,7 @@
 # PR Review — From Failure to Root Cause in Seconds
 
+![Demo](../assets/review_demo.gif)
+
 Your Robot Framework tests know *what* broke. The Copilot agent figures out *why* — by cross-referencing failures with the PR diff.
 
 Currently uses the GitHub Copilot agent flow. Support for other providers may be added later.
