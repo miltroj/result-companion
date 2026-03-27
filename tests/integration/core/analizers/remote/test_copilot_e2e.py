@@ -59,7 +59,7 @@ class TestCopilotE2E:
             assert "SUCCESS" in content.upper()
         finally:
             # Clean up the lazily initialized module-level handler
-            from result_companion.core.analizers.remote.copilot import _copilot_handler
+            from result_companion.core.analizers.llm_router import _copilot_handler
 
             if _copilot_handler:
                 await _copilot_handler.aclose()
