@@ -144,7 +144,7 @@ class TestAnalizeEntrypoint:
         assert result.exit_code == 0
         assert "Text Report: rc_summary.txt" in result.output
         mock_run.assert_called_once()
-        assert mock_run.call_args.kwargs["text_report"] == "rc_summary.txt"
+        assert mock_run.call_args.kwargs["text_report"] == Path("rc_summary.txt")
 
     def test_cli_sets_json_report(self):
         mock_run = MagicMock()
