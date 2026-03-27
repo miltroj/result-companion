@@ -1,7 +1,8 @@
-# PR Review Guide
+# PR Review — From Failure to Root Cause in Seconds
 
-`result-companion review` turns the JSON report from `analyze` into a PR review comment.
-Currently limited to the GitHub Copilot flow (lowest-friction native agent integration). Support for other providers may be added in future versions.
+Your Robot Framework tests know *what* broke. The Copilot agent figures out *why* — by cross-referencing failures with the PR diff.
+
+Currently uses the GitHub Copilot agent flow. Support for other providers may be added later.
 
 ## What It Does
 

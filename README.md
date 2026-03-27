@@ -41,10 +41,7 @@ result-companion analyze -o output.xml --no-overall-summary
 
 ## Copilot Review Agent
 
-If you already use GitHub Copilot, Result Companion can turn failed system-test output
-into an automatic PR review comment. This helps development teams catch potential
-regressions earlier by highlighting which code changes likely introduced the failure and
-what should be fixed first:
+Replaces the manual "which commit broke this test?" investigation. AI cross-references Robot Framework failures with PR code changes via GitHub Copilot and posts the verdict as a PR comment:
 
 ```bash
 result-companion analyze -o output.xml --json-report rc_summary.json
