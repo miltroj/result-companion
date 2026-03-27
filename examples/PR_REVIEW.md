@@ -34,20 +34,20 @@ sequenceDiagram
 
 ## Prerequisites
 
-`copilot-cli` is always required. `gh` is only needed when posting comments to a PR — `--preview` and `--output` work without it.
+`copilot-cli` and `gh` (authenticated) are both required. `gh` validates that the repo and PR exist before starting the Copilot agent.
 
 macOS:
 
 ```bash
 brew install copilot-cli              # required
-brew install gh                       # only for posting to PR
+brew install gh                       # required (PR validation + posting)
 ```
 
 Linux — see [gh installation](https://github.com/cli/cli/blob/trunk/docs/install_linux.md) and [copilot-cli releases](https://github.com/github/gh-copilot/releases).
 
 ```bash
 copilot -i "/login"
-gh auth login                         # only for posting to PR
+gh auth login                         # required
 ```
 
 ## Local Usage
@@ -85,7 +85,7 @@ result-companion review \
   --notify-on-pass
 ```
 
-`--preview` still calls Copilot. It only skips the `gh pr comment` step.
+`--preview` validates the PR exists and calls Copilot. It only skips the `gh pr comment` step.
 `-o review.md` saves the generated comment to a file. Works with or without `--preview`.
 
 ## Behaviour by Scenario
@@ -150,6 +150,12 @@ If Copilot startup or auth fails:
 
 ```bash
 copilot -i "/login"
+```
+
+If the repo or PR number does not exist:
+
+```text
+PR #6511 not found in owner/repo. Verify the repo and PR number exist.
 ```
 
 If the summary file is not valid JSON (e.g. a plain text file), `review` exits with:

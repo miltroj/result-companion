@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--preview` flag — prints generated review comment without posting to PR
 - `--notify-on-pass` flag — posts an all-clear comment when no failures are found
 - `--output` / `-o` flag on `review` — saves review comment to a file
+- Fail-fast PR validation — `review` checks repo and PR existence via `gh pr view` before starting Copilot agent
 - Review configuration via `default_review_config.yaml` with prompt template, model, timeout, and MCP server URL
 - `examples/PR_REVIEW.md` — setup, usage, and GitHub Actions integration guide
 
