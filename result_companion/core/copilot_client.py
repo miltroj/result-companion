@@ -80,10 +80,10 @@ def build_copilot_client_options(
     options: dict[str, str] = {}
     resolved_cli = resolve_copilot_cli_path(cli_path=cli_path, cli_url=cli_url)
 
-    if cli_path:
-        options["cli_path"] = cli_path
-    elif resolved_cli:
+    if resolved_cli:
         options["cli_path"] = resolved_cli
+    elif cli_path:
+        options["cli_path"] = cli_path
 
     if cli_url:
         options["cli_url"] = cli_url
