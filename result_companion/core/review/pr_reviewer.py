@@ -61,6 +61,22 @@ class Spinner:
             time.sleep(0.1)
 
 
+async def on_pre_tool_use(tool_input: dict, _invocation: Any) -> dict[str, str]:
+    """Logs tool call start and auto-approves permission."""
+    logger.debug(
+        f"[tool_call_start ->] {tool_input['toolName']}"
+        f"  args={tool_input.get('toolArgs', {})}"
+    )
+    return {"permissionDecision": "allow"}
+
+
+async def on_post_tool_use(tool_input: dict, _invocation: Any) -> dict[str, Any]:
+    """Logs tool call result (truncated) and passes it through."""
+    preview = str(tool_input.get("toolResult", ""))[:300]
+    logger.debug(f"[tool_call_end <-] {tool_input['toolName']}" f"  result={preview}")
+    return {"toolResult": tool_input.get("toolResult", "")}
+
+
 def build_review_prompt(
     repo_name: str,
     pr_number: int,
@@ -172,20 +188,6 @@ async def _generate_review_comment(
         Generated review comment text.
     """
     prompt = build_review_prompt(repo_name, pr_number, failure_summary, config.review)
-
-    async def on_pre_tool_use(tool_input, _invocation):
-        logger.debug(
-            f"[tool_call_start ->] {tool_input['toolName']}"
-            f"  args={tool_input.get('toolArgs', {})}"
-        )
-        return {"permissionDecision": "allow"}
-
-    async def on_post_tool_use(tool_input, _invocation):
-        preview = str(tool_input.get("toolResult", ""))[:300]
-        logger.debug(
-            f"[tool_call_end <-] {tool_input['toolName']}" f"  result={preview}"
-        )
-        return {"toolResult": tool_input.get("toolResult", "")}
 
     model = config.review.model
     timeout = config.review.timeout

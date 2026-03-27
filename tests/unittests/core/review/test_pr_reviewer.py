@@ -9,9 +9,12 @@ import pytest
 from result_companion.core.results.text_report import AnalyzeReport
 from result_companion.core.review.pr_reviewer import (
     Spinner,
+    _all_passed_comment,
     _generate_review_comment,
     build_review_prompt,
     ensure_gh_auth,
+    on_post_tool_use,
+    on_pre_tool_use,
     post_comment,
     run_review,
     save_review,
@@ -428,6 +431,70 @@ class TestRunReview:
 
         assert result == ""
 
+    def test_model_override_applied_to_config(self, monkeypatch):
+        captured = {}
+
+        async def fake_comment_runner(**kwargs) -> str:
+            captured["config"] = kwargs["config"]
+            return "review body"
+
+        monkeypatch.setattr(
+            "result_companion.core.review.pr_reviewer.load_review_config",
+            lambda *_: make_review_config(),
+        )
+
+        run_review(
+            repo_name="owner/repo",
+            pr_number=5,
+            summary=make_failure_summary(),
+            model="gpt-5",
+            comment_runner=fake_comment_runner,
+        )
+
+        assert captured["config"].review.model == "gpt-5"
+
+    def test_saves_generated_comment_to_output_file(self, tmp_path, monkeypatch):
+        async def fake_comment_runner(**kwargs) -> str:
+            return "generated review"
+
+        monkeypatch.setattr(
+            "result_companion.core.review.pr_reviewer.load_review_config",
+            lambda *_: make_review_config(),
+        )
+        out = tmp_path / "review.md"
+
+        run_review(
+            repo_name="owner/repo",
+            pr_number=5,
+            summary=make_failure_summary(),
+            output_path=str(out),
+            comment_runner=fake_comment_runner,
+        )
+
+        assert out.read_text() == "generated review"
+
+
+class TestAllPassedComment:
+    """Tests for _all_passed_comment formatting."""
+
+    def test_includes_only_present_metadata(self):
+        full = AnalyzeReport(
+            failed_test_count=0,
+            analyzed_tests=[],
+            total_test_count=42,
+            source_file="output.xml",
+            source_hash="abc123",
+            timestamp="2025-01-01T00:00:00",
+        )
+
+        full_result = _all_passed_comment(full)
+
+        assert "All Robot Framework tests passed." in full_result
+        assert "- Total tests: 42" in full_result
+        assert "- Source: `output.xml`" in full_result
+        assert "- Data hash: `abc123`" in full_result
+        assert "- Analyzed at: 2025-01-01T00:00:00" in full_result
+
 
 class TestSpinner:
     """Tests for Spinner context manager."""
@@ -507,6 +574,53 @@ class TestPostComment:
         post_comment("owner/repo", 1, "my review", runner=CapturingRunner())
 
         assert written_content["body"] == "my review"
+
+
+class TestOnPreToolUse:
+    """Tests for on_pre_tool_use hook."""
+
+    @pytest.mark.asyncio
+    async def test_returns_allow_decision(self):
+        result = await on_pre_tool_use(
+            {"toolName": "get_file", "toolArgs": {"path": "a.py"}}, None
+        )
+
+        assert result == {"permissionDecision": "allow"}
+
+    @pytest.mark.asyncio
+    async def test_handles_missing_tool_args(self):
+        result = await on_pre_tool_use({"toolName": "list_prs"}, None)
+
+        assert result == {"permissionDecision": "allow"}
+
+
+class TestOnPostToolUse:
+    """Tests for on_post_tool_use hook."""
+
+    @pytest.mark.asyncio
+    async def test_passes_through_tool_result(self):
+        result = await on_post_tool_use(
+            {"toolName": "get_file", "toolResult": "file content"}, None
+        )
+
+        assert result == {"toolResult": "file content"}
+
+    @pytest.mark.asyncio
+    async def test_handles_missing_tool_result(self):
+        result = await on_post_tool_use({"toolName": "list_prs"}, None)
+
+        assert result == {"toolResult": ""}
+
+    @pytest.mark.asyncio
+    async def test_truncates_long_result_in_log(self, caplog):
+        import logging
+
+        long_text = "x" * 500
+        with caplog.at_level(logging.DEBUG):
+            await on_post_tool_use({"toolName": "read", "toolResult": long_text}, None)
+
+        log_line = [r for r in caplog.records if "tool_call_end" in r.message][0]
+        assert len(log_line.message) < 500
 
 
 class TestSaveReview:
