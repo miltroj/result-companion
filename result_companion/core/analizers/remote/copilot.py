@@ -146,12 +146,7 @@ class CopilotLLM(CustomLLM):
             )
             client = CopilotClient(opts) if opts else CopilotClient()
 
-            try:
-                await start_copilot_client(
-                    client, startup_timeout=self._startup_timeout
-                )
-            except Exception:
-                raise
+            await start_copilot_client(client, startup_timeout=self._startup_timeout)
 
             self._client = client
             self._pool = SessionPool(self._client, model, self._pool_size)
