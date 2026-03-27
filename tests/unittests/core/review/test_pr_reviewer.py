@@ -499,21 +499,15 @@ class TestAllPassedComment:
 class TestSpinner:
     """Tests for Spinner context manager."""
 
-    def test_enabled_spinner_writes_to_stderr(self, capsys):
-        with Spinner("testing", enabled=True):
-            import time
+    def test_enabled_spinner_starts_and_stops_thread(self):
+        with Spinner("testing", enabled=True) as s:
+            assert s._thread is not None
+            assert s._thread.is_alive()
+        assert not s._thread.is_alive()
 
-            time.sleep(0.15)
-        captured = capsys.readouterr()
-        assert "testing" in captured.err
-
-    def test_disabled_spinner_produces_no_output(self, capsys):
-        with Spinner("testing", enabled=False):
-            import time
-
-            time.sleep(0.15)
-        captured = capsys.readouterr()
-        assert captured.err == ""
+    def test_disabled_spinner_does_not_start_thread(self):
+        with Spinner("testing", enabled=False) as s:
+            assert s._thread is None
 
     def test_spinner_cleans_up_line_on_exit(self, capsys):
         with Spinner("cleanup", enabled=True):

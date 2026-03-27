@@ -1,8 +1,9 @@
+from __future__ import annotations
+
 import hashlib
 import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from typing import Optional
 
 from result_companion.core.analizers.factory_common import _build_llm_params
 from result_companion.core.analizers.llm_router import _smart_acompletion
@@ -53,7 +54,7 @@ class AnalyzeReport:
 def render_text_report(
     llm_results: dict[str, str],
     analyzed_test_names: list[str],
-    overall_summary: Optional[str],
+    overall_summary: str | None,
 ) -> str:
     """Builds concise plain-text report from LLM per-test results.
 
@@ -98,7 +99,7 @@ def render_text_report(
 def render_json_report(
     llm_results: dict[str, str],
     analyzed_test_names: list[str],
-    overall_summary: Optional[str],
+    overall_summary: str | None,
     model: str | None = None,
     source_file: str | None = None,
     all_test_cases: list[dict] | None = None,
@@ -145,7 +146,7 @@ def _build_overall_summary_prompt(
 async def summarize_failures_with_llm(
     llm_results: dict[str, str],
     config: DefaultConfigModel,
-) -> Optional[str]:
+) -> str | None:
     """Generates concise overall summary from per-test LLM results.
 
     Args:
