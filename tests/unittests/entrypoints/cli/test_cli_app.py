@@ -477,7 +477,7 @@ class TestSetupModelCommand:
 
         # Should fail with usage information
         assert result.exit_code != 0
-        assert "Missing argument" in result.stdout or "Error" in result.stdout
+        assert "Missing argument" in result.output or "Error" in result.output
 
     def test_cli_version(self):
         result = self.runner.invoke(app, ["--version"], obj={})
