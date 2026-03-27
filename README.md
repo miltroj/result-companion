@@ -39,6 +39,49 @@ result-companion analyze -o output.xml --print-text-report
 result-companion analyze -o output.xml --no-overall-summary
 ```
 
+## Copilot Review Agent
+
+Replaces the manual "which commit broke this test?" investigation. AI cross-references Robot Framework failures with PR code changes via GitHub Copilot and posts the verdict as a PR comment:
+
+```bash
+result-companion analyze -o output.xml --json-report rc_summary.json
+result-companion review -s rc_summary.json --repo owner/repo --pr 65
+
+# Save to file for review/editing before posting
+result-companion review -s rc_summary.json --repo owner/repo --pr 65 --preview -o review.md
+```
+
+See [`examples/PR_REVIEW.md`](examples/PR_REVIEW.md) for setup, flow diagram, flags, and GitHub Actions usage.
+
+<details>
+<summary>Example generated PR comment — <a href="https://github.com/miltroj/result-companion/pull/65#issuecomment-4100454015">PR #65</a></summary>
+
+## 🔍 result-companion: Test Failure Analysis
+
+**Root cause:** unclear — investigate further
+
+- **Location:** [`poc_pr_review.py:6`](https://github.com/miltroj/result-companion/blob/investigate_code_review_functionality/poc_pr_review.py#L6) — file docstring and example usage reference interactive `gh auth login` which, if executed in CI without a token, can trigger GitHub 403/forbidden responses
+- **Location:** [`poc_pr_review.py:35`](https://github.com/miltroj/result-companion/blob/investigate_code_review_functionality/poc_pr_review.py#L35) — the prompt/action builder constructs shell commands that would run `gh pr comment` without using a non-interactive token, risking authentication failures in CI
+
+## 💡 Suggested Fix
+
+Replace interactive GH auth and posting with a token-based non-interactive command:
+
+```python
+action = (
+    "Print the review comment body only — do NOT run gh pr comment."
+    if preview
+    else (
+        f'echo "$GITHUB_TOKEN" | gh auth login --with-token && '
+        f'gh pr comment {pr_number} --repo {repo_name} --body "<review text>"'
+    )
+)
+```
+
+Ensure CI provides `GITHUB_TOKEN` secret and keep `preview=True` by default in CI invocation.
+
+</details>
+
 ## Quick Start
 
 ### Option 1: GitHub Copilot (Easiest for Users With Copilot)

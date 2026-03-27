@@ -1,9 +1,6 @@
 """LiteLLM adapter for GitHub Copilot SDK."""
 
 import asyncio
-import os
-import shutil
-import stat
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Optional
 
@@ -12,6 +9,14 @@ from copilot import CopilotClient, PermissionHandler
 from litellm import CustomLLM
 from litellm.types.utils import ModelResponse
 
+from result_companion.core.copilot_client import (
+    build_copilot_client_options,
+    check_copilot_auth,
+    log_copilot_diagnostics,
+    resolve_copilot_cli_path,
+    start_copilot_client,
+    stop_copilot_client,
+)
 from result_companion.core.utils.logging_config import get_progress_logger
 
 logger = get_progress_logger("COPILOT")
@@ -29,21 +34,6 @@ def messages_to_prompt(messages: list[dict[str, str]]) -> str:
     prefixes = {"system": "[System]", "user": "[User]", "assistant": "[Assistant]"}
     parts = [f"{prefixes.get(m['role'], '')}: {m['content']}" for m in messages]
     return "\n\n".join(parts)
-
-
-def ensure_executable(path: str) -> None:
-    """Adds execute permission to a binary if missing.
-
-    Args:
-        path: Absolute path to the binary file.
-    """
-    if not path or not os.path.isabs(path) or not os.path.isfile(path):
-        return
-    if os.access(path, os.X_OK):
-        return
-    current_mode = os.stat(path).st_mode
-    os.chmod(path, current_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
-    logger.info(f"Fixed execute permission on copilot binary: {path}")
 
 
 class SessionPool:
@@ -150,32 +140,13 @@ class CopilotLLM(CustomLLM):
             if self._started:
                 return
 
-            resolved_cli = self._resolve_cli_path()
-            opts = {}
-            if self._cli_path:
-                opts["cli_path"] = self._cli_path
-            elif resolved_cli:
-                opts["cli_path"] = resolved_cli
-            if self._cli_url:
-                opts["cli_url"] = self._cli_url
-
+            opts = build_copilot_client_options(
+                cli_path=self._cli_path,
+                cli_url=self._cli_url,
+            )
             client = CopilotClient(opts) if opts else CopilotClient()
-            cli_path = client.options.get("cli_path", "")
-            ensure_executable(cli_path)
-            try:
-                await asyncio.wait_for(client.start(), timeout=self._startup_timeout)
-            except asyncio.TimeoutError:
-                raise RuntimeError(
-                    "Copilot CLI failed to start within "
-                    f"{self._startup_timeout:.0f}s. "
-                    'Try: copilot -i "/login"'
-                )
-            try:
-                await self._check_auth(client)
-            except Exception:
-                await self._stop_client(client)
-                raise
-            await self._log_diagnostics(client)
+
+            await start_copilot_client(client, startup_timeout=self._startup_timeout)
 
             self._client = client
             self._pool = SessionPool(self._client, model, self._pool_size)
@@ -183,47 +154,22 @@ class CopilotLLM(CustomLLM):
 
     async def _check_auth(self, client: CopilotClient) -> None:
         """Raises if the Copilot CLI is not authenticated."""
-        auth = await client.get_auth_status()
-        if not auth.isAuthenticated:
-            raise RuntimeError(
-                'Copilot CLI is not authenticated. Run: copilot -i "/login"'
-            )
-        logger.debug(f"Copilot authenticated as {auth.login}")
+        await check_copilot_auth(client)
 
     async def _log_diagnostics(self, client: CopilotClient) -> None:
         """Logs CLI version and available models. Non-fatal on failure."""
-        try:
-            status = await client.get_status()
-            logger.debug(
-                f"Copilot CLI v{status.version} (protocol {status.protocolVersion})",
-            )
-            models = await client.list_models()
-            logger.debug(f"Available models: {[m.id for m in models]}")
-        except Exception as exc:
-            logger.warning(f"Could not fetch Copilot diagnostics: {exc}")
+        await log_copilot_diagnostics(client)
 
     async def _stop_client(self, client: CopilotClient) -> None:
         """Stops a client, suppressing errors."""
-        try:
-            await client.stop()
-        except Exception as exc:
-            logger.debug(f"Failed to stop Copilot client: {exc}")
+        await stop_copilot_client(client)
 
     def _resolve_cli_path(self) -> str | None:
         """Resolves an explicit Copilot CLI path, or None to use the SDK bundled binary."""
-        if self._cli_url:
-            return None
-        cli_path = self._cli_path or os.getenv("COPILOT_CLI_PATH")
-        if not cli_path:
-            return None
-        resolved = shutil.which(cli_path) or (
-            cli_path if os.path.isabs(cli_path) and os.path.isfile(cli_path) else None
+        return resolve_copilot_cli_path(
+            cli_path=self._cli_path,
+            cli_url=self._cli_url,
         )
-        if not resolved:
-            raise FileNotFoundError(
-                f"Copilot CLI not found at '{cli_path}'. Check COPILOT_CLI_PATH or cli_path."
-            )
-        return resolved
 
     def _extract_model(self, model: str) -> str:
         """Extracts model name from 'copilot/model-name' format."""

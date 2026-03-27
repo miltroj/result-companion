@@ -2,11 +2,14 @@ import os
 import re
 from enum import Enum
 from pathlib import Path
+from typing import TypeVar
 
 import yaml
 from pydantic import BaseModel, Field, ValidationError, model_serializer
 
 from result_companion.core.utils.logging_config import logger
+
+T = TypeVar("T", bound=BaseModel)
 
 
 class TokenizerTypes(str, Enum):
@@ -202,12 +205,78 @@ class ConfigLoader:
             raise
         return validated_config
 
+    def load_as(self, model_class: type[T], user_config_file: Path | None = None) -> T:
+        """Loads and merges config into any Pydantic model.
+
+        Args:
+            model_class: Pydantic model to validate against.
+            user_config_file: Optional user YAML to merge with defaults.
+
+        Returns:
+            Validated instance of model_class.
+        """
+        raw = self._process_env_vars(self._read_yaml_file(self.default_config_file))
+        if user_config_file:
+            user = self._process_env_vars(self._read_yaml_file(user_config_file))
+            for key, value in user.items():
+                if (
+                    key in raw
+                    and isinstance(raw[key], dict)
+                    and isinstance(value, dict)
+                ):
+                    raw[key] = {**raw[key], **value}
+                else:
+                    raw[key] = value
+        return model_class(**raw)
+
+
+class ReviewPromptModel(BaseModel):
+    """Review prompt configuration."""
+
+    review_prompt: str = Field(
+        min_length=5, description="Prompt template for PR review."
+    )
+    model: str = Field(default="gpt-5-mini", description="Copilot model to use.")
+    timeout: int = Field(default=300, ge=10, description="Agent timeout in seconds.")
+    startup_timeout: int = Field(
+        default=30, ge=1, description="Copilot CLI startup timeout in seconds."
+    )
+    mcp_server_url: str = Field(
+        default="https://api.enterprise.githubcopilot.com/mcp/readonly",
+        description="GitHub MCP server URL for PR access.",
+    )
+
+
+class ReviewConfigModel(BaseModel):
+    """Configuration for PR review."""
+
+    version: float
+    review: ReviewPromptModel
+
+
+def _configs_dir() -> str:
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "configs")
+
 
 def load_config(config_path: Path | None = None) -> DefaultConfigModel:
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    config_file_path = os.path.join(current_dir, "..", "configs", "default_config.yaml")
-
+    config_file_path = os.path.join(_configs_dir(), "default_config.yaml")
+    # TODO: unify with load_review_config
     config_loader = ConfigLoader(default_config_file=config_file_path)
     config = config_loader.load_config(user_config_file=config_path)
     logger.debug(f"{config=}")
     return config
+
+
+def load_review_config(config_path: Path | None = None) -> ReviewConfigModel:
+    """Loads review configuration with defaults and optional user overrides.
+
+    Args:
+        config_path: Optional user config YAML to merge with defaults.
+
+    Returns:
+        Validated ReviewConfigModel.
+    """
+    default_path = os.path.join(_configs_dir(), "default_review_config.yaml")
+    return ConfigLoader(default_config_file=default_path).load_as(
+        ReviewConfigModel, config_path
+    )

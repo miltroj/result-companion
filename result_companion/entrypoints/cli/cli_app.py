@@ -15,7 +15,7 @@ from result_companion.core.analizers.local.ollama_server_manager import (
     resolve_server_manager,
 )
 from result_companion.core.utils.log_levels import LogLevels
-from result_companion.core.utils.logging_config import logger
+from result_companion.core.utils.logging_config import logger, set_global_log_level
 
 app = typer.Typer()
 setup_app = typer.Typer(help="Manage Ollama installation and models")
@@ -96,6 +96,9 @@ def analyze(
     text_report: Optional[Path] = typer.Option(
         None, "--text-report", help="Write concise text summary to file"
     ),
+    json_report: Optional[str] = typer.Option(
+        None, "--json-report", help="Write structured JSON report to file"
+    ),
     print_text_report: bool = typer.Option(
         False, "--print-text-report", help="Print concise text report to stdout"
     ),
@@ -149,6 +152,7 @@ def analyze(
         typer.echo(f"Report: {report}")
         typer.echo(f"HTML Report: {html_report}")
         typer.echo(f"Text Report: {text_report}")
+        typer.echo(f"JSON Report: {json_report}")
         typer.echo(f"Print Text Report: {print_text_report}")
         typer.echo(f"Overall Summary: {overall_summary}")
         typer.echo(f"Include Passing: {include_passing}")
@@ -182,10 +186,108 @@ def analyze(
         dryrun=dryrun,
         html_report=html_report,
         text_report=text_report,
+        json_report=json_report,
         print_text_report=print_text_report,
         summarize_failures=overall_summary,
         quiet=quiet,
     )
+
+
+@app.command()
+def review(
+    summary: Path = typer.Option(
+        ...,
+        "-s",
+        "--summary",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
+        help="JSON report file from 'analyze --json-report'",
+    ),
+    repo: str = typer.Option(
+        ...,
+        "--repo",
+        envvar="GITHUB_REPOSITORY",
+        help="GitHub repo (owner/repo). Defaults to GITHUB_REPOSITORY",
+    ),
+    pr: int = typer.Option(
+        ...,
+        "--pr",
+        help="Pull request number",
+    ),
+    config: Optional[Path] = typer.Option(
+        None,
+        "-c",
+        "--config",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
+        help="Review config YAML (overrides defaults)",
+    ),
+    preview: bool = typer.Option(
+        False,
+        "--preview",
+        help="Print review comment instead of posting to PR (Copilot still runs)",
+    ),
+    notify_on_pass: bool = typer.Option(
+        False,
+        "--notify-on-pass",
+        help="Post a short all-clear comment when no test failures are found",
+    ),
+    log_level: LogLevels = typer.Option(
+        LogLevels.INFO,
+        "-l",
+        "--log-level",
+        help="Log level verbosity",
+        case_sensitive=True,
+    ),
+    quiet: bool = typer.Option(
+        False,
+        "-q",
+        "--quiet",
+        help="Suppress logs/progress output",
+    ),
+    model: Optional[str] = typer.Option(
+        None,
+        "--model",
+        help="Override Copilot model from config",
+    ),
+    output: Optional[str] = typer.Option(
+        None,
+        "-o",
+        "--output",
+        help="Write review comment to a Markdown file",
+    ),
+):
+    resolved_log_level = "ERROR" if quiet else str(log_level)
+    set_global_log_level(resolved_log_level)
+
+    ctx = get_current_context()
+    run = ctx.obj.get("review") if ctx.obj else None
+    if not run:
+        from result_companion.core.review.pr_reviewer import run_review
+
+        run = run_review
+
+    try:
+        result = run(
+            repo_name=repo,
+            pr_number=pr,
+            summary=summary.read_text(),
+            config_path=config,
+            preview=preview,
+            notify_on_pass=notify_on_pass,
+            model=model,
+            output_path=output,
+            quiet=quiet,
+        )
+        if result:
+            typer.echo(result)
+    except Exception as e:
+        typer.echo(f"Review failed: {e}", err=True)
+        raise typer.Exit(code=1)
 
 
 # Setup commands using the original functions

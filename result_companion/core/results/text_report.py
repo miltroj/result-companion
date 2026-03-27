@@ -1,4 +1,9 @@
-from typing import Optional
+from __future__ import annotations
+
+import hashlib
+import json
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 
 from result_companion.core.analizers.factory_common import _build_llm_params
 from result_companion.core.analizers.llm_router import _smart_acompletion
@@ -6,10 +11,50 @@ from result_companion.core.parsers.config import DefaultConfigModel
 from result_companion.core.utils.logging_config import logger
 
 
+def compute_source_hash(test_cases: list[dict]) -> str:
+    """Computes a short SHA-256 hash of raw test data before LLM processing."""
+    blob = json.dumps(test_cases, sort_keys=True).encode()
+    return hashlib.sha256(blob).hexdigest()[:12]
+
+
+@dataclass
+class AnalyzeReport:
+    """Structured output from result-companion analyze."""
+
+    failed_test_count: int
+    analyzed_tests: list[str]
+    per_test_results: dict[str, str] = field(default_factory=dict)
+    overall_summary: str | None = None
+    model: str | None = None
+    source_file: str | None = None
+    total_test_count: int | None = None
+    source_hash: str | None = None
+    timestamp: str | None = None
+
+    def to_json(self) -> str:
+        """Serializes report to JSON string."""
+        return json.dumps(asdict(self), indent=2)
+
+    @classmethod
+    def from_json(cls, text: str) -> "AnalyzeReport":
+        """Deserializes report from JSON string."""
+        return cls(**json.loads(text))
+
+    def to_text(self) -> str:
+        """Renders report as plain text (same format as render_text_report)."""
+        return render_text_report(
+            self.per_test_results, self.analyzed_tests, self.overall_summary
+        )
+
+    def has_failures(self) -> bool:
+        """Returns True if the report contains analyzed test failures."""
+        return self.failed_test_count > 0
+
+
 def render_text_report(
     llm_results: dict[str, str],
     analyzed_test_names: list[str],
-    overall_summary: Optional[str],
+    overall_summary: str | None,
 ) -> str:
     """Builds concise plain-text report from LLM per-test results.
 
@@ -51,6 +96,41 @@ def render_text_report(
     return "\n".join(lines) + "\n"
 
 
+def render_json_report(
+    llm_results: dict[str, str],
+    analyzed_test_names: list[str],
+    overall_summary: str | None,
+    model: str | None = None,
+    source_file: str | None = None,
+    all_test_cases: list[dict] | None = None,
+) -> str:
+    """Builds JSON report from LLM per-test results.
+
+    Args:
+        llm_results: Mapping of test names to LLM analysis.
+        analyzed_test_names: Names of tests included in current analysis.
+        overall_summary: Optional synthesized summary.
+        model: LLM model used for analysis.
+        source_file: Path to the input output.xml.
+        all_test_cases: Raw test data before pass/fail filtering (for metadata).
+
+    Returns:
+        JSON string of the AnalyzeReport.
+    """
+    report = AnalyzeReport(
+        failed_test_count=len(analyzed_test_names),
+        analyzed_tests=analyzed_test_names,
+        per_test_results=llm_results,
+        overall_summary=overall_summary,
+        model=model,
+        source_file=source_file,
+        total_test_count=len(all_test_cases) if all_test_cases else None,
+        source_hash=compute_source_hash(all_test_cases) if all_test_cases else None,
+        timestamp=datetime.now(timezone.utc).isoformat(),
+    )
+    return report.to_json()
+
+
 def _build_overall_summary_prompt(
     llm_results: dict[str, str], prompt_template: str
 ) -> str:
@@ -66,7 +146,7 @@ def _build_overall_summary_prompt(
 async def summarize_failures_with_llm(
     llm_results: dict[str, str],
     config: DefaultConfigModel,
-) -> Optional[str]:
+) -> str | None:
     """Generates concise overall summary from per-test LLM results.
 
     Args:

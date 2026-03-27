@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 
 import pytest
@@ -10,7 +11,10 @@ from result_companion.core.parsers.config import (
     TokenizerModel,
 )
 from result_companion.core.results.text_report import (
+    AnalyzeReport,
     _build_overall_summary_prompt,
+    compute_source_hash,
+    render_json_report,
     summarize_failures_with_llm,
 )
 
@@ -68,6 +72,161 @@ def patch_smart_acompletion(monkeypatch):
         )
 
     return _apply
+
+
+class TestAnalyzeReport:
+    """Tests for AnalyzeReport dataclass."""
+
+    def test_roundtrip_json(self):
+        report = AnalyzeReport(
+            failed_test_count=2,
+            analyzed_tests=["test_a", "test_b"],
+            per_test_results={"test_a": "Error A", "test_b": "Error B"},
+            overall_summary="Two failures.",
+        )
+
+        restored = AnalyzeReport.from_json(report.to_json())
+
+        assert restored == report
+
+    def test_to_text_matches_render_text_report(self):
+        report = AnalyzeReport(
+            failed_test_count=1,
+            analyzed_tests=["test_x"],
+            per_test_results={"test_x": "Timeout error"},
+            overall_summary="Summary here",
+        )
+
+        text = report.to_text()
+
+        assert "test_x" in text
+        assert "Timeout error" in text
+        assert "Summary here" in text
+
+    def test_has_failures_true_when_tests_present(self):
+        report = AnalyzeReport(failed_test_count=1, analyzed_tests=["t"])
+
+        assert report.has_failures() is True
+
+    def test_has_failures_false_when_empty(self):
+        report = AnalyzeReport(failed_test_count=0, analyzed_tests=[])
+
+        assert report.has_failures() is False
+
+    def test_roundtrip_json_with_all_metadata(self):
+        report = AnalyzeReport(
+            failed_test_count=1,
+            analyzed_tests=["test_a"],
+            per_test_results={"test_a": "err"},
+            overall_summary="sum",
+            model="openai/gpt-4",
+            source_file="output.xml",
+            total_test_count=5,
+            source_hash="abc123def456",
+        )
+
+        restored = AnalyzeReport.from_json(report.to_json())
+
+        assert restored == report
+        assert restored.model == "openai/gpt-4"
+        assert restored.source_file == "output.xml"
+        assert restored.total_test_count == 5
+        assert restored.source_hash == "abc123def456"
+
+    def test_from_json_defaults_missing_metadata_to_none(self):
+        minimal_json = json.dumps(
+            {
+                "failed_test_count": 0,
+                "analyzed_tests": [],
+            }
+        )
+
+        report = AnalyzeReport.from_json(minimal_json)
+
+        assert report.model is None
+        assert report.source_file is None
+        assert report.total_test_count is None
+        assert report.source_hash is None
+
+
+class TestComputeSourceHash:
+    """Tests for compute_source_hash."""
+
+    def test_returns_12_char_hex_string(self):
+        result = compute_source_hash([{"name": "t1", "status": "FAIL"}])
+
+        assert len(result) == 12
+        assert all(c in "0123456789abcdef" for c in result)
+
+    def test_same_input_produces_same_hash(self):
+        data = [{"name": "t1", "status": "FAIL"}]
+
+        assert compute_source_hash(data) == compute_source_hash(data)
+
+    def test_different_input_produces_different_hash(self):
+        a = [{"name": "t1", "status": "FAIL"}]
+        b = [{"name": "t2", "status": "PASS"}]
+
+        assert compute_source_hash(a) != compute_source_hash(b)
+
+
+class TestRenderJsonReport:
+    """Tests for render_json_report function."""
+
+    def test_produces_valid_json_with_all_fields(self):
+        result = render_json_report(
+            llm_results={"test_1": "Error details"},
+            analyzed_test_names=["test_1"],
+            overall_summary="Root cause.",
+        )
+        parsed = json.loads(result)
+
+        assert parsed["failed_test_count"] == 1
+        assert parsed["analyzed_tests"] == ["test_1"]
+        assert parsed["per_test_results"]["test_1"] == "Error details"
+        assert parsed["overall_summary"] == "Root cause."
+
+    def test_empty_results_produces_zero_count(self):
+        result = render_json_report(
+            llm_results={},
+            analyzed_test_names=[],
+            overall_summary=None,
+        )
+        parsed = json.loads(result)
+
+        assert parsed["failed_test_count"] == 0
+        assert parsed["overall_summary"] is None
+
+    def test_includes_metadata_when_all_test_cases_provided(self):
+        all_cases = [
+            {"name": "t1", "status": "FAIL"},
+            {"name": "t2", "status": "PASS"},
+        ]
+        result = render_json_report(
+            llm_results={"t1": "err"},
+            analyzed_test_names=["t1"],
+            overall_summary=None,
+            model="openai/gpt-4",
+            source_file="output.xml",
+            all_test_cases=all_cases,
+        )
+        parsed = json.loads(result)
+
+        assert parsed["model"] == "openai/gpt-4"
+        assert parsed["source_file"] == "output.xml"
+        assert parsed["total_test_count"] == 2
+        assert len(parsed["source_hash"]) == 12
+
+    def test_metadata_none_when_no_test_cases_provided(self):
+        result = render_json_report(
+            llm_results={},
+            analyzed_test_names=[],
+            overall_summary=None,
+        )
+        parsed = json.loads(result)
+
+        assert parsed["total_test_count"] is None
+        assert parsed["source_hash"] is None
 
 
 class TestBuildOverallSummaryPrompt:

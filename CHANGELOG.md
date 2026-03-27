@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.12] - 2026-03-27
+
+### Added
+- `review` command — correlates test failures with PR code changes via Copilot agent and GitHub MCP
+- `--json-report <file>` flag on `analyze` — produces structured JSON consumed by `review`
+- `--preview` flag — prints generated review comment without posting to PR
+- `--notify-on-pass` flag — posts an all-clear comment when no failures are found
+- `--output` / `-o` flag on `review` — saves review comment to a file
+- Fail-fast PR validation — `review` checks repo and PR existence via `gh pr view` before starting Copilot agent
+- Review configuration via `default_review_config.yaml` with prompt template, model, timeout, and MCP server URL
+- `examples/PR_REVIEW.md` — setup, usage, and GitHub Actions integration guide
+
+### Changed
+- Extracted shared Copilot client lifecycle helpers into `copilot_client.py` (reused by both `analyze` and `review`)
+- Config loader gained generic `load_as()` method for loading into arbitrary Pydantic models
+- Default analysis prompt now includes exact error message quoting when possible
+
+[0.0.12]: https://github.com/miltroj/result-companion/releases/tag/v0.0.12
+
 ## [0.0.11] - 2026-03-12
 
 ### Added

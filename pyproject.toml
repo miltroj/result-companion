@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "result-companion"
-version = "0.0.11"
+version = "0.0.12"
 description = "AI-powered analysis of Robot Framework test failures - instant insights from output.xml"
 authors = ["Milosz Trojanowski <mil.troj@gmail.com>"]
 license = "Apache-2.0"
@@ -23,7 +23,7 @@ packages = [{include = "result_companion"}]
 [tool.poetry.dependencies]
 python = "^3.11"
 robotframework = "^7.1.1"
-typer = "0.15.1"
+typer = "^0.15.2"
 ollama = "^0.4.0"
 python-dotenv = "^1.0.1"
 pyyaml = "^6.0.2"
@@ -48,6 +48,7 @@ pre-commit = "^4.1.0"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 markers = [
     "e2e: end-to-end tests requiring external services (skipped by default, set -m e2e to run)",
 ]

@@ -146,6 +146,24 @@ class TestAnalizeEntrypoint:
         mock_run.assert_called_once()
         assert mock_run.call_args.kwargs["text_report"] == Path("rc_summary.txt")
 
+    def test_cli_sets_json_report(self):
+        mock_run = MagicMock()
+        result = self.runner.invoke(
+            app,
+            [
+                self.ENTRYPOINT,
+                "-o",
+                existing_xml_path,
+                "--json-report",
+                "rc_summary.json",
+            ],
+            obj={"analyze": mock_run},
+        )
+        assert result.exit_code == 0
+        assert "JSON Report: rc_summary.json" in result.output
+        mock_run.assert_called_once()
+        assert mock_run.call_args.kwargs["json_report"] == "rc_summary.json"
+
     def test_cli_sets_print_text_report(self):
         mock_run = MagicMock()
         result = self.runner.invoke(
@@ -194,6 +212,147 @@ class TestAnalizeEntrypoint:
         assert "Log Level: " not in result.output
         mock_run.assert_called_once()
         assert mock_run.call_args.kwargs["quiet"] is True
+
+
+class TestReviewEntrypoint:
+    ENTRYPOINT = "review"
+
+    def setup_method(self):
+        self.runner = CliRunner()
+
+    def _write_json_report(
+        self, tmp_path, failed_test_count=1, tests=None, results=None
+    ):
+        """Helper to write a JSON report file."""
+        import json
+
+        data = {
+            "failed_test_count": failed_test_count,
+            "analyzed_tests": tests or (["test_fail"] if failed_test_count else []),
+            "per_test_results": results
+            or ({"test_fail": "error"} if failed_test_count else {}),
+            "overall_summary": None,
+        }
+        path = tmp_path / "summary.json"
+        path.write_text(json.dumps(data), encoding="utf-8")
+        return path
+
+    def test_cli_passes_review_options_and_prints_comment(self, tmp_path):
+        summary_path = self._write_json_report(tmp_path)
+        mock_run = MagicMock(return_value="review body")
+
+        result = self.runner.invoke(
+            app,
+            [
+                self.ENTRYPOINT,
+                "-s",
+                str(summary_path),
+                "--repo",
+                "owner/repo",
+                "--pr",
+                "65",
+                "--preview",
+                "--model",
+                "gpt-5",
+            ],
+            obj={"review": mock_run},
+        )
+
+        assert result.exit_code == 0
+        assert "review body" in result.output
+        mock_run.assert_called_once()
+        assert mock_run.call_args.kwargs["repo_name"] == "owner/repo"
+        assert mock_run.call_args.kwargs["pr_number"] == 65
+        assert isinstance(mock_run.call_args.kwargs["summary"], str)
+        assert mock_run.call_args.kwargs["preview"] is True
+        assert mock_run.call_args.kwargs["model"] == "gpt-5"
+
+    def test_cli_passes_notify_on_pass_flag(self, tmp_path):
+        summary_path = self._write_json_report(tmp_path, failed_test_count=0)
+        mock_run = MagicMock(return_value="✅ All passed.")
+
+        result = self.runner.invoke(
+            app,
+            [
+                self.ENTRYPOINT,
+                "-s",
+                str(summary_path),
+                "--repo",
+                "owner/repo",
+                "--pr",
+                "65",
+                "--notify-on-pass",
+            ],
+            obj={"review": mock_run},
+        )
+
+        assert result.exit_code == 0
+        assert mock_run.call_args.kwargs["notify_on_pass"] is True
+
+    def test_cli_parses_json_report_with_failures(self, tmp_path):
+        summary_path = self._write_json_report(
+            tmp_path,
+            failed_test_count=1,
+            tests=["test_login"],
+            results={"test_login": "403 error"},
+        )
+        mock_run = MagicMock(return_value="review body")
+
+        result = self.runner.invoke(
+            app,
+            [
+                self.ENTRYPOINT,
+                "-s",
+                str(summary_path),
+                "--repo",
+                "owner/repo",
+                "--pr",
+                "10",
+            ],
+            obj={"review": mock_run},
+        )
+
+        assert result.exit_code == 0
+        summary = mock_run.call_args.kwargs["summary"]
+        assert "test_login" in summary
+        assert "403 error" in summary
+
+    def test_cli_exits_with_error_on_invalid_json_input(self, tmp_path):
+        bad_file = tmp_path / "failure.txt"
+        bad_file.write_text("plain text, not JSON", encoding="utf-8")
+
+        def bad_run(**kwargs):
+            from result_companion.core.review.pr_reviewer import run_review
+
+            return run_review(**kwargs)
+
+        result = self.runner.invoke(
+            app,
+            [self.ENTRYPOINT, "-s", str(bad_file), "--repo", "o/r", "--pr", "1"],
+            obj={"review": bad_run},
+        )
+
+        assert result.exit_code == 1
+        assert "Invalid summary" in result.output
+
+    def test_cli_exits_with_error_when_review_fails(self, tmp_path):
+        summary_path = self._write_json_report(tmp_path)
+        result = self.runner.invoke(
+            app,
+            [
+                self.ENTRYPOINT,
+                "-s",
+                str(summary_path),
+                "--repo",
+                "owner/repo",
+                "--pr",
+                "65",
+            ],
+            obj={"review": MagicMock(side_effect=RuntimeError("boom"))},
+        )
+
+        assert result.exit_code == 1
+        assert "Review failed: boom" in result.output
 
 
 class TestInstallOllamaModel:
@@ -318,7 +477,7 @@ class TestSetupModelCommand:
 
         # Should fail with usage information
         assert result.exit_code != 0
-        assert "Missing argument" in result.stdout or "Error" in result.stdout
+        assert "Missing argument" in result.output or "Error" in result.output
 
     def test_cli_version(self):
         result = self.runner.invoke(app, ["--version"], obj={})
