@@ -302,7 +302,7 @@ def run_review(
 
     config = load_review_config(config_path)
     if model:
-        config.review.model = model
+        config.review = config.review.model_copy(update={"model": model})
 
     if not preview:
         ensure_gh_auth(gh_runner)

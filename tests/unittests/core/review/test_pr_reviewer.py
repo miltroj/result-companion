@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from result_companion.core.parsers.config import ReviewConfigModel, ReviewPromptModel
 from result_companion.core.results.text_report import AnalyzeReport
 from result_companion.core.review.pr_reviewer import (
     Spinner,
@@ -21,11 +22,11 @@ from result_companion.core.review.pr_reviewer import (
 )
 
 
-def make_review_config() -> SimpleNamespace:
+def make_review_config() -> ReviewConfigModel:
     """Creates minimal review configuration for tests."""
-    return SimpleNamespace(
+    return ReviewConfigModel(
         version=1.0,
-        review=SimpleNamespace(
+        review=ReviewPromptModel(
             review_prompt="Repo {repo_name} PR {pr_number}\n{failure_summary}",
             model="gpt-5-mini",
             timeout=300,
