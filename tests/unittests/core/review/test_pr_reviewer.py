@@ -14,6 +14,7 @@ from result_companion.core.review.pr_reviewer import (
     _generate_review_comment,
     build_review_prompt,
     ensure_gh_auth,
+    ensure_pr_exists,
     on_post_tool_use,
     on_pre_tool_use,
     post_comment,
@@ -85,6 +86,34 @@ class TestEnsureGhAuth:
         ensure_gh_auth(runner)
 
         assert runner.calls[0][0] == ["gh", "auth", "status"]
+
+
+class TestEnsurePrExists:
+    """Tests for PR existence preflight check."""
+
+    def test_raises_when_pr_not_found(self):
+        with pytest.raises(RuntimeError, match="not found"):
+            ensure_pr_exists("owner/repo", 999, FakeGhRunner(returncode=1))
+
+    def test_raises_when_gh_is_missing(self):
+        with pytest.raises(RuntimeError, match="not installed"):
+            ensure_pr_exists("owner/repo", 42, FakeGhRunner(missing=True))
+
+    def test_passes_when_pr_exists(self):
+        runner = FakeGhRunner(returncode=0)
+
+        ensure_pr_exists("owner/repo", 42, runner)
+
+        assert runner.calls[0][0] == [
+            "gh",
+            "pr",
+            "view",
+            "42",
+            "--repo",
+            "owner/repo",
+            "--json",
+            "state",
+        ]
 
 
 def make_empty_summary() -> str:
@@ -287,7 +316,7 @@ class TestRunReview:
             lambda *_: make_review_config(),
         )
 
-        with pytest.raises(RuntimeError, match="gh auth login"):
+        with pytest.raises(RuntimeError, match="not found"):
             run_review(
                 repo_name="owner/repo",
                 pr_number=5,
@@ -299,13 +328,48 @@ class TestRunReview:
 
         assert called["generated"] is False
 
-    def test_skips_gh_check_during_preview(self, monkeypatch):
+    def test_checks_pr_exists_before_generating_comment(self, monkeypatch):
+        called = {"generated": False}
+
+        async def fake_comment_runner(**kwargs) -> str:
+            called["generated"] = True
+            return "review body"
+
+        def pr_not_found(*_args, **_kwargs):
+            raise RuntimeError("PR #999 not found in owner/repo")
+
+        monkeypatch.setattr(
+            "result_companion.core.review.pr_reviewer.load_review_config",
+            lambda *_: make_review_config(),
+        )
+        monkeypatch.setattr(
+            "result_companion.core.review.pr_reviewer.ensure_pr_exists",
+            pr_not_found,
+        )
+
+        with pytest.raises(RuntimeError, match="not found"):
+            run_review(
+                repo_name="owner/repo",
+                pr_number=999,
+                summary=make_failure_summary(),
+                preview=False,
+                comment_runner=fake_comment_runner,
+                gh_runner=FakeGhRunner(returncode=0),
+            )
+
+        assert called["generated"] is False
+
+    def test_skips_gh_auth_check_during_preview(self, monkeypatch):
         async def fake_comment_runner(**kwargs) -> str:
             return "review body"
 
         monkeypatch.setattr(
             "result_companion.core.review.pr_reviewer.load_review_config",
             lambda *_: make_review_config(),
+        )
+        monkeypatch.setattr(
+            "result_companion.core.review.pr_reviewer.ensure_gh_auth",
+            lambda *_: pytest.fail("auth check should be skipped in preview"),
         )
 
         result = run_review(
@@ -314,7 +378,7 @@ class TestRunReview:
             summary=make_failure_summary(),
             preview=True,
             comment_runner=fake_comment_runner,
-            gh_runner=FakeGhRunner(returncode=1),
+            gh_runner=FakeGhRunner(returncode=0),
         )
 
         assert result == "review body"
@@ -374,6 +438,7 @@ class TestRunReview:
                 summary=make_failure_summary(),
                 preview=True,
                 comment_runner=fake_comment_runner,
+                gh_runner=FakeGhRunner(returncode=0),
             )
 
     def test_notify_on_pass_returns_all_passed_comment_in_preview(self):
@@ -450,6 +515,7 @@ class TestRunReview:
             summary=make_failure_summary(),
             model="gpt-5",
             comment_runner=fake_comment_runner,
+            gh_runner=FakeGhRunner(returncode=0),
         )
 
         assert captured["config"].review.model == "gpt-5"
@@ -470,6 +536,7 @@ class TestRunReview:
             summary=make_failure_summary(),
             output_path=str(out),
             comment_runner=fake_comment_runner,
+            gh_runner=FakeGhRunner(returncode=0),
         )
 
         assert out.read_text() == "generated review"

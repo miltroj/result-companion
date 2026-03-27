@@ -166,6 +166,45 @@ def ensure_gh_auth(runner: Any = subprocess) -> None:
     raise RuntimeError("GitHub CLI is not authenticated. Run: gh auth login")
 
 
+def ensure_pr_exists(repo_name: str, pr_number: int, runner: Any = subprocess) -> None:
+    """Validates that the repository and pull request exist on GitHub.
+
+    Args:
+        repo_name: GitHub repo in "owner/repo" format.
+        pr_number: Pull request number.
+        runner: Subprocess-like module used for command execution.
+
+    Raises:
+        RuntimeError: If the repo or PR does not exist.
+    """
+    try:
+        result = runner.run(
+            [
+                "gh",
+                "pr",
+                "view",
+                str(pr_number),
+                "--repo",
+                repo_name,
+                "--json",
+                "state",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            "GitHub CLI is not installed. Install `gh` to validate PR existence."
+        ) from exc
+    if result.returncode != 0:
+        stderr = getattr(result, "stderr", "").strip()
+        raise RuntimeError(
+            f"PR #{pr_number} not found in {repo_name}. "
+            f"Verify the repo and PR number exist. ({stderr})"
+        )
+
+
 async def _generate_review_comment(
     repo_name: str,
     pr_number: int,
@@ -295,6 +334,7 @@ def run_review(
         comment = _all_passed_comment(report)
         if not preview:
             ensure_gh_auth(gh_runner)
+            ensure_pr_exists(repo_name, pr_number, gh_runner)
             comment_poster(repo_name, pr_number, comment, runner=gh_runner)
         if output_path:
             save_review(output_path, comment)
@@ -303,6 +343,8 @@ def run_review(
     config = load_review_config(config_path)
     if model:
         config.review = config.review.model_copy(update={"model": model})
+
+    ensure_pr_exists(repo_name, pr_number, gh_runner)
 
     if not preview:
         ensure_gh_auth(gh_runner)
