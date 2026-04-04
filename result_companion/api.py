@@ -12,6 +12,7 @@ from result_companion.core.parsers.result_parser import (
 )
 from result_companion.core.results.analysis_result import AnalysisResult
 from result_companion.core.results.text_report import summarize_failures_with_llm
+from result_companion.core.review.pr_reviewer import review  # noqa: F401
 from result_companion.core.utils.logging_config import logger, set_global_log_level
 
 

@@ -282,12 +282,14 @@ class TestGenerateReviewComment:
 class TestRunReview:
     """Tests for run_review orchestration."""
 
-    def test_skips_when_no_failures(self, monkeypatch):
+    @pytest.fixture(autouse=True)
+    def _patch_config_loader(self, monkeypatch):
         monkeypatch.setattr(
             "result_companion.core.review.pr_reviewer.load_review_config",
-            lambda *_: pytest.fail("config should not be loaded"),
+            lambda *_: make_review_config(),
         )
 
+    def test_skips_when_no_failures(self):
         result = run_review(
             repo_name="owner/repo",
             pr_number=5,
@@ -304,17 +306,12 @@ class TestRunReview:
                 summary="not json",
             )
 
-    def test_checks_gh_before_generating_comment(self, monkeypatch):
+    def test_checks_gh_before_generating_comment(self):
         called = {"generated": False}
 
         async def fake_comment_runner(**kwargs) -> str:
             called["generated"] = True
             return "review body"
-
-        monkeypatch.setattr(
-            "result_companion.core.review.pr_reviewer.load_review_config",
-            lambda *_: make_review_config(),
-        )
 
         with pytest.raises(RuntimeError, match="not found"):
             run_review(
@@ -339,10 +336,6 @@ class TestRunReview:
             raise RuntimeError("PR #999 not found in owner/repo")
 
         monkeypatch.setattr(
-            "result_companion.core.review.pr_reviewer.load_review_config",
-            lambda *_: make_review_config(),
-        )
-        monkeypatch.setattr(
             "result_companion.core.review.pr_reviewer.ensure_pr_exists",
             pr_not_found,
         )
@@ -364,10 +357,6 @@ class TestRunReview:
             return "review body"
 
         monkeypatch.setattr(
-            "result_companion.core.review.pr_reviewer.load_review_config",
-            lambda *_: make_review_config(),
-        )
-        monkeypatch.setattr(
             "result_companion.core.review.pr_reviewer.ensure_gh_auth",
             lambda *_: pytest.fail("auth check should be skipped in preview"),
         )
@@ -383,7 +372,7 @@ class TestRunReview:
 
         assert result == "review body"
 
-    def test_posts_comment_when_not_preview(self, monkeypatch):
+    def test_posts_comment_when_not_preview(self):
         posted = {}
 
         async def fake_comment_runner(**kwargs) -> str:
@@ -401,10 +390,6 @@ class TestRunReview:
             posted["runner"] = runner
 
         gh_runner = FakeGhRunner(returncode=0)
-        monkeypatch.setattr(
-            "result_companion.core.review.pr_reviewer.load_review_config",
-            lambda *_: make_review_config(),
-        )
 
         result = run_review(
             repo_name="owner/repo",
@@ -422,14 +407,9 @@ class TestRunReview:
         assert posted["comment_body"] == "review body"
         assert posted["runner"] is gh_runner
 
-    def test_raises_on_empty_comment(self, monkeypatch):
+    def test_raises_on_empty_comment(self):
         async def fake_comment_runner(**kwargs) -> str:
             return "   "
-
-        monkeypatch.setattr(
-            "result_companion.core.review.pr_reviewer.load_review_config",
-            lambda *_: make_review_config(),
-        )
 
         with pytest.raises(RuntimeError, match="empty comment"):
             run_review(
@@ -497,17 +477,12 @@ class TestRunReview:
 
         assert result == ""
 
-    def test_model_override_applied_to_config(self, monkeypatch):
+    def test_model_override_applied_to_config(self):
         captured = {}
 
         async def fake_comment_runner(**kwargs) -> str:
             captured["config"] = kwargs["config"]
             return "review body"
-
-        monkeypatch.setattr(
-            "result_companion.core.review.pr_reviewer.load_review_config",
-            lambda *_: make_review_config(),
-        )
 
         run_review(
             repo_name="owner/repo",
@@ -520,14 +495,10 @@ class TestRunReview:
 
         assert captured["config"].review.model == "gpt-5"
 
-    def test_saves_generated_comment_to_output_file(self, tmp_path, monkeypatch):
+    def test_saves_generated_comment_to_output_file(self, tmp_path):
         async def fake_comment_runner(**kwargs) -> str:
             return "generated review"
 
-        monkeypatch.setattr(
-            "result_companion.core.review.pr_reviewer.load_review_config",
-            lambda *_: make_review_config(),
-        )
         out = tmp_path / "review.md"
 
         run_review(

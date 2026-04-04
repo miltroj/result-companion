@@ -284,6 +284,80 @@ def _all_passed_comment(report: AnalyzeReport) -> str:
     return "\n".join(lines)
 
 
+def review(
+    repo_name: str,
+    pr_number: int,
+    report: AnalyzeReport,
+    config: ReviewConfigModel,
+    preview: bool = True,
+    notify_on_pass: bool = False,
+    output_path: str | None = None,
+    quiet: bool = False,
+    comment_runner: Callable[..., Any] | None = None,
+    gh_runner: Any = subprocess,
+    comment_poster: Callable[..., None] = post_comment,
+) -> str:
+    """Programmatic entry point for PR review.
+
+    Accepts pre-loaded objects so callers are not forced to use file paths.
+    Use run_review() for CLI-style invocation with JSON strings and config paths.
+
+    Args:
+        repo_name: GitHub repo in "owner/repo" format.
+        pr_number: Pull request number to review.
+        report: Parsed AnalyzeReport from 'analyze --json-report'.
+        config: Loaded review configuration object.
+        preview: If True, skips posting comment to PR.
+        notify_on_pass: If True, posts a short all-clear comment when no failures found.
+        output_path: Optional path to write the review comment as a file.
+        quiet: If True, suppresses spinner output.
+        comment_runner: Injectable comment generator for tests.
+        gh_runner: Injectable subprocess-like module for gh checks.
+        comment_poster: Injectable PR comment poster for tests.
+
+    Returns:
+        Generated review comment text.
+    """
+    if not report.has_failures():
+        if not notify_on_pass:
+            logger.info("No test failures found — skipping review.")
+            return ""
+        comment = _all_passed_comment(report)
+        if not preview:
+            ensure_gh_auth(gh_runner)
+            ensure_pr_exists(repo_name, pr_number, gh_runner)
+            comment_poster(repo_name, pr_number, comment, runner=gh_runner)
+        if output_path:
+            save_review(output_path, comment)
+        return comment
+
+    ensure_pr_exists(repo_name, pr_number, gh_runner)
+
+    if not preview:
+        ensure_gh_auth(gh_runner)
+
+    generator = comment_runner or _generate_review_comment
+    comment = asyncio.run(
+        generator(
+            repo_name=repo_name,
+            pr_number=pr_number,
+            failure_summary=report.to_text(),
+            config=config,
+            quiet=quiet,
+        )
+    )
+    if not comment.strip():
+        raise RuntimeError("Copilot review returned an empty comment.")
+
+    if not preview and comment:
+        comment_poster(repo_name, pr_number, comment, runner=gh_runner)
+
+    if output_path and comment:
+        save_review(output_path, comment)
+
+    return comment
+
+
 def run_review(
     repo_name: str,
     pr_number: int,
@@ -298,7 +372,9 @@ def run_review(
     gh_runner: Any = subprocess,
     comment_poster: Callable[..., None] = post_comment,
 ) -> str:
-    """Sync entry point for PR review.
+    """CLI entry point for PR review.
+
+    Parses JSON summary and loads config from path, then delegates to review().
 
     Args:
         repo_name: GitHub repo in "owner/repo" format.
@@ -327,48 +403,23 @@ def run_review(
             f"Invalid summary: expected JSON from 'analyze --json-report'. ({e})"
         ) from e
 
-    if not report.has_failures():
-        if not notify_on_pass:
-            logger.info("No test failures found — skipping review.")
-            return ""
-        comment = _all_passed_comment(report)
-        if not preview:
-            ensure_gh_auth(gh_runner)
-            ensure_pr_exists(repo_name, pr_number, gh_runner)
-            comment_poster(repo_name, pr_number, comment, runner=gh_runner)
-        if output_path:
-            save_review(output_path, comment)
-        return comment
-
     config = load_review_config(config_path)
     if model:
         config.review = config.review.model_copy(update={"model": model})
 
-    ensure_pr_exists(repo_name, pr_number, gh_runner)
-
-    if not preview:
-        ensure_gh_auth(gh_runner)
-
-    generator = comment_runner or _generate_review_comment
-    comment = asyncio.run(
-        generator(
-            repo_name=repo_name,
-            pr_number=pr_number,
-            failure_summary=report.to_text(),
-            config=config,
-            quiet=quiet,
-        )
+    return review(
+        repo_name=repo_name,
+        pr_number=pr_number,
+        report=report,
+        config=config,
+        preview=preview,
+        notify_on_pass=notify_on_pass,
+        output_path=output_path,
+        quiet=quiet,
+        comment_runner=comment_runner,
+        gh_runner=gh_runner,
+        comment_poster=comment_poster,
     )
-    if not comment.strip():
-        raise RuntimeError("Copilot review returned an empty comment.")
-
-    if not preview and comment:
-        comment_poster(repo_name, pr_number, comment, runner=gh_runner)
-
-    if output_path and comment:
-        save_review(output_path, comment)
-
-    return comment
 
 
 def save_review(output_path: str, content: str) -> None:
