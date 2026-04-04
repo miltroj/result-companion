@@ -3,12 +3,12 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from result_companion.api import (
-    _apply_concurrency_overrides,
-    _resolve_tags,
+from result_companion._internal.analysis_helpers import (
+    apply_concurrency_overrides,
     filter_passing_tests,
-    run_analysis,
+    resolve_tags,
 )
+from result_companion.api import run_analysis
 from result_companion.core.html.html_creator import create_llm_html_log
 from result_companion.core.parsers.config import DefaultConfigModel, load_config
 from result_companion.core.parsers.result_parser import (
@@ -47,18 +47,12 @@ async def _main(
     logger.info("Starting Result Companion!")
     start = time.time()
     parsed_config = load_config(config)
-    _apply_concurrency_overrides(
-        parsed_config, test_case_concurrency, chunk_concurrency
-    )
+    apply_concurrency_overrides(parsed_config, test_case_concurrency, chunk_concurrency)
 
     all_test_cases = get_robot_results_from_file_as_dict(
         file_path=output,
-        include_tags=_resolve_tags(
-            include_tags, parsed_config.test_filter.include_tags
-        ),
-        exclude_tags=_resolve_tags(
-            exclude_tags, parsed_config.test_filter.exclude_tags
-        ),
+        include_tags=resolve_tags(include_tags, parsed_config.test_filter.include_tags),
+        exclude_tags=resolve_tags(exclude_tags, parsed_config.test_filter.exclude_tags),
     )
     test_cases = filter_passing_tests(all_test_cases, include_passing, parsed_config)
     logger.info(f"Filtered to {len(test_cases)} test cases")

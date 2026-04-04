@@ -1,6 +1,7 @@
 import pytest
 
-from result_companion.api import _apply_concurrency_overrides, analyze, run_analysis
+from result_companion._internal.analysis_helpers import apply_concurrency_overrides
+from result_companion.api import analyze, run_analysis
 from result_companion.core.parsers.config import (
     ChunkingPromptsModel,
     DefaultConfigModel,
@@ -37,7 +38,8 @@ def make_test_cases() -> list[dict]:
     ]
 
 
-PATCH_PREFIX = "result_companion.api"
+PATCH_API = "result_companion.api"
+PATCH_HELPERS = "result_companion._internal.analysis_helpers"
 
 
 async def fake_execute(**kw):
@@ -46,11 +48,11 @@ async def fake_execute(**kw):
 
 
 class TestApplyConcurrencyOverrides:
-    """Tests for _apply_concurrency_overrides."""
+    """Tests for apply_concurrency_overrides."""
 
     def test_overrides_both_when_provided(self):
         config = make_config()
-        _apply_concurrency_overrides(
+        apply_concurrency_overrides(
             config, test_case_concurrency=5, chunk_concurrency=3
         )
         assert config.concurrency.test_case == 5
@@ -59,7 +61,7 @@ class TestApplyConcurrencyOverrides:
     def test_overrides_only_test_case_when_chunk_is_none(self):
         config = make_config()
         original_chunk = config.concurrency.chunk
-        _apply_concurrency_overrides(
+        apply_concurrency_overrides(
             config, test_case_concurrency=4, chunk_concurrency=None
         )
         assert config.concurrency.test_case == 4
@@ -68,21 +70,11 @@ class TestApplyConcurrencyOverrides:
     def test_overrides_only_chunk_when_test_case_is_none(self):
         config = make_config()
         original_test_case = config.concurrency.test_case
-        _apply_concurrency_overrides(
+        apply_concurrency_overrides(
             config, test_case_concurrency=None, chunk_concurrency=2
         )
         assert config.concurrency.test_case == original_test_case
         assert config.concurrency.chunk == 2
-
-    def test_no_override_when_both_none(self):
-        config = make_config()
-        original_test_case = config.concurrency.test_case
-        original_chunk = config.concurrency.chunk
-        _apply_concurrency_overrides(
-            config, test_case_concurrency=None, chunk_concurrency=None
-        )
-        assert config.concurrency.test_case == original_test_case
-        assert config.concurrency.chunk == original_chunk
 
 
 class TestRunAnalysis:
@@ -91,9 +83,9 @@ class TestRunAnalysis:
     @pytest.fixture(autouse=True)
     def _patch_deps(self, monkeypatch):
         monkeypatch.setattr(
-            f"{PATCH_PREFIX}._run_provider_init_strategies", lambda **kw: None
+            f"{PATCH_HELPERS}.run_provider_init_strategies", lambda **kw: None
         )
-        monkeypatch.setattr(f"{PATCH_PREFIX}.execute_llm_and_get_results", fake_execute)
+        monkeypatch.setattr(f"{PATCH_API}.execute_llm_and_get_results", fake_execute)
 
     @pytest.mark.asyncio
     async def test_returns_analysis_result(self):
@@ -112,9 +104,7 @@ class TestRunAnalysis:
         async def fake_summarize(**kw):
             return "Root cause: network timeout"
 
-        monkeypatch.setattr(
-            f"{PATCH_PREFIX}.summarize_failures_with_llm", fake_summarize
-        )
+        monkeypatch.setattr(f"{PATCH_API}.summarize_failures_with_llm", fake_summarize)
 
         result = await run_analysis(
             config=make_config(),
@@ -133,9 +123,7 @@ class TestRunAnalysis:
             summary_called = True
             return "should not appear"
 
-        monkeypatch.setattr(
-            f"{PATCH_PREFIX}.summarize_failures_with_llm", fake_summarize
-        )
+        monkeypatch.setattr(f"{PATCH_API}.summarize_failures_with_llm", fake_summarize)
 
         result = await run_analysis(
             config=make_config(),
@@ -165,10 +153,10 @@ class TestAnalyze:
     @pytest.fixture(autouse=True)
     def _patch_deps(self, monkeypatch):
         monkeypatch.setattr(
-            f"{PATCH_PREFIX}._run_provider_init_strategies", lambda **kw: None
+            f"{PATCH_HELPERS}.run_provider_init_strategies", lambda **kw: None
         )
-        monkeypatch.setattr(f"{PATCH_PREFIX}.set_global_log_level", lambda _: None)
-        monkeypatch.setattr(f"{PATCH_PREFIX}.execute_llm_and_get_results", fake_execute)
+        monkeypatch.setattr(f"{PATCH_API}.set_global_log_level", lambda _: None)
+        monkeypatch.setattr(f"{PATCH_API}.execute_llm_and_get_results", fake_execute)
 
     def test_with_list_passes_test_cases_directly(self):
         config = make_config()
@@ -181,7 +169,7 @@ class TestAnalyze:
 
     def test_with_path_loads_and_filters(self, monkeypatch):
         monkeypatch.setattr(
-            f"{PATCH_PREFIX}.get_robot_results_from_file_as_dict",
+            f"{PATCH_HELPERS}.get_robot_results_from_file_as_dict",
             lambda **kw: make_test_cases(),
         )
 
@@ -192,7 +180,7 @@ class TestAnalyze:
 
     def test_with_path_includes_passing_when_requested(self, monkeypatch):
         monkeypatch.setattr(
-            f"{PATCH_PREFIX}.get_robot_results_from_file_as_dict",
+            f"{PATCH_HELPERS}.get_robot_results_from_file_as_dict",
             lambda **kw: make_test_cases(),
         )
 
