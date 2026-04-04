@@ -1,6 +1,6 @@
 import pytest
 
-from result_companion.api import analyze, run_analysis
+from result_companion.api import _apply_concurrency_overrides, analyze, run_analysis
 from result_companion.core.parsers.config import (
     ChunkingPromptsModel,
     DefaultConfigModel,
@@ -43,6 +43,46 @@ PATCH_PREFIX = "result_companion.api"
 async def fake_execute(**kw):
     names = [t["name"] for t in kw["test_cases"]]
     return {n: f"Analysis of {n}" for n in names}
+
+
+class TestApplyConcurrencyOverrides:
+    """Tests for _apply_concurrency_overrides."""
+
+    def test_overrides_both_when_provided(self):
+        config = make_config()
+        _apply_concurrency_overrides(
+            config, test_case_concurrency=5, chunk_concurrency=3
+        )
+        assert config.concurrency.test_case == 5
+        assert config.concurrency.chunk == 3
+
+    def test_overrides_only_test_case_when_chunk_is_none(self):
+        config = make_config()
+        original_chunk = config.concurrency.chunk
+        _apply_concurrency_overrides(
+            config, test_case_concurrency=4, chunk_concurrency=None
+        )
+        assert config.concurrency.test_case == 4
+        assert config.concurrency.chunk == original_chunk
+
+    def test_overrides_only_chunk_when_test_case_is_none(self):
+        config = make_config()
+        original_test_case = config.concurrency.test_case
+        _apply_concurrency_overrides(
+            config, test_case_concurrency=None, chunk_concurrency=2
+        )
+        assert config.concurrency.test_case == original_test_case
+        assert config.concurrency.chunk == 2
+
+    def test_no_override_when_both_none(self):
+        config = make_config()
+        original_test_case = config.concurrency.test_case
+        original_chunk = config.concurrency.chunk
+        _apply_concurrency_overrides(
+            config, test_case_concurrency=None, chunk_concurrency=None
+        )
+        assert config.concurrency.test_case == original_test_case
+        assert config.concurrency.chunk == original_chunk
 
 
 class TestRunAnalysis:
