@@ -21,22 +21,6 @@ def _run_provider_init_strategies(model_name: str) -> None:
     Args:
         model_name: LiteLLM model identifier (e.g., ollama_chat/llama2).
     """
-    provider = model_name.split("/", 1)[0]
-    strategies = {
-        "ollama": lambda: _run_ollama_init_strategy(model_name),
-        "ollama_chat": lambda: _run_ollama_init_strategy(model_name),
-    }
-    strategy = strategies.get(provider)
-    if strategy:
-        strategy()
-
-
-def _run_ollama_init_strategy(model_name: str) -> None:
-    """Runs Ollama initialization strategy if model is Ollama.
-
-    Args:
-        model_name: LiteLLM model identifier (e.g., ollama_chat/llama2).
-    """
     if not model_name.startswith("ollama"):
         return
 

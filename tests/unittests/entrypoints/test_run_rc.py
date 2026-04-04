@@ -3,10 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from result_companion.api import (
-    _run_ollama_init_strategy,
-    _run_provider_init_strategies,
-)
+from result_companion.api import _run_provider_init_strategies
 from result_companion.core.parsers.config import DefaultConfigModel
 from result_companion.entrypoints.run_rc import (
     _main,
@@ -14,8 +11,8 @@ from result_companion.entrypoints.run_rc import (
 )
 
 
-class TestRunOllamaInitStrategy:
-    """Tests for _run_ollama_init_strategy function."""
+class TestRunProviderInitStrategies:
+    """Tests for provider init strategy dispatcher."""
 
     @pytest.fixture(autouse=True)
     def _capture_ollama_init_calls(self, monkeypatch):
@@ -31,54 +28,16 @@ class TestRunOllamaInitStrategy:
         self.calls = calls
 
     def test_skips_non_ollama_models(self):
-        """Test that non-Ollama models are skipped."""
-        _run_ollama_init_strategy(
-            model_name="openai/gpt-4",
-        )
+        _run_provider_init_strategies(model_name="openai/gpt-4")
         assert self.calls == []
 
     def test_runs_for_ollama_models(self):
-        """Test that Ollama models trigger init strategy."""
-        _run_ollama_init_strategy(
-            model_name="ollama_chat/llama2",
-        )
+        _run_provider_init_strategies(model_name="ollama_chat/llama2")
         assert self.calls == ["llama2"]
 
-    def test_extracts_model_name_from_identifier(self):
-        """Test that model name is extracted when not in strategy params."""
-        _run_ollama_init_strategy(
-            model_name="ollama_chat/deepseek-r1:1.5b",
-        )
+    def test_extracts_model_name_from_versioned_identifier(self):
+        _run_provider_init_strategies(model_name="ollama_chat/deepseek-r1:1.5b")
         assert self.calls == ["deepseek-r1"]
-
-
-class TestRunProviderInitStrategies:
-    """Tests for generic provider strategy dispatcher."""
-
-    @pytest.fixture(autouse=True)
-    def _capture_provider_init_calls(self, monkeypatch):
-        ollama_calls = []
-
-        def _fake_run_ollama_init_strategy(model_name: str):
-            ollama_calls.append(model_name)
-
-        monkeypatch.setattr(
-            "result_companion.api._run_ollama_init_strategy",
-            _fake_run_ollama_init_strategy,
-        )
-        self.ollama_calls = ollama_calls
-
-    def test_runs_ollama_strategy_for_ollama_chat(self):
-        _run_provider_init_strategies(
-            model_name="ollama_chat/deepseek-r1:1.5b",
-        )
-        assert self.ollama_calls == ["ollama_chat/deepseek-r1:1.5b"]
-
-    def test_skips_for_unmapped_providers(self):
-        _run_provider_init_strategies(
-            model_name="openai/gpt-4o",
-        )
-        assert self.ollama_calls == []
 
 
 class TestMainE2E:
