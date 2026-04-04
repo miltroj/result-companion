@@ -6,7 +6,7 @@ from typing import Optional
 
 from result_companion.core.analizers.factory_common import execute_llm_and_get_results
 from result_companion.core.analizers.local.ollama_runner import ollama_on_init_strategy
-from result_companion.core.parsers.config import DefaultConfigModel, load_config
+from result_companion.core.parsers.config import DefaultConfigModel
 from result_companion.core.parsers.result_parser import (
     get_robot_results_from_file_as_dict,
 )
@@ -168,29 +168,28 @@ def load_and_filter_test_cases(
     return filter_passing_tests(test_cases, include_passing, config)
 
 
-async def _analyze(
-    output: Path,
-    config: Optional[Path] = None,
+def analyze(
+    output: str | Path | list[dict],
+    config: DefaultConfigModel,
     include_passing: bool = False,
     include_tags: Optional[list[str]] = None,
     exclude_tags: Optional[list[str]] = None,
     summarize_failures: bool = False,
-    test_case_concurrency: Optional[int] = None,
-    chunk_concurrency: Optional[int] = None,
     dryrun: bool = False,
     quiet: bool = True,
 ) -> AnalysisResult:
-    """Convenience async wrapper that loads files, then delegates to run_analysis.
+    """Main programmatic entry point for Result Companion.
+
+    Accepts either a path to output.xml (loads and filters test cases)
+    or pre-parsed test cases as a list of dicts.
 
     Args:
-        output: Path to Robot Framework output.xml.
-        config: Optional path to YAML config file.
-        include_passing: Whether to include passing tests.
-        include_tags: RF tag patterns to include.
-        exclude_tags: RF tag patterns to exclude.
+        output: Path to RF output.xml, or pre-parsed test case dicts.
+        config: Loaded configuration object.
+        include_passing: Whether to include passing tests (path mode only).
+        include_tags: RF tag patterns to include (path mode only).
+        exclude_tags: RF tag patterns to exclude (path mode only).
         summarize_failures: Whether to generate an overall failure summary.
-        test_case_concurrency: Override config test-case parallelism.
-        chunk_concurrency: Override config chunk parallelism.
         dryrun: If True, skip LLM calls.
         quiet: If True, suppress logs and progress output.
 
@@ -200,50 +199,23 @@ async def _analyze(
     if quiet:
         set_global_log_level("ERROR")
 
-    parsed_config = load_config(config)
-    _apply_concurrency_overrides(
-        parsed_config, test_case_concurrency, chunk_concurrency
-    )
-
-    test_cases = load_and_filter_test_cases(
-        output=output,
-        config=parsed_config,
-        include_passing=include_passing,
-        include_tags=include_tags,
-        exclude_tags=exclude_tags,
-    )
-
-    return await run_analysis(
-        config=parsed_config,
-        test_cases=test_cases,
-        summarize_failures=summarize_failures,
-        dryrun=dryrun,
-        quiet=quiet,
-    )
-
-
-def analyze(
-    output: str | Path,
-    config: Optional[str | Path] = None,
-    **kwargs,
-) -> AnalysisResult:
-    """Analyzes Robot Framework results with LLM assistance.
-
-    Args:
-        output: Path to Robot Framework output.xml.
-        config: Optional path to YAML config file.
-        **kwargs: Additional options forwarded to _analyze
-            (include_passing, include_tags, exclude_tags,
-            summarize_failures, test_case_concurrency,
-            chunk_concurrency, dryrun, quiet).
-
-    Returns:
-        AnalysisResult with llm_results, test_names, and optional summary.
-    """
-    return asyncio.run(
-        _analyze(
+    if isinstance(output, list):
+        test_cases = output
+    else:
+        test_cases = load_and_filter_test_cases(
             output=Path(output),
-            config=Path(config) if config else None,
-            **kwargs,
+            config=config,
+            include_passing=include_passing,
+            include_tags=include_tags,
+            exclude_tags=exclude_tags,
+        )
+
+    return asyncio.run(
+        run_analysis(
+            config=config,
+            test_cases=test_cases,
+            summarize_failures=summarize_failures,
+            dryrun=dryrun,
+            quiet=quiet,
         )
     )

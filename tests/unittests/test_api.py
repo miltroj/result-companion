@@ -1,9 +1,6 @@
-from pathlib import Path
-from unittest.mock import patch
-
 import pytest
 
-from result_companion.api import _analyze, analyze, run_analysis
+from result_companion.api import analyze, run_analysis
 from result_companion.core.parsers.config import (
     ChunkingPromptsModel,
     DefaultConfigModel,
@@ -49,7 +46,7 @@ async def fake_execute(**kw):
 
 
 class TestRunAnalysis:
-    """Tests for run_analysis — the core object-based API."""
+    """Tests for run_analysis — the core async object-based API."""
 
     @pytest.fixture(autouse=True)
     def _patch_deps(self, monkeypatch):
@@ -123,70 +120,58 @@ class TestRunAnalysis:
 
 
 class TestAnalyze:
-    """Tests for _analyze async convenience wrapper."""
+    """Tests for analyze — the main sync programmatic entry point."""
 
     @pytest.fixture(autouse=True)
     def _patch_deps(self, monkeypatch):
-        self.config = make_config()
-
-        monkeypatch.setattr(f"{PATCH_PREFIX}.load_config", lambda _: self.config)
         monkeypatch.setattr(
             f"{PATCH_PREFIX}._run_provider_init_strategies", lambda **kw: None
         )
         monkeypatch.setattr(f"{PATCH_PREFIX}.set_global_log_level", lambda _: None)
+        monkeypatch.setattr(f"{PATCH_PREFIX}.execute_llm_and_get_results", fake_execute)
+
+    def test_with_list_passes_test_cases_directly(self):
+        config = make_config()
+        test_cases = [{"name": "test_fail", "status": "FAIL"}]
+
+        result = analyze(output=test_cases, config=config)
+
+        assert result.llm_results == {"test_fail": "Analysis of test_fail"}
+        assert result.test_names == ["test_fail"]
+
+    def test_with_path_loads_and_filters(self, monkeypatch):
         monkeypatch.setattr(
             f"{PATCH_PREFIX}.get_robot_results_from_file_as_dict",
             lambda **kw: make_test_cases(),
         )
-        monkeypatch.setattr(f"{PATCH_PREFIX}.execute_llm_and_get_results", fake_execute)
 
-    @pytest.mark.asyncio
-    async def test_filters_passing_tests_by_default(self):
-        result = await _analyze(output=Path("output.xml"))
+        result = analyze(output="output.xml", config=make_config())
 
         assert result.test_names == ["test_fail"]
         assert "test_pass" not in result.llm_results
 
-    @pytest.mark.asyncio
-    async def test_includes_passing_when_requested(self):
-        result = await _analyze(output=Path("output.xml"), include_passing=True)
+    def test_with_path_includes_passing_when_requested(self, monkeypatch):
+        monkeypatch.setattr(
+            f"{PATCH_PREFIX}.get_robot_results_from_file_as_dict",
+            lambda **kw: make_test_cases(),
+        )
+
+        result = analyze(
+            output="output.xml", config=make_config(), include_passing=True
+        )
 
         assert "test_pass" in result.test_names
         assert "test_fail" in result.test_names
 
-    @pytest.mark.asyncio
-    async def test_concurrency_overrides_config(self):
-        await _analyze(
-            output=Path("output.xml"),
-            test_case_concurrency=5,
-            chunk_concurrency=3,
+    def test_with_list_ignores_tag_filters(self):
+        config = make_config()
+        test_cases = make_test_cases()
+
+        result = analyze(
+            output=test_cases,
+            config=config,
+            include_tags=["smoke"],
+            exclude_tags=["wip"],
         )
 
-        assert self.config.concurrency.test_case == 5
-        assert self.config.concurrency.chunk == 3
-
-
-class TestAnalyzeSync:
-    """Tests for analyze sync wrapper."""
-
-    def test_converts_string_paths_and_delegates(self):
-        with patch(f"{PATCH_PREFIX}._analyze") as mocked:
-            mocked.return_value = AnalysisResult(
-                llm_results={"t": "r"}, test_names=["t"]
-            )
-
-            result = analyze("output.xml", config="my_config.yaml", dryrun=True)
-
-            call_kwargs = mocked.call_args.kwargs
-            assert call_kwargs["output"] == Path("output.xml")
-            assert call_kwargs["config"] == Path("my_config.yaml")
-            assert call_kwargs["dryrun"] is True
-            assert result.test_names == ["t"]
-
-    def test_config_none_stays_none(self):
-        with patch(f"{PATCH_PREFIX}._analyze") as mocked:
-            mocked.return_value = AnalysisResult()
-
-            analyze("output.xml")
-
-            assert mocked.call_args.kwargs["config"] is None
+        assert len(result.test_names) == 2

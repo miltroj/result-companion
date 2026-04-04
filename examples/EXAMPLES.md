@@ -38,7 +38,7 @@ Quick-start configurations for different LLM providers and use cases.
   - [Programmatic API](#programmatic-api)
     - [Options](#options)
     - [Working with Results](#working-with-results)
-    - [Object-Based API](#object-based-api)
+    - [Pre-parsed Test Cases](#pre-parsed-test-cases)
     - [Async Usage](#async-usage)
   - [Additional Resources](#additional-resources)
 
@@ -567,12 +567,14 @@ export AWS_SECRET_ACCESS_KEY="..."
 
 ## Programmatic API
 
-Use `analyze()` directly from Python instead of the CLI:
+Use `analyze()` directly from Python instead of the CLI. It accepts a config object and either a path to `output.xml` or pre-parsed test cases:
 
 ```python
 from result_companion import analyze
+from result_companion.core.parsers.config import load_config
 
-result = analyze("output.xml", config="my_config.yaml")
+config = load_config("my_config.yaml")
+result = analyze("output.xml", config=config)
 ```
 
 `result` is an [`AnalysisResult`](../result_companion/core/results/analysis_result.py) with:
@@ -586,74 +588,52 @@ result = analyze("output.xml", config="my_config.yaml")
 
 ### Options
 
-All CLI flags are available as keyword arguments:
-
 ```python
 result = analyze(
     "output.xml",
-    config="my_config.yaml",
+    config=config,
     include_tags=["smoke"],
     summarize_failures=True,
-    test_case_concurrency=3,
 )
 ```
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `config` | `None` | Path to YAML config file |
-| `include_passing` | `False` | Include PASS tests |
-| `include_tags` | `None` | RF tag patterns to include |
-| `exclude_tags` | `None` | RF tag patterns to exclude |
+| `output` | (required) | Path to output.xml **or** `list[dict]` of test cases |
+| `config` | (required) | `DefaultConfigModel` object |
+| `include_passing` | `False` | Include PASS tests (path mode only) |
+| `include_tags` | `None` | RF tag patterns to include (path mode only) |
+| `exclude_tags` | `None` | RF tag patterns to exclude (path mode only) |
 | `summarize_failures` | `False` | Generate overall failure summary |
-| `test_case_concurrency` | `None` | Override config parallelism |
-| `chunk_concurrency` | `None` | Override chunk parallelism |
 | `dryrun` | `False` | Skip LLM calls |
 | `quiet` | `True` | Suppress logs and progress |
 
 ### Working with Results
 
 ```python
-result = analyze("output.xml")
-
 for name, analysis in result.llm_results.items():
     print(f"=== {name} ===\n{analysis}\n")
 
-# Write text report to file
 Path("rc_summary.txt").write_text(result.text_report)
 ```
 
-### Object-Based API
+### Pre-parsed Test Cases
 
-For full control, use `run_analysis()` with pre-loaded config and test cases — no file paths required:
+Pass test cases directly when you already have them (skips XML parsing):
 
 ```python
-from result_companion import run_analysis
-from result_companion.core.parsers.config import load_config
-from result_companion.api import load_and_filter_test_cases
-
-config = load_config("my_config.yaml")
-test_cases = load_and_filter_test_cases("output.xml", config)
-
-# run_analysis accepts objects, not paths
-result = await run_analysis(config=config, test_cases=test_cases)
+test_cases = [{"name": "Login Test", "status": "FAIL", ...}]
+result = analyze(output=test_cases, config=config)
 ```
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `config` | `DefaultConfigModel` | Loaded configuration object |
-| `test_cases` | `list[dict]` | Parsed test case dicts |
-| `summarize_failures` | `bool` | Generate overall failure summary |
-| `dryrun` | `bool` | Skip LLM calls |
-| `quiet` | `bool` | Suppress logs and progress |
 
 ### Async Usage
 
-For existing async contexts (web frameworks, pipelines):
+For async contexts, use `run_analysis()` with objects directly:
 
 ```python
-from result_companion.api import _analyze
+from result_companion import run_analysis
 
-result = await _analyze("output.xml", config="my_config.yaml")
+result = await run_analysis(config=config, test_cases=test_cases)
 ```
 
 ---
