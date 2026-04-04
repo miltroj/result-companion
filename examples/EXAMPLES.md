@@ -38,6 +38,7 @@ Quick-start configurations for different LLM providers and use cases.
   - [Programmatic API](#programmatic-api)
     - [Options](#options)
     - [Working with Results](#working-with-results)
+    - [Object-Based API](#object-based-api)
     - [Async Usage](#async-usage)
   - [Additional Resources](#additional-resources)
 
@@ -620,6 +621,30 @@ for name, analysis in result.llm_results.items():
 # Write text report to file
 Path("rc_summary.txt").write_text(result.text_report)
 ```
+
+### Object-Based API
+
+For full control, use `run_analysis()` with pre-loaded config and test cases — no file paths required:
+
+```python
+from result_companion import run_analysis
+from result_companion.core.parsers.config import load_config
+from result_companion.api import load_and_filter_test_cases
+
+config = load_config("my_config.yaml")
+test_cases = load_and_filter_test_cases("output.xml", config)
+
+# run_analysis accepts objects, not paths
+result = await run_analysis(config=config, test_cases=test_cases)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `config` | `DefaultConfigModel` | Loaded configuration object |
+| `test_cases` | `list[dict]` | Parsed test case dicts |
+| `summarize_failures` | `bool` | Generate overall failure summary |
+| `dryrun` | `bool` | Skip LLM calls |
+| `quiet` | `bool` | Suppress logs and progress |
 
 ### Async Usage
 

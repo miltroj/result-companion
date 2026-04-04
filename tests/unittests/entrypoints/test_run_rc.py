@@ -3,11 +3,13 @@ from unittest.mock import patch
 
 import pytest
 
+from result_companion.api import (
+    _run_ollama_init_strategy,
+    _run_provider_init_strategies,
+)
 from result_companion.core.parsers.config import DefaultConfigModel
 from result_companion.entrypoints.run_rc import (
     _main,
-    _run_ollama_init_strategy,
-    _run_provider_init_strategies,
     run_rc,
 )
 
@@ -23,7 +25,7 @@ class TestRunOllamaInitStrategy:
             calls.append(model_name)
 
         monkeypatch.setattr(
-            "result_companion.entrypoints.run_rc.ollama_on_init_strategy",
+            "result_companion.api.ollama_on_init_strategy",
             _fake_ollama_on_init_strategy,
         )
         self.calls = calls
@@ -61,7 +63,7 @@ class TestRunProviderInitStrategies:
             ollama_calls.append(model_name)
 
         monkeypatch.setattr(
-            "result_companion.entrypoints.run_rc._run_ollama_init_strategy",
+            "result_companion.api._run_ollama_init_strategy",
             _fake_run_ollama_init_strategy,
         )
         self.ollama_calls = ollama_calls
@@ -89,13 +91,12 @@ class TestMainE2E:
             patch(
                 "result_companion.entrypoints.run_rc.create_llm_html_log"
             ) as mocked_html,
-            patch(
-                "result_companion.entrypoints.run_rc.execute_llm_and_get_results"
-            ) as mocked_execute,
+            patch("result_companion.api.execute_llm_and_get_results") as mocked_execute,
             patch(
                 "result_companion.entrypoints.run_rc.get_robot_results_from_file_as_dict"
             ) as mocked_get_results,
             patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
+            patch("result_companion.api._run_provider_init_strategies"),
         ):
             mocked_get_results.return_value = [
                 {"name": "test1", "status": "PASS", "tags": []},
@@ -146,7 +147,6 @@ class TestMainE2E:
                 exclude_tags=None,
             )
 
-            # Verify the flow
             mocked_get_results.assert_called_once_with(
                 file_path=Path("output.xml"),
                 include_tags=None,
@@ -154,7 +154,6 @@ class TestMainE2E:
             )
             mocked_config.assert_called_once_with(None)
 
-            # Should filter out PASS test
             mocked_execute.assert_called_once()
             call_args = mocked_execute.call_args
             assert call_args.kwargs["test_cases"] == [
@@ -176,7 +175,7 @@ class TestMainE2E:
         with (
             patch("result_companion.entrypoints.run_rc.create_llm_html_log"),
             patch(
-                "result_companion.entrypoints.run_rc.execute_llm_and_get_results",
+                "result_companion.api.execute_llm_and_get_results",
                 return_value={},
             ),
             patch(
@@ -184,9 +183,7 @@ class TestMainE2E:
                 return_value=[],
             ),
             patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
-            patch(
-                "result_companion.entrypoints.run_rc.ollama_on_init_strategy"
-            ) as mocked_init,
+            patch("result_companion.api.ollama_on_init_strategy") as mocked_init,
         ):
             mocked_config.return_value = DefaultConfigModel(
                 version=1.0,
@@ -340,13 +337,12 @@ class TestMainJsonReport:
 
         with (
             patch("result_companion.entrypoints.run_rc.create_llm_html_log"),
-            patch(
-                "result_companion.entrypoints.run_rc.execute_llm_and_get_results"
-            ) as mocked_execute,
+            patch("result_companion.api.execute_llm_and_get_results") as mocked_execute,
             patch(
                 "result_companion.entrypoints.run_rc.get_robot_results_from_file_as_dict"
             ) as mocked_get_results,
             patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
+            patch("result_companion.api._run_provider_init_strategies"),
         ):
             mocked_get_results.return_value = [
                 {"name": "test_pass", "status": "PASS", "tags": []},
@@ -414,16 +410,13 @@ class TestMainTextAndSynthesis:
             patch(
                 "result_companion.entrypoints.run_rc.create_llm_html_log"
             ) as mocked_html,
-            patch(
-                "result_companion.entrypoints.run_rc.execute_llm_and_get_results"
-            ) as mocked_execute,
+            patch("result_companion.api.execute_llm_and_get_results") as mocked_execute,
             patch(
                 "result_companion.entrypoints.run_rc.get_robot_results_from_file_as_dict"
             ) as mocked_get_results,
             patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
-            patch(
-                "result_companion.entrypoints.run_rc.summarize_failures_with_llm"
-            ) as mocked_summary,
+            patch("result_companion.api.summarize_failures_with_llm") as mocked_summary,
+            patch("result_companion.api._run_provider_init_strategies"),
         ):
             mocked_get_results.return_value = [
                 {"name": "test_fail", "status": "FAIL", "tags": []},

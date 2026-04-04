@@ -7,4 +7,4 @@ try:
 except Exception:  # pragma: no cover
     __version__ = "0.0.0"
 
-from result_companion.api import analyze  # noqa: E402, F401
+from result_companion.api import analyze, run_analysis  # noqa: E402, F401

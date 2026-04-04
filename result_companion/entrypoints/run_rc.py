@@ -3,57 +3,24 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from result_companion.core.analizers.factory_common import execute_llm_and_get_results
-from result_companion.core.analizers.local.ollama_runner import ollama_on_init_strategy
+from result_companion.api import (
+    _apply_concurrency_overrides,
+    _resolve_tags,
+    filter_passing_tests,
+    run_analysis,
+)
 from result_companion.core.html.html_creator import create_llm_html_log
-from result_companion.core.parsers.config import load_config
+from result_companion.core.parsers.config import DefaultConfigModel, load_config
 from result_companion.core.parsers.result_parser import (
     get_robot_results_from_file_as_dict,
 )
+from result_companion.core.results.analysis_result import AnalysisResult
 from result_companion.core.results.text_report import (
     render_json_report,
     render_text_report,
-    summarize_failures_with_llm,
 )
 from result_companion.core.utils.log_levels import LogLevels
 from result_companion.core.utils.logging_config import logger, set_global_log_level
-
-
-def _run_provider_init_strategies(model_name: str) -> None:
-    """Runs provider-specific initialization based on LiteLLM model prefix.
-
-    Args:
-        model_name: LiteLLM model identifier (e.g., ollama_chat/llama2).
-    """
-    provider = model_name.split("/", 1)[0]
-    strategies = {
-        "ollama": lambda: _run_ollama_init_strategy(model_name),
-        "ollama_chat": lambda: _run_ollama_init_strategy(model_name),
-    }
-    strategy = strategies.get(provider)
-    if strategy:
-        strategy()
-
-
-def _run_ollama_init_strategy(model_name: str) -> None:
-    """Runs Ollama initialization strategy if model is Ollama.
-
-    Args:
-        model_name: LiteLLM model identifier (e.g., ollama_chat/llama2).
-    """
-    if not model_name.startswith("ollama"):
-        return
-
-    # Extract short model name for Ollama server check
-    # e.g., "ollama_chat/deepseek-r1:1.5b" -> "deepseek-r1"
-    parts = model_name.split("/")
-    if len(parts) > 1:
-        model_short = parts[1].split(":")[0]
-    else:
-        model_short = model_name.split(":")[0]
-
-    logger.debug(f"Running Ollama init strategy for model: {model_short}")
-    ollama_on_init_strategy(model_name=model_short)
 
 
 async def _main(
@@ -80,70 +47,77 @@ async def _main(
     logger.info("Starting Result Companion!")
     start = time.time()
     parsed_config = load_config(config)
+    _apply_concurrency_overrides(
+        parsed_config, test_case_concurrency, chunk_concurrency
+    )
 
-    if test_case_concurrency is not None:
-        parsed_config.concurrency.test_case = test_case_concurrency
-    if chunk_concurrency is not None:
-        parsed_config.concurrency.chunk = chunk_concurrency
-
-    # Merge CLI tags with config (CLI takes precedence)
-    final_include = include_tags or parsed_config.test_filter.include_tags or None
-    final_exclude = exclude_tags or parsed_config.test_filter.exclude_tags or None
-
-    test_cases = get_robot_results_from_file_as_dict(
+    all_test_cases = get_robot_results_from_file_as_dict(
         file_path=output,
-        include_tags=final_include,
-        exclude_tags=final_exclude,
+        include_tags=_resolve_tags(
+            include_tags, parsed_config.test_filter.include_tags
+        ),
+        exclude_tags=_resolve_tags(
+            exclude_tags, parsed_config.test_filter.exclude_tags
+        ),
     )
-    all_test_cases = test_cases
-
-    # Filter passing tests (RF doesn't have this natively)
-    should_include_passing = (
-        include_passing or parsed_config.test_filter.include_passing
-    )
-    if not should_include_passing:
-        test_cases = [t for t in test_cases if t.get("status") != "PASS"]
-
+    test_cases = filter_passing_tests(all_test_cases, include_passing, parsed_config)
     logger.info(f"Filtered to {len(test_cases)} test cases")
-
-    _run_provider_init_strategies(model_name=parsed_config.llm_factory.model)
-
     logger.debug(f"Using model: {parsed_config.llm_factory.model}")
 
-    llm_results = await execute_llm_and_get_results(
-        test_cases=test_cases,
+    result = await run_analysis(
         config=parsed_config,
+        test_cases=test_cases,
+        summarize_failures=summarize_failures,
         dryrun=dryrun,
         quiet=quiet,
     )
 
-    analyzed_test_names = [t["name"] for t in test_cases]
+    _emit_reports(
+        output=output,
+        result=result,
+        config=parsed_config,
+        all_test_cases=all_test_cases,
+        report=report,
+        html_report=html_report,
+        text_report=text_report,
+        json_report=json_report,
+        print_text_report=print_text_report,
+    )
 
-    overall_summary = None
-    if summarize_failures and llm_results and not dryrun:
-        overall_summary = await summarize_failures_with_llm(
-            llm_results=llm_results,
-            config=parsed_config,
-        )
+    stop = time.time()
+    logger.debug(f"Execution time: {stop - start}")
+    return True
 
+
+def _emit_reports(
+    output: Path,
+    result: AnalysisResult,
+    config: DefaultConfigModel,
+    all_test_cases: list[dict],
+    report: Optional[str],
+    html_report: bool,
+    text_report: Optional[str],
+    json_report: Optional[str],
+    print_text_report: bool,
+) -> None:
+    """Writes HTML/text/JSON reports from analysis results."""
     report_path = report if report else "rc_log.html"
-    if llm_results and html_report:
-        model_info = {"model": parsed_config.llm_factory.model}
+    if result.llm_results and html_report:
         create_llm_html_log(
             input_result_path=output,
             llm_output_path=report_path,
-            llm_results=llm_results,
-            model_info=model_info,
-            overall_summary=overall_summary,
+            llm_results=result.llm_results,
+            model_info={"model": config.llm_factory.model},
+            overall_summary=result.summary,
         )
         logger.info(f"Report created: {Path(report_path).resolve()}")
 
     should_emit_text = bool(text_report) or print_text_report
     if should_emit_text:
         text_output = render_text_report(
-            llm_results=llm_results,
-            analyzed_test_names=analyzed_test_names,
-            overall_summary=overall_summary,
+            llm_results=result.llm_results,
+            analyzed_test_names=result.test_names,
+            overall_summary=result.summary,
         )
         if text_report:
             Path(text_report).write_text(text_output)
@@ -153,24 +127,15 @@ async def _main(
 
     if json_report:
         json_output = render_json_report(
-            llm_results=llm_results,
-            analyzed_test_names=analyzed_test_names,
-            overall_summary=overall_summary,
-            model=parsed_config.llm_factory.model,
+            llm_results=result.llm_results,
+            analyzed_test_names=result.test_names,
+            overall_summary=result.summary,
+            model=config.llm_factory.model,
             source_file=str(output),
             all_test_cases=all_test_cases,
         )
         Path(json_report).write_text(json_output)
         logger.info(f"JSON report created: {Path(json_report).resolve()}")
-
-    stop = time.time()
-    logger.debug(f"Execution time: {stop - start}")
-
-    # Allow aiohttp SSL connections to cleanup before event loop closes
-    # This prevents "Event loop is closed" errors from liteLLM's internal aiohttp client
-    await asyncio.sleep(0.25)
-
-    return True
 
 
 def run_rc(
