@@ -3,17 +3,16 @@ from unittest.mock import patch
 
 import pytest
 
+from result_companion._internal.analysis_helpers import run_provider_init_strategies
 from result_companion.core.parsers.config import DefaultConfigModel
 from result_companion.entrypoints.run_rc import (
     _main,
-    _run_ollama_init_strategy,
-    _run_provider_init_strategies,
     run_rc,
 )
 
 
-class TestRunOllamaInitStrategy:
-    """Tests for _run_ollama_init_strategy function."""
+class TestRunProviderInitStrategies:
+    """Tests for provider init strategy dispatcher."""
 
     @pytest.fixture(autouse=True)
     def _capture_ollama_init_calls(self, monkeypatch):
@@ -23,60 +22,22 @@ class TestRunOllamaInitStrategy:
             calls.append(model_name)
 
         monkeypatch.setattr(
-            "result_companion.entrypoints.run_rc.ollama_on_init_strategy",
+            "result_companion._internal.analysis_helpers.ollama_on_init_strategy",
             _fake_ollama_on_init_strategy,
         )
         self.calls = calls
 
     def test_skips_non_ollama_models(self):
-        """Test that non-Ollama models are skipped."""
-        _run_ollama_init_strategy(
-            model_name="openai/gpt-4",
-        )
+        run_provider_init_strategies(model_name="openai/gpt-4")
         assert self.calls == []
 
     def test_runs_for_ollama_models(self):
-        """Test that Ollama models trigger init strategy."""
-        _run_ollama_init_strategy(
-            model_name="ollama_chat/llama2",
-        )
+        run_provider_init_strategies(model_name="ollama_chat/llama2")
         assert self.calls == ["llama2"]
 
-    def test_extracts_model_name_from_identifier(self):
-        """Test that model name is extracted when not in strategy params."""
-        _run_ollama_init_strategy(
-            model_name="ollama_chat/deepseek-r1:1.5b",
-        )
+    def test_extracts_model_name_from_versioned_identifier(self):
+        run_provider_init_strategies(model_name="ollama_chat/deepseek-r1:1.5b")
         assert self.calls == ["deepseek-r1"]
-
-
-class TestRunProviderInitStrategies:
-    """Tests for generic provider strategy dispatcher."""
-
-    @pytest.fixture(autouse=True)
-    def _capture_provider_init_calls(self, monkeypatch):
-        ollama_calls = []
-
-        def _fake_run_ollama_init_strategy(model_name: str):
-            ollama_calls.append(model_name)
-
-        monkeypatch.setattr(
-            "result_companion.entrypoints.run_rc._run_ollama_init_strategy",
-            _fake_run_ollama_init_strategy,
-        )
-        self.ollama_calls = ollama_calls
-
-    def test_runs_ollama_strategy_for_ollama_chat(self):
-        _run_provider_init_strategies(
-            model_name="ollama_chat/deepseek-r1:1.5b",
-        )
-        assert self.ollama_calls == ["ollama_chat/deepseek-r1:1.5b"]
-
-    def test_skips_for_unmapped_providers(self):
-        _run_provider_init_strategies(
-            model_name="openai/gpt-4o",
-        )
-        assert self.ollama_calls == []
 
 
 class TestMainE2E:
@@ -89,13 +50,14 @@ class TestMainE2E:
             patch(
                 "result_companion.entrypoints.run_rc.create_llm_html_log"
             ) as mocked_html,
-            patch(
-                "result_companion.entrypoints.run_rc.execute_llm_and_get_results"
-            ) as mocked_execute,
+            patch("result_companion.api.execute_llm_and_get_results") as mocked_execute,
             patch(
                 "result_companion.entrypoints.run_rc.get_robot_results_from_file_as_dict"
             ) as mocked_get_results,
             patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
+            patch(
+                "result_companion._internal.analysis_helpers.run_provider_init_strategies"
+            ),
         ):
             mocked_get_results.return_value = [
                 {"name": "test1", "status": "PASS", "tags": []},
@@ -146,7 +108,6 @@ class TestMainE2E:
                 exclude_tags=None,
             )
 
-            # Verify the flow
             mocked_get_results.assert_called_once_with(
                 file_path=Path("output.xml"),
                 include_tags=None,
@@ -154,7 +115,6 @@ class TestMainE2E:
             )
             mocked_config.assert_called_once_with(None)
 
-            # Should filter out PASS test
             mocked_execute.assert_called_once()
             call_args = mocked_execute.call_args
             assert call_args.kwargs["test_cases"] == [
@@ -176,7 +136,7 @@ class TestMainE2E:
         with (
             patch("result_companion.entrypoints.run_rc.create_llm_html_log"),
             patch(
-                "result_companion.entrypoints.run_rc.execute_llm_and_get_results",
+                "result_companion.api.execute_llm_and_get_results",
                 return_value={},
             ),
             patch(
@@ -185,7 +145,7 @@ class TestMainE2E:
             ),
             patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
             patch(
-                "result_companion.entrypoints.run_rc.ollama_on_init_strategy"
+                "result_companion._internal.analysis_helpers.ollama_on_init_strategy"
             ) as mocked_init,
         ):
             mocked_config.return_value = DefaultConfigModel(
@@ -340,13 +300,14 @@ class TestMainJsonReport:
 
         with (
             patch("result_companion.entrypoints.run_rc.create_llm_html_log"),
-            patch(
-                "result_companion.entrypoints.run_rc.execute_llm_and_get_results"
-            ) as mocked_execute,
+            patch("result_companion.api.execute_llm_and_get_results") as mocked_execute,
             patch(
                 "result_companion.entrypoints.run_rc.get_robot_results_from_file_as_dict"
             ) as mocked_get_results,
             patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
+            patch(
+                "result_companion._internal.analysis_helpers.run_provider_init_strategies"
+            ),
         ):
             mocked_get_results.return_value = [
                 {"name": "test_pass", "status": "PASS", "tags": []},
@@ -414,16 +375,15 @@ class TestMainTextAndSynthesis:
             patch(
                 "result_companion.entrypoints.run_rc.create_llm_html_log"
             ) as mocked_html,
-            patch(
-                "result_companion.entrypoints.run_rc.execute_llm_and_get_results"
-            ) as mocked_execute,
+            patch("result_companion.api.execute_llm_and_get_results") as mocked_execute,
             patch(
                 "result_companion.entrypoints.run_rc.get_robot_results_from_file_as_dict"
             ) as mocked_get_results,
             patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
+            patch("result_companion.api.summarize_failures_with_llm") as mocked_summary,
             patch(
-                "result_companion.entrypoints.run_rc.summarize_failures_with_llm"
-            ) as mocked_summary,
+                "result_companion._internal.analysis_helpers.run_provider_init_strategies"
+            ),
         ):
             mocked_get_results.return_value = [
                 {"name": "test_fail", "status": "FAIL", "tags": []},

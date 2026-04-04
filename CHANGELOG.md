@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.13] - 2026-04-04
+
+### Added
+- Programmatic API: `analyze()` and async `run_analysis()` returning `AnalysisResult` (includes `text_report`); re-exported from `result_companion`
+- Programmatic `review()` — takes pre-loaded `AnalyzeReport` and `ReviewConfigModel`, optional dependency injection for tests
+
+[0.0.13]: https://github.com/miltroj/result-companion/releases/tag/v0.0.13
+
 ## [0.0.12] - 2026-03-27
 
 ### Added

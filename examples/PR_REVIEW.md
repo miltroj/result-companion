@@ -200,6 +200,53 @@ posting nothing.
 | `source_hash` | SHA-256 prefix of raw test data (traceability) |
 | `timestamp` | UTC ISO-8601 timestamp of when analysis completed |
 
+## Programmatic API
+
+Use `review()` from Python with pre-built objects — no file paths or JSON parsing:
+
+```python
+from result_companion import review
+from result_companion.core.parsers.config import ReviewConfigModel, ReviewPromptModel
+from result_companion.core.results.text_report import AnalyzeReport
+
+report = AnalyzeReport(
+    failed_test_count=1,
+    analyzed_tests=["Login With Valid Credentials"],
+    per_test_results={"Login With Valid Credentials": "503 from backend"},
+)
+
+config = ReviewConfigModel(
+    version=1.0,
+    review=ReviewPromptModel(
+        review_prompt="PR #{pr_number} in {repo_name}.\n{failure_summary}",
+        model="gpt-5",
+    ),
+)
+
+comment = review(
+    repo_name="owner/repo",
+    pr_number=65,
+    report=report,
+    config=config,
+    preview=False,
+)
+```
+
+`review()` returns the generated comment as a string. With `preview=True` (default), it skips posting to the PR.
+
+### Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `repo_name` | (required) | GitHub repo in `owner/repo` format |
+| `pr_number` | (required) | Pull request number |
+| `report` | (required) | `AnalyzeReport` object |
+| `config` | (required) | `ReviewConfigModel` object |
+| `preview` | `True` | Skip posting comment to PR |
+| `notify_on_pass` | `False` | Post all-clear comment when no failures |
+| `output_path` | `None` | Save comment to file |
+| `quiet` | `False` | Suppress spinner output |
+
 ## Limitations
 
 - Review is Copilot-only.

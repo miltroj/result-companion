@@ -35,6 +35,11 @@ Quick-start configurations for different LLM providers and use cases.
     - [Chunking for Large Tests](#chunking-for-large-tests)
   - [Complete Example](#complete-example)
   - [Environment Variables Reference](#environment-variables-reference)
+  - [Programmatic API](#programmatic-api)
+    - [Options](#options)
+    - [Working with Results](#working-with-results)
+    - [Pre-parsed Test Cases](#pre-parsed-test-cases)
+    - [Async Usage](#async-usage)
   - [Additional Resources](#additional-resources)
 
 ## GitHub Copilot (Recommended for Users With Copilot)
@@ -559,6 +564,79 @@ export AWS_REGION="us-west-2"
 export AWS_ACCESS_KEY_ID="..."
 export AWS_SECRET_ACCESS_KEY="..."
 ```
+
+## Programmatic API
+
+Use `analyze()` directly from Python instead of the CLI. It accepts a config object and either a path to `output.xml` or pre-parsed test cases:
+
+```python
+from result_companion import analyze
+from result_companion.core.parsers.config import load_config
+
+config = load_config("my_config.yaml")
+result = analyze("output.xml", config=config)
+```
+
+`result` is an [`AnalysisResult`](../result_companion/core/results/analysis_result.py) with:
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `llm_results` | `dict[str, str]` | Test name → LLM analysis |
+| `test_names` | `list[str]` | Analyzed test names |
+| `summary` | `str \| None` | Overall failure summary |
+| `text_report` | `str` (property) | Rendered plain-text report |
+
+### Options
+
+```python
+result = analyze(
+    "output.xml",
+    config=config,
+    include_tags=["smoke"],
+    summarize_failures=True,
+)
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `output` | (required) | Path to output.xml **or** `list[dict]` of test cases |
+| `config` | (required) | `DefaultConfigModel` object |
+| `include_passing` | `False` | Include PASS tests (path mode only) |
+| `include_tags` | `None` | RF tag patterns to include (path mode only) |
+| `exclude_tags` | `None` | RF tag patterns to exclude (path mode only) |
+| `summarize_failures` | `False` | Generate overall failure summary |
+| `dryrun` | `False` | Skip LLM calls |
+| `quiet` | `True` | Suppress logs and progress |
+
+### Working with Results
+
+```python
+for name, analysis in result.llm_results.items():
+    print(f"=== {name} ===\n{analysis}\n")
+
+Path("rc_summary.txt").write_text(result.text_report)
+```
+
+### Pre-parsed Test Cases
+
+Pass test cases directly when you already have them (skips XML parsing):
+
+```python
+test_cases = [{"name": "Login Test", "status": "FAIL", ...}]
+result = analyze(output=test_cases, config=config)
+```
+
+### Async Usage
+
+For async contexts, use `run_analysis()` with objects directly:
+
+```python
+from result_companion import run_analysis
+
+result = await run_analysis(config=config, test_cases=test_cases)
+```
+
+---
 
 ## Additional Resources
 
