@@ -24,6 +24,13 @@ def test_get_user_state_dir_second_call_reuses_existing(tmp_path: Path) -> None:
     assert first == second
 
 
+def test_get_or_create_rc_state_subdirectory_no_parts_is_state_root(
+    tmp_path: Path,
+) -> None:
+    root = get_or_create_current_user_rc_state_dir(home=tmp_path)
+    assert get_or_create_rc_state_subdirectory(home=tmp_path) == root
+
+
 def test_get_or_create_rc_state_subdirectory_cli_and_data(tmp_path: Path) -> None:
     cli = get_or_create_rc_state_subdirectory(CLI, home=tmp_path)
     data = get_or_create_rc_state_subdirectory(CLI, "data", home=tmp_path)
