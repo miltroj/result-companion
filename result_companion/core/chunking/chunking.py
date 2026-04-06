@@ -7,6 +7,8 @@ from result_companion.core.utils.logging_config import get_progress_logger
 
 logger = get_progress_logger("Chunking")
 
+_INDENT = "    "
+
 
 def split_text_into_chunks(text: str, chunk_size: int, overlap: int) -> list[str]:
     """Splits text into overlapping chunks.
@@ -38,6 +40,153 @@ def split_text_into_chunks(text: str, chunk_size: int, overlap: int) -> list[str
         if next_start <= start:
             next_start = start + chunk_size
         start = next_start
+
+    return chunks
+
+
+def _indent(depth: int, text: str) -> str:
+    """Returns text prefixed with depth levels of indentation."""
+    return f"{_INDENT * depth}{text}"
+
+
+def _render_rf_keywords(body: list[dict], depth: int) -> list[tuple[int, str]]:
+    """Recursively renders Robot Framework keyword/message body items as (depth, text) pairs."""
+    lines: list[tuple[int, str]] = []
+    for item in body:
+        if item.get("type") == "MESSAGE":
+            lines.append((depth, item["message"]))
+            continue
+        name = item.get("name", "?")
+        status = item.get("status", "")
+        kind = item.get("type", "KEYWORD").title()
+        lines.append((depth, f"{kind}: {name} - {status}"))
+        args = item.get("args", [])
+        if args:
+            lines.append((depth + 1, f"args: {', '.join(str(a) for a in args)}"))
+        lines.extend(_render_rf_keywords(item.get("body", []), depth + 1))
+    return lines
+
+
+def _render_rf_test_structure(test_case: dict) -> list[tuple[int, str]]:
+    """Renders RF suite ancestry → test case → keywords as (depth, text) lines."""
+    suite_context = test_case.get("suite_context", [])
+    suite_lines = [(i, f"Suite: {ctx['name']}") for i, ctx in enumerate(suite_context)]
+    depth = len(suite_context)
+    test_line = (depth, f"Test: {test_case['name']} - {test_case.get('status', '')}")
+    return (
+        suite_lines
+        + [test_line]
+        + _render_rf_keywords(test_case.get("body", []), depth + 1)
+    )
+
+
+def _collect_ancestor_context_at(
+    lines: list[tuple[int, str]], at_idx: int
+) -> list[str]:
+    """Collects the suite→test→keyword ancestor chain for the line at at_idx.
+
+    Walks backwards through rendered lines, picking exactly one line per depth
+    level above the target line, building the full nesting context (suite name,
+    test name, parent keyword) needed to make each chunk self-contained.
+    """
+    # Start one level above the target line and walk up, collecting exactly
+    # one representative line per depth level until we reach the root (depth 0).
+    target = lines[at_idx][0] - 1
+    ancestors: list[tuple[int, str]] = []
+    for i in range(at_idx - 1, -1, -1):
+        if lines[i][0] == target:
+            ancestors.insert(0, lines[i])
+            target -= 1
+            if target < 0:
+                break
+    return [_indent(depth, text) for depth, text in ancestors]
+
+
+def _split_long_line(
+    text: str, depth: int, breadcrumbs: list[str], chunk_size: int
+) -> list[str]:
+    """Splits a single line exceeding chunk_size into breadcrumb-prefixed chunks.
+
+    Args:
+        text: Line content (without indentation).
+        depth: Indentation depth of the line.
+        breadcrumbs: Pre-formatted ancestor lines prepended to each piece.
+        chunk_size: Maximum characters per chunk.
+
+    Returns:
+        List of chunks, each starting with breadcrumbs context.
+    """
+    breadcrumb_overhead = (
+        sum(len(line) + 1 for line in breadcrumbs) + len(_indent(depth, "{...}")) + 1
+    )
+    # chunk_size // 3 guards against breadcrumbs consuming almost the full chunk,
+    # which would cause extremely small pieces and a near-infinite loop.
+    available_chars = max(
+        chunk_size - breadcrumb_overhead - len(_INDENT) * depth, chunk_size // 3
+    )
+    pieces = [
+        text[i : i + available_chars] for i in range(0, len(text), available_chars)
+    ]
+    return [
+        "\n".join(breadcrumbs + [_indent(depth, "{...}"), _indent(depth, p)])
+        for p in pieces
+    ]
+
+
+def chunk_rf_test_lines(lines: list[tuple[int, str]], chunk_size: int) -> list[str]:
+    """Splits RF test structure lines into context-aware chunks.
+
+    Each chunk starts with the suite→test→keyword ancestor context so the LLM
+    can interpret the chunk without seeing previous chunks.
+
+    Args:
+        lines: List of (depth, text) pairs from _render_rf_test_structure.
+        chunk_size: Maximum characters per chunk.
+
+    Returns:
+        List of text chunks, each self-contained with ancestor context.
+    """
+    if not lines:
+        return []
+
+    total = sum(len(_indent(d, t)) + 1 for d, t in lines)
+    if total <= chunk_size:
+        return ["\n".join(_indent(d, t) for d, t in lines)]
+
+    chunks: list[str] = []
+    current: list[str] = []
+    current_size = 0
+
+    for idx, (depth, text) in enumerate(lines):
+        line = _indent(depth, text)
+        line_len = len(line) + 1
+        breadcrumbs = _collect_ancestor_context_at(lines, idx)
+
+        # Edge case: a single keyword log line is longer than the whole chunk budget.
+        # Flush whatever is in progress and split this line into its own sub-chunks,
+        # each prefixed with the ancestor context so they remain self-contained.
+        if line_len > chunk_size:
+            if current:
+                chunks.append("\n".join(current))
+            pieces = _split_long_line(text, depth, breadcrumbs, chunk_size)
+            chunks.extend(pieces[:-1])
+            current = pieces[-1].splitlines() if pieces else []
+            current_size = sum(len(line) + 1 for line in current)
+            continue
+
+        # Normal case: this line would overflow the current chunk.
+        # Flush it and start the next chunk with ancestor context + "{...}" marker
+        # so the LLM knows it is reading a continuation, not the start of the test.
+        if current_size + line_len > chunk_size and current:
+            chunks.append("\n".join(current))
+            current = breadcrumbs + [_indent(depth, "{...}")]
+            current_size = sum(len(line) + 1 for line in current)
+
+        current.append(line)
+        current_size += line_len
+
+    if current:
+        chunks.append("\n".join(current))
 
     return chunks
 
@@ -122,9 +271,8 @@ async def accumulate_llm_results_for_summarization(
     Returns:
         Tuple of (final_analysis, test_name, chunks).
     """
-    overlap = chunking_strategy.chunk_size // 10
-    chunks = split_text_into_chunks(
-        str(test_case), chunking_strategy.chunk_size, overlap
+    chunks = chunk_rf_test_lines(
+        _render_rf_test_structure(test_case), chunking_strategy.chunk_size
     )
 
     test_name = test_case["name"]

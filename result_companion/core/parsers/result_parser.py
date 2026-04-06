@@ -47,7 +47,6 @@ def remove_redundant_fields(data: list[dict]) -> list[dict]:
         "owner",
         "start_time",
         "html",
-        "type",
         "assign",
         "level",
         "timestamp",
