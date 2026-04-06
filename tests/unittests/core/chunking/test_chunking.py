@@ -4,8 +4,13 @@ from dataclasses import dataclass
 import pytest
 
 from result_companion.core.chunking.chunking import (
+    _collect_ancestor_context_at,
+    _render_rf_keywords,
+    _render_rf_test_structure,
+    _split_long_line,
     accumulate_llm_results_for_summarization,
     analyze_chunk,
+    chunk_rf_test_lines,
     split_text_into_chunks,
     synthesize_summaries,
 )
@@ -165,18 +170,25 @@ class TestAccumulateLLMResultsForSummarization:
     @pytest.mark.asyncio
     async def test_splits_and_summarizes(self, patch_smart_acompletion):
         """Test full chunking and summarization flow."""
-        # str(test_case) creates ~155 chars, chunk_size=50 produces 4 chunks + 1 synthesis
+        # chunk_size=50: test line (27) + Kw1 (24) overflows → 3 chunks + 1 synthesis = 4 calls
         fake_acompletion = FakeACompletionSequence(
-            responses=["chunk1", "chunk2", "chunk3", "chunk4", "final summary"]
+            responses=["analysis1", "analysis2", "analysis3", "final summary"]
         )
 
-        test_case = {"name": "chunking_test", "content": "x" * 100}
+        test_case = {
+            "name": "chunking_test",
+            "status": "FAIL",
+            "body": [
+                {"name": "Kw1", "status": "PASS", "type": "KEYWORD"},
+                {"name": "Kw2", "status": "PASS", "type": "KEYWORD"},
+            ],
+        }
         chunking_strategy = Chunking(
             chunk_size=50,
-            number_of_chunks=2,
+            number_of_chunks=3,
             raw_text_len=100,
             tokens_from_raw_text=25,
-            tokenized_chunks=2,
+            tokenized_chunks=3,
         )
 
         patch_smart_acompletion(fake_acompletion)
@@ -233,3 +245,241 @@ class TestAccumulateLLMResultsForSummarization:
 
         # Max concurrent should be limited to 2 (not counting final synthesis)
         assert max_concurrent <= 2
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+# Depth-0 suite line, depth-1 test line, depth-2 keyword line used across tests.
+_SUITE = (0, "Suite: S")
+_TEST = (1, "Test: T - PASS")
+_KW1 = (2, "Keyword: K1 - PASS")
+_KW2 = (2, "Keyword: K2 - PASS")
+
+
+class TestCollectAncestorContext:
+    """Tests for _collect_ancestor_context_at."""
+
+    def test_collects_suite_and_test_for_depth_2_line(self):
+        lines = [_SUITE, _TEST, _KW1]
+
+        result = _collect_ancestor_context_at(lines, at_idx=2)
+
+        assert len(result) == 2
+        assert "Suite: S" in result[0]
+        assert "Test: T - PASS" in result[1]
+
+    def test_collects_only_suite_for_depth_1_line(self):
+        lines = [_SUITE, _TEST]
+
+        result = _collect_ancestor_context_at(lines, at_idx=1)
+
+        assert len(result) == 1
+        assert "Suite: S" in result[0]
+
+    def test_returns_empty_list_for_depth_0_line(self):
+        lines = [_SUITE, (0, "Suite: S2")]
+
+        result = _collect_ancestor_context_at(lines, at_idx=1)
+
+        assert result == []
+
+
+class TestSplitLongLine:
+    """Tests for _split_long_line."""
+
+    def test_splits_into_breadcrumb_prefixed_chunks(self):
+        text = "A" * 100
+        breadcrumbs = ["Suite: S", "    Test: T"]
+
+        result = _split_long_line(text, depth=2, breadcrumbs=breadcrumbs, chunk_size=60)
+
+        assert len(result) > 1
+        for chunk in result:
+            assert "Suite: S" in chunk
+            assert "{...}" in chunk
+            assert "A" in chunk
+
+    def test_uses_minimum_piece_size_when_breadcrumbs_consume_most_budget(self):
+        # Breadcrumbs larger than chunk_size force the chunk_size//3 floor.
+        large_breadcrumbs = ["X" * 200]
+        text = "A" * 50
+
+        result = _split_long_line(
+            text, depth=0, breadcrumbs=large_breadcrumbs, chunk_size=30
+        )
+
+        assert len(result) > 0
+        assert all("A" in chunk for chunk in result)
+
+
+class TestChunkRfTestLines:
+    """Tests for chunk_rf_test_lines – all code paths."""
+
+    def test_empty_input_returns_empty_list(self):
+        assert chunk_rf_test_lines([], chunk_size=1000) == []
+
+    def test_fits_in_single_chunk_when_total_under_limit(self):
+        lines = [_SUITE, _TEST, _KW1]
+
+        result = chunk_rf_test_lines(lines, chunk_size=10_000)
+
+        assert len(result) == 1
+        assert "Suite: S" in result[0]
+        assert "Keyword: K1 - PASS" in result[0]
+
+    def test_normal_overflow_flushes_and_starts_continuation_with_breadcrumbs(self):
+        # chunk_size=60: lines 0-2 fit (55 chars), line 3 overflows → 2 chunks.
+        lines = [_SUITE, _TEST, _KW1, _KW2]
+
+        result = chunk_rf_test_lines(lines, chunk_size=60)
+
+        assert len(result) == 2
+        # First chunk has all three initial lines.
+        assert "Suite: S" in result[0]
+        assert "Keyword: K1 - PASS" in result[0]
+        # Second chunk carries ancestor context + continuation marker.
+        assert "Suite: S" in result[1]
+        assert "Test: T - PASS" in result[1]
+        assert "{...}" in result[1]
+        assert "Keyword: K2 - PASS" in result[1]
+
+    def test_long_line_with_no_current_splits_into_sub_chunks(self):
+        # Single oversized line → no current to flush, split directly.
+        lines = [(0, "X" * 100)]
+
+        result = chunk_rf_test_lines(lines, chunk_size=30)
+
+        assert len(result) > 1
+        assert all("{...}" in chunk for chunk in result)
+
+    def test_long_line_with_current_fills_current_before_splitting(self):
+        # "Suite: S" (8 chars) fills current, then the long line is encountered.
+        # text_space = 50 - 9 - 0 - 1 = 40 > 0 → partial text appended to first chunk.
+        lines = [_SUITE, (0, "X" * 100)]
+
+        result = chunk_rf_test_lines(lines, chunk_size=50)
+
+        assert len(result) >= 2
+        # First chunk contains "Suite: S" plus the first slice of X's.
+        print(result[0])
+        assert "Suite: S" in result[0]
+        assert "X" in result[0]
+
+    def test_long_line_with_no_text_space_flushes_current_without_partial(self):
+        # text_space = 20 - 9 - 4*3 - 1 = -2 ≤ 0 → first chunk is "Suite: S" only.
+        lines = [_SUITE, (3, "X" * 100)]
+
+        result = chunk_rf_test_lines(lines, chunk_size=20)
+
+        assert len(result) >= 2
+        assert result[0] == "Suite: S"
+        assert "X" not in result[0]
+
+    def test_initial_chunks_are_fuller_than_last_when_lines_do_not_divide_evenly(self):
+        # 8 depth-0 lines of 10 chars each with chunk_size=35:
+        # chunk1 fits 3 lines (32 chars), continuations fit 2 (27 chars each),
+        # last chunk has 1 line (16 chars) → clearly smaller than all predecessors.
+        lines = [(0, "A" * 10)] * 8
+
+        result = chunk_rf_test_lines(lines, chunk_size=35)
+
+        assert len(result) > 1
+        assert len(result[-1]) < len(result[-2])
+
+
+# ---------------------------------------------------------------------------
+# Factories
+# ---------------------------------------------------------------------------
+
+
+def make_kw(
+    name: str = "Kw",
+    status: str = "PASS",
+    args: list | None = None,
+    body: list | None = None,
+    kw_type: str = "KEYWORD",
+) -> dict:
+    item: dict = {"name": name, "status": status, "type": kw_type}
+    if args:
+        item["args"] = args
+    if body:
+        item["body"] = body
+    return item
+
+
+def make_msg(message: str = "log line") -> dict:
+    return {"type": "MESSAGE", "message": message}
+
+
+def make_test(
+    name: str = "My Test",
+    status: str = "PASS",
+    body: list | None = None,
+    suite_context: list | None = None,
+) -> dict:
+    tc: dict = {"name": name, "status": status}
+    if body:
+        tc["body"] = body
+    if suite_context:
+        tc["suite_context"] = suite_context
+    return tc
+
+
+class TestRenderRfKeywords:
+    """Tests for _render_rf_keywords."""
+
+    def test_empty_body_returns_empty_list(self):
+        assert _render_rf_keywords([], depth=0) == []
+
+    def test_message_item_uses_message_text_directly(self):
+        result = _render_rf_keywords([make_msg("log line")], depth=1)
+
+        assert result == [(1, "log line")]
+
+    def test_keyword_renders_kind_name_and_status(self):
+        result = _render_rf_keywords([make_kw("Log", "PASS")], depth=0)
+
+        assert result == [(0, "Keyword: Log - PASS")]
+
+    def test_keyword_with_args_appends_args_line_at_next_depth(self):
+        result = _render_rf_keywords(
+            [make_kw("Log", "PASS", args=["hello", 42])], depth=0
+        )
+
+        assert (0, "Keyword: Log - PASS") in result
+        assert (1, "args: hello, 42") in result
+
+    def test_nested_keyword_body_rendered_at_incremented_depth(self):
+        inner = make_kw("Inner", "PASS")
+        outer = make_kw("Outer", "PASS", body=[inner])
+
+        result = _render_rf_keywords([outer], depth=0)
+
+        assert (0, "Keyword: Outer - PASS") in result
+        assert (1, "Keyword: Inner - PASS") in result
+
+
+class TestRenderRfTestStructure:
+    """Tests for _render_rf_test_structure."""
+
+    def test_no_suite_context_renders_single_test_line_at_depth_0(self):
+        result = _render_rf_test_structure(make_test("Login Test", "PASS"))
+
+        assert result == [(0, "Test: Login Test - PASS")]
+
+    def test_suite_context_produces_nested_suite_lines_before_test(self):
+        suite_ctx = [{"name": "Suite A"}, {"name": "Suite B"}]
+
+        result = _render_rf_test_structure(make_test(suite_context=suite_ctx))
+
+        assert result[0] == (0, "Suite: Suite A")
+        assert result[1] == (1, "Suite: Suite B")
+        assert result[2] == (2, "Test: My Test - PASS")
+
+    def test_body_keywords_appended_after_test_line(self):
+        result = _render_rf_test_structure(make_test(body=[make_kw("Click", "PASS")]))
+
+        assert result[0] == (0, "Test: My Test - PASS")
+        assert result[1] == (1, "Keyword: Click - PASS")
