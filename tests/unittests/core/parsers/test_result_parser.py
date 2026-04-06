@@ -383,7 +383,6 @@ def test_remove_redundant_fields_strips_robot_internal_fields():
     assert "owner" not in result
     assert "start_time" not in result
     assert "html" not in result
-    assert "type" not in result
     assert "assign" not in result
     assert "level" not in result
     assert "timestamp" not in result
@@ -392,6 +391,7 @@ def test_remove_redundant_fields_strips_robot_internal_fields():
         "message": "error here",
         "name": "Ollama Local Model Run Should Succede",
         "status": "FAIL",
+        "type": "MESSAGE",
     }
 
 
