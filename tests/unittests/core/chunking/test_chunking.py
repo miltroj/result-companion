@@ -354,28 +354,15 @@ class TestChunkRfTestLines:
         assert len(result) > 1
         assert all("{...}" in chunk for chunk in result)
 
-    def test_long_line_with_current_fills_current_before_splitting(self):
-        # "Suite: S" (8 chars) fills current, then the long line is encountered.
-        # text_space = 50 - 9 - 0 - 1 = 40 > 0 → partial text appended to first chunk.
+    def test_long_line_with_current_flushes_current_then_splits(self):
         lines = [_SUITE, (0, "X" * 100)]
 
         result = chunk_rf_test_lines(lines, chunk_size=50)
 
         assert len(result) >= 2
-        # First chunk contains "Suite: S" plus the first slice of X's.
-        print(result[0])
-        assert "Suite: S" in result[0]
-        assert "X" in result[0]
-
-    def test_long_line_with_no_text_space_flushes_current_without_partial(self):
-        # text_space = 20 - 9 - 4*3 - 1 = -2 ≤ 0 → first chunk is "Suite: S" only.
-        lines = [_SUITE, (3, "X" * 100)]
-
-        result = chunk_rf_test_lines(lines, chunk_size=20)
-
-        assert len(result) >= 2
         assert result[0] == "Suite: S"
         assert "X" not in result[0]
+        assert "X" in result[1]
 
     def test_initial_chunks_are_fuller_than_last_when_lines_do_not_divide_evenly(self):
         # 8 depth-0 lines of 10 chars each with chunk_size=35:
