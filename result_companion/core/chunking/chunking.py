@@ -168,16 +168,12 @@ def chunk_rf_test_lines(lines: list[tuple[int, str]], chunk_size: int) -> list[s
         # Then split the remainder into breadcrumb-prefixed sub-chunks.
         if line_len > chunk_size:
             if current:
-                text_space = chunk_size - current_size - len(_INDENT) * depth - 1
-                if text_space > 0:
-                    current.append(_indent(depth, text[:text_space]))
-                    text = text[text_space:]
                 chunks.append("\n".join(current))
                 current, current_size = [], 0
             pieces = _split_long_line(text, depth, breadcrumbs, chunk_size)
             chunks.extend(pieces[:-1])
             current = pieces[-1].splitlines() if pieces else []
-            current_size = sum(len(line) + 1 for line in current)
+            current_size = sum(len(s) + 1 for s in current)
             continue
 
         # Normal case: this line would overflow the current chunk.
