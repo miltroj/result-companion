@@ -5,6 +5,7 @@ import pytest
 from result_companion.core.analizers.factory_common import (
     _build_llm_params,
     _dryrun_result,
+    _format_error_result,
     _stats_header,
     analyze_test_case,
     execute_llm_and_get_results,
@@ -288,3 +289,51 @@ class TestExecuteLLMAndGetResults:
         assert "Status: FAIL" in result
         assert "Tokens:" in result
         assert "Analysis" in result
+
+    @pytest.mark.asyncio
+    async def test_single_failure_does_not_kill_other_results(
+        self, patch_smart_acompletion
+    ):
+        """One failing test case should not prevent others from succeeding."""
+        config = make_config(max_content_tokens=100000)
+        test_cases = [
+            {"name": "test_ok", "status": "FAIL"},
+            {"name": "test_broken", "status": "FAIL"},
+            {"name": "test_also_ok", "status": "FAIL"},
+        ]
+        call_count = 0
+
+        async def sometimes_failing(**kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 2:
+                raise ValueError("400 invalid_request_body")
+            return FakeLiteLLMResponse(content="Analysis result")
+
+        patch_smart_acompletion(sometimes_failing)
+
+        results = await execute_llm_and_get_results(
+            test_cases=test_cases, config=config, quiet=True
+        )
+
+        assert "Analysis result" in results["test_ok"]
+        assert "Analysis failed" in results["test_broken"]
+        assert "400 invalid_request_body" in results["test_broken"]
+        assert "Analysis result" in results["test_also_ok"]
+
+
+class TestFormatErrorResult:
+    """Tests for _format_error_result function."""
+
+    def test_includes_error_type_and_message(self):
+        error = ValueError("400 invalid_request_body")
+
+        result = _format_error_result(error)
+
+        assert "ValueError" in result
+        assert "400 invalid_request_body" in result
+
+    def test_includes_config_hint(self):
+        result = _format_error_result(RuntimeError("some error"))
+
+        assert "max_content_tokens" in result

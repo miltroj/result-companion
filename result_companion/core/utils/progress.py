@@ -3,7 +3,10 @@ from typing import Any, List, TypeVar
 
 from tqdm import tqdm
 
+from result_companion.core.utils.logging_config import get_progress_logger
+
 T = TypeVar("T")
+logger = get_progress_logger("Progress")
 
 
 async def run_tasks_with_progress(
@@ -61,7 +64,11 @@ async def run_tasks_with_progress(
                 pending, return_when=asyncio.FIRST_COMPLETED
             )
             for task in done:
-                results[task_to_index[task]] = task.result()
+                try:
+                    results[task_to_index[task]] = task.result()
+                except Exception as exc:
+                    results[task_to_index[task]] = exc
+                    logger.warning("Task %d failed: %s", task_to_index[task], exc)
                 pbar.update(1)
             pbar.set_description(f"{desc} ({active_count} active)")
 

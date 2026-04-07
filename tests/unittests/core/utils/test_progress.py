@@ -64,3 +64,24 @@ async def test_run_tasks_with_progress_preserves_result_order():
     )
 
     assert results == ["first", "second"]
+
+
+@pytest.mark.asyncio
+async def test_run_tasks_with_progress_isolates_failing_task():
+    """A single failing task should not prevent others from completing."""
+
+    async def succeed(value: str) -> str:
+        return value
+
+    async def fail() -> str:
+        raise ValueError("boom")
+
+    results = await run_tasks_with_progress(
+        [succeed("first"), fail(), succeed("third")],
+        desc="Isolation test",
+    )
+
+    assert results[0] == "first"
+    assert isinstance(results[1], ValueError)
+    assert str(results[1]) == "boom"
+    assert results[2] == "third"
