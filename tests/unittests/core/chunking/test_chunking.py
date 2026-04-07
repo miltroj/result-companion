@@ -223,7 +223,14 @@ class TestAccumulateLLMResultsForSummarization:
                 current_concurrent -= 1
             return FakeLiteLLMResponse(content="result")
 
-        test_case = {"name": "concurrency_test", "content": "x" * 200}
+        test_case = {
+            "name": "concurrency_test",
+            "status": "FAIL",
+            "body": [
+                {"name": f"Kw{i}", "status": "PASS", "type": "KEYWORD"}
+                for i in range(8)
+            ],
+        }
         chunking_strategy = Chunking(
             chunk_size=50,
             number_of_chunks=4,
