@@ -116,14 +116,16 @@ def _split_long_line(
     Returns:
         List of chunks, each starting with breadcrumbs context.
     """
-    breadcrumb_overhead = (
-        sum(len(line) + 1 for line in breadcrumbs) + len(_indent(depth, "{...}")) + 1
-    )
-    # chunk_size // 3 guards against breadcrumbs consuming almost the full chunk,
+    # Fixed chars per chunk: all breadcrumb lines + marker line + piece line indentation.
+    # chunk_size // 3 guards against breadcrumbs consuming almost the full budget,
     # which would cause extremely small pieces and a near-infinite loop.
-    available_chars = max(
-        chunk_size - breadcrumb_overhead - len(_INDENT) * depth, chunk_size // 3
+    fixed_chars = (
+        sum(len(b) + 1 for b in breadcrumbs)
+        + len(_indent(depth, "{...}"))
+        + 1
+        + len(_INDENT) * depth
     )
+    available_chars = max(chunk_size - fixed_chars, chunk_size // 3)
     pieces = [
         text[i : i + available_chars] for i in range(0, len(text), available_chars)
     ]
@@ -182,7 +184,7 @@ def chunk_rf_test_lines(lines: list[tuple[int, str]], chunk_size: int) -> list[s
         if current_size + line_len > chunk_size and current:
             chunks.append("\n".join(current))
             current = breadcrumbs + [_indent(depth, "{...}")]
-            current_size = sum(len(line) + 1 for line in current)
+            current_size = sum(len(piece) + 1 for piece in current)
 
         current.append(line)
         current_size += line_len
