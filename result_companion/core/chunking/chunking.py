@@ -88,6 +88,10 @@ def _collect_ancestor_context_at(
     Walks backwards through rendered lines, picking exactly one line per depth
     level above the target line, building the full nesting context (suite name,
     test name, parent keyword) needed to make each chunk self-contained.
+
+    Correctness relies on depth-first rendering: in such a list a parent at depth D
+    always precedes all its children at depth D+1, so the first backward hit at each
+    depth level is always the direct ancestor, never a sibling's subtree.
     """
     # Start one level above the target line and walk up, collecting exactly
     # one representative line per depth level until we reach the root (depth 0).
