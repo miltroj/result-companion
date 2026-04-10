@@ -267,6 +267,28 @@ def load_config(config_path: Path | None = None) -> DefaultConfigModel:
     return config
 
 
+class AssistantConfigModel(BaseModel):
+    """Configuration for the assistant chat command."""
+
+    llm_factory: LLMFactoryModel
+    system_prompt: str
+
+
+def load_assistant_config(config_path: Path | None = None) -> AssistantConfigModel:
+    """Loads assistant configuration with defaults and optional user overrides.
+
+    Args:
+        config_path: Optional user config YAML to merge with defaults.
+
+    Returns:
+        Validated AssistantConfigModel.
+    """
+    default_path = os.path.join(_configs_dir(), "default_assistant_config.yaml")
+    return ConfigLoader(default_config_file=default_path).load_as(
+        AssistantConfigModel, config_path
+    )
+
+
 def load_review_config(config_path: Path | None = None) -> ReviewConfigModel:
     """Loads review configuration with defaults and optional user overrides.
 
