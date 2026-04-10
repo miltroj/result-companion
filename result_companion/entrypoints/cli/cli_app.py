@@ -1,3 +1,4 @@
+import asyncio
 import subprocess
 from pathlib import Path
 from typing import List, Optional
@@ -400,6 +401,18 @@ def list_models():
     except Exception as e:
         typer.echo(f"Error: {e}")
         raise typer.Exit(code=1)
+
+
+@app.command()
+def assistant(
+    config: Optional[Path] = typer.Option(
+        None, "-c", "--config", help="Override default assistant config YAML"
+    ),
+):
+    """Interactive assistant chat for result-companion questions."""
+    from result_companion.entrypoints.cli.assistant_runner import run_assistant
+
+    asyncio.run(run_assistant(config))
 
 
 if __name__ == "__main__":

@@ -717,3 +717,26 @@ class TestListModelsCommand:
             # Verify error handling
             assert result.exit_code == 1
             assert "Error: Failed to list models" in result.stdout
+
+
+class TestAssistantEntrypoint:
+    ENTRYPOINT = "assistant"
+
+    def setup_method(self):
+        self.runner = CliRunner()
+
+    def test_assistant_command_succeeds_when_runner_is_noop(self, monkeypatch):
+        monkeypatch.setattr(f"{IMPORT_PATH}.asyncio.run", lambda coro: None)
+        result = self.runner.invoke(app, [self.ENTRYPOINT])
+        assert result.exit_code == 0
+
+    def test_assistant_command_accepts_config_option(self, monkeypatch):
+        captured = {}
+
+        def fake_run(coro):
+            captured["called"] = True
+
+        monkeypatch.setattr(f"{IMPORT_PATH}.asyncio.run", fake_run)
+        result = self.runner.invoke(app, [self.ENTRYPOINT, "-c", str(existing_xml_path)])
+        assert result.exit_code == 0
+        assert captured.get("called") is True
