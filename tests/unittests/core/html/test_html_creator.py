@@ -1,6 +1,7 @@
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from result_companion.core.html.html_creator import create_llm_html_log
+from result_companion.core.html.html_creator import _inject_llm_ui, create_llm_html_log
 
 
 @patch(
@@ -38,3 +39,18 @@ def test_create_llm_html_log(
     injected_html = mock_write.call_args[0][0]
     assert "AI Analysis" in injected_html
     assert "</body>" in injected_html
+
+
+def test_inject_llm_ui_uses_utf8_encoding_and_injects_script_before_body(
+    tmp_path: Path,
+) -> None:
+    """Script is injected before </body> and file round-trips correctly under UTF-8."""
+    html_file = tmp_path / "log.html"
+    html_file.write_text("<html><body>résumé</body></html>", encoding="utf-8")
+
+    _inject_llm_ui(html_file)
+
+    result = html_file.read_text(encoding="utf-8")
+    assert "AI Analysis" in result
+    assert result.index("AI Analysis") < result.index("</body>")
+    assert "résumé" in result

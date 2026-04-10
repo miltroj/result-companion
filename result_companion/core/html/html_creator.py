@@ -160,5 +160,7 @@ $(function() {
 });
 </script>
 """
-    html = html_path.read_text()
-    html_path.write_text(html.replace("</body>", f"{script}\n</body>"))
+    html = html_path.read_text(encoding="utf-8")
+    html_path.write_text(
+        html.replace("</body>", f"{script}\n</body>"), encoding="utf-8"
+    )
