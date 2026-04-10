@@ -361,14 +361,15 @@ class TestChunkRfTestLines:
         assert len(result) > 1
         assert all("{...}" in chunk for chunk in result)
 
-    def test_long_line_with_current_flushes_current_then_splits(self):
+    def test_long_line_with_current_fills_chunk_before_flushing(self):
         lines = [_SUITE, (0, "X" * 100)]
 
         result = chunk_rf_test_lines(lines, chunk_size=50)
 
         assert len(result) >= 2
-        assert result[0] == "Suite: S"
-        assert "X" not in result[0]
+        assert "Suite: S" in result[0]
+        assert "X" in result[0]  # current chunk filled to capacity before flush
+        assert len(result[0]) <= 50
         assert "X" in result[1]
 
     def test_initial_chunks_are_fuller_than_last_when_lines_do_not_divide_evenly(self):

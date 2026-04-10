@@ -169,11 +169,15 @@ def chunk_rf_test_lines(lines: list[tuple[int, str]], chunk_size: int) -> list[s
         breadcrumbs = _collect_ancestor_context_at(lines, idx)
 
         # Edge case: a single keyword log line is longer than the whole chunk budget.
-        # Fill the current chunk with as much of this line as fits before flushing,
-        # so the current chunk reaches chunk_size instead of being emitted half-empty.
-        # Then split the remainder into breadcrumb-prefixed sub-chunks.
+        # Fill the current chunk to capacity before flushing, then split the remainder
+        # into breadcrumb-prefixed sub-chunks.
         if line_len > chunk_size:
             if current:
+                indent_prefix = _INDENT * depth
+                available = chunk_size - current_size - len(indent_prefix) - 1
+                if available > 0:
+                    current.append(indent_prefix + text[:available])
+                    text = text[available:]
                 chunks.append("\n".join(current))
                 current, current_size = [], 0
             pieces = _split_long_line(text, depth, breadcrumbs, chunk_size)
