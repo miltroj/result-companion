@@ -1,8 +1,13 @@
+from __future__ import annotations
+
 import asyncio
+from dataclasses import dataclass
 from itertools import groupby
 from typing import Any
 
 from result_companion.core.analizers.llm_router import _smart_acompletion
+from result_companion.core.chunking.utils import Chunking, calculate_chunk_size
+from result_companion.core.parsers.config import TokenizerModel, TokenizerTypes
 from result_companion.core.utils.logging_config import get_progress_logger
 
 logger = get_progress_logger("Chunking")
@@ -10,61 +15,9 @@ logger = get_progress_logger("Chunking")
 _INDENT = "    "
 
 
-def split_text_into_chunks(text: str, chunk_size: int, overlap: int) -> list[str]:
-    """Splits text into overlapping chunks.
-
-    Args:
-        text: Text to split.
-        chunk_size: Maximum size of each chunk.
-        overlap: Number of characters to overlap between chunks.
-
-    Returns:
-        List of text chunks.
-    """
-    if chunk_size <= 0:
-        return [text] if text else []
-
-    if overlap >= chunk_size:
-        overlap = chunk_size // 10
-
-    chunks = []
-    start = 0
-    text_len = len(text)
-
-    while start < text_len:
-        end = min(start + chunk_size, text_len)
-        chunks.append(text[start:end])
-
-        # Move start forward, accounting for overlap
-        next_start = start + chunk_size - overlap
-        if next_start <= start:
-            next_start = start + chunk_size
-        start = next_start
-
-    return chunks
-
-
 def _indent(depth: int, text: str) -> str:
     """Returns text prefixed with depth levels of indentation."""
     return f"{_INDENT * depth}{text}"
-
-
-def _render_rf_keywords(body: list[dict], depth: int) -> list[tuple[int, str]]:
-    """Recursively renders Robot Framework keyword/message body items as (depth, text) pairs."""
-    lines: list[tuple[int, str]] = []
-    for item in body:
-        if item.get("type") == "MESSAGE":
-            lines.append((depth, item["message"]))
-            continue
-        name = item.get("name", "?")
-        status = item.get("status", "")
-        kind = item.get("type", "KEYWORD").title()
-        lines.append((depth, f"{kind}: {name} - {status}"))
-        args = item.get("args", [])
-        if args:
-            lines.append((depth + 1, f"args: {', '.join(str(a) for a in args)}"))
-        lines.extend(_render_rf_keywords(item.get("body", []), depth + 1))
-    return lines
 
 
 def deduplicate_consecutive_lines(
@@ -88,19 +41,6 @@ def deduplicate_consecutive_lines(
 def render_lines_to_text(lines: list[tuple[int, str]]) -> str:
     """Joins (depth, text) pairs into an indented string."""
     return "\n".join(_indent(d, t) for d, t in lines)
-
-
-def render_rf_test_structure(test_case: dict) -> list[tuple[int, str]]:
-    """Renders RF suite ancestry → test case → keywords as (depth, text) lines."""
-    suite_context = test_case.get("suite_context", [])
-    suite_lines = [(i, f"Suite: {ctx['name']}") for i, ctx in enumerate(suite_context)]
-    depth = len(suite_context)
-    test_line = (depth, f"Test: {test_case['name']} - {test_case.get('status', '')}")
-    return (
-        suite_lines
-        + [test_line]
-        + _render_rf_keywords(test_case.get("body", []), depth + 1)
-    )
 
 
 def _collect_ancestor_context_at(
@@ -169,7 +109,7 @@ def chunk_rf_test_lines(lines: list[tuple[int, str]], chunk_size: int) -> list[s
     can interpret the chunk without seeing previous chunks.
 
     Args:
-        lines: List of (depth, text) pairs from _render_rf_test_structure.
+        lines: List of (depth, text) pairs from ContextAwareRobotResults.
         chunk_size: Maximum characters per chunk.
 
     Returns:
@@ -195,11 +135,15 @@ def chunk_rf_test_lines(lines: list[tuple[int, str]], chunk_size: int) -> list[s
         breadcrumbs = _collect_ancestor_context_at(lines, idx)
 
         # Edge case: a single keyword log line is longer than the whole chunk budget.
-        # Fill the current chunk with as much of this line as fits before flushing,
-        # so the current chunk reaches chunk_size instead of being emitted half-empty.
-        # Then split the remainder into breadcrumb-prefixed sub-chunks.
+        # Fill the current chunk to capacity before flushing, then split the remainder
+        # into breadcrumb-prefixed sub-chunks.
         if line_len > chunk_size:
             if current:
+                indent_prefix = _INDENT * depth
+                available = chunk_size - current_size - len(indent_prefix) - 1
+                if available > 0:
+                    current.append(indent_prefix + text[:available])
+                    text = text[available:]
                 chunks.append("\n".join(current))
                 current, current_size = [], 0
             pieces = _split_long_line(text, depth, breadcrumbs, chunk_size)
@@ -341,3 +285,33 @@ async def accumulate_llm_results_for_summarization(
     )
 
     return final_result, test_name, chunks
+
+
+@dataclass
+class ChunkingStrategy:
+    """Tokenizer-aware chunking — auto-calculates chunk size from token budget."""
+
+    tokenizer_config: TokenizerModel
+    system_prompt: str = ""
+
+    @staticmethod
+    def build(
+        tokenizer: TokenizerTypes = TokenizerTypes.OPENAI,
+        max_content_tokens: int = 8000,
+        system_prompt: str = "",
+    ) -> ChunkingStrategy:
+        """Convenience builder — creates ChunkingStrategy without manual TokenizerModel setup."""
+        return ChunkingStrategy(
+            tokenizer_config=TokenizerModel(
+                tokenizer=tokenizer, max_content_tokens=max_content_tokens
+            ),
+            system_prompt=system_prompt,
+        )
+
+    def apply(self, lines: list[tuple[int, str]]) -> tuple[list[str], Chunking]:
+        """Chunks rendered lines, sizing based on token budget."""
+        rendered = render_lines_to_text(lines)
+        chunk_info = calculate_chunk_size(
+            rendered, self.system_prompt, self.tokenizer_config
+        )
+        return chunk_rf_test_lines(lines, chunk_info.chunk_size), chunk_info

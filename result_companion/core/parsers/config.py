@@ -108,6 +108,14 @@ class TestFilterModel(BaseModel):
     include_passing: bool = Field(default=False, description="Include PASS tests.")
 
 
+class RenderingModel(BaseModel):
+    """Controls which RF fields appear in rendered output."""
+
+    exclude_fields: list[str] = Field(
+        default=[], description="RF field names to omit from rendering."
+    )
+
+
 class DefaultConfigModel(BaseModel):
     version: float
     llm_config: LLMConfigModel
@@ -115,6 +123,7 @@ class DefaultConfigModel(BaseModel):
     tokenizer: TokenizerModel
     concurrency: ConcurrencyModel = Field(default_factory=ConcurrencyModel)
     test_filter: TestFilterModel = Field(default_factory=TestFilterModel)
+    rendering: RenderingModel = Field(default_factory=RenderingModel)
 
 
 class ConfigLoader:
@@ -193,6 +202,10 @@ class ConfigLoader:
                 "test_filter": {
                     **default_config.get("test_filter", {}),
                     **user_config.get("test_filter", {}),
+                },
+                "rendering": {
+                    **default_config.get("rendering", {}),
+                    **user_config.get("rendering", {}),
                 },
             }
             if user_config_file

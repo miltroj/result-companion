@@ -22,6 +22,9 @@ Quick-start configurations for different LLM providers and use cases.
     - [CLI Examples](#cli-examples)
     - [Config File](#config-file)
     - [Filter Logic](#filter-logic)
+  - [Output Rendering \& Field Filtering](#output-rendering--field-filtering)
+    - [Field Reference](#field-reference)
+    - [Common Presets](#common-presets)
   - [Dryrun Mode](#dryrun-mode)
   - [Text Output for CI](#text-output-for-ci)
   - [Agent Chat Workflows](#agent-chat-workflows)
@@ -321,6 +324,114 @@ result-companion analyze -o output.xml -c examples/configs/tag_filtering_config.
 | Both | Include "smoke" AND exclude "wip" |
 
 **Note**: Exclude patterns override include patterns.
+
+## Output Rendering & Field Filtering
+
+`rendering.exclude_fields` controls what data is included in the text sent to the LLM.
+The default config already excludes low-signal fields — override as needed.
+
+```yaml
+# default
+rendering:
+  exclude_fields: [elapsed_time, lineno, owner, assign]
+```
+
+### Field Reference
+
+| Field | Description | Exclude to save tokens? |
+|-------|-------------|------------------------|
+| `name` | Suite/Test/Keyword name | No (structural) |
+| `status` | PASS/FAIL | No (structural) |
+| `type` | Item type (Keyword, Setup, Teardown) | No (structural) |
+| `args` | Keyword arguments | Sometimes |
+| `message` | Log messages from keywords | Rarely — key for root cause |
+| `doc` | Documentation strings | Yes — low signal |
+| `tags` | Test/keyword tags | Yes — usually noise |
+| `setup` | Suite/test setup keywords | Situational |
+| `teardown` | Suite/test teardown keywords | Situational |
+| `level` | Log level (INFO, DEBUG…) | Yes |
+| `elapsed_time` | Execution duration | Yes (unless perf analysis) |
+| `assign` | Variable assignments | Situational |
+| `timestamp` | Log message timestamps | Yes |
+| `lineno` | Source line numbers | Yes |
+| `owner` | Keyword owner library | Yes |
+
+### Common Presets
+
+**Balanced — fewer tokens, no real info loss:**
+
+```yaml
+rendering:
+  exclude_fields: ["elapsed_time", "doc", "lineno", "owner", "timestamp", "level"]
+```
+
+**Skeleton — pass/fail tree only, minimum tokens:**
+
+```yaml
+rendering:
+  exclude_fields:
+    - message
+    - doc
+    - tags
+    - elapsed_time
+    - assign
+    - timestamp
+    - lineno
+    - owner
+    - level
+    - args
+```
+
+Output becomes a pure structure view — useful when you only need to know *which* keyword failed:
+
+```text
+Suite: My Application
+    Suite: Data Pipeline
+        Test: Process And Write - FAIL
+            Keyword: Connect To Database - PASS
+            Keyword: Write Output - FAIL
+```
+
+<details>
+<summary>Programmatic usage (advanced)</summary>
+
+Use `get_rc_robot_results` to access rendered output directly from Python.
+
+**Basic iteration:**
+
+```python
+from pathlib import Path
+from result_companion.core.chunking.rf_results import get_rc_robot_results
+
+results = get_rc_robot_results(
+    Path("output.xml"),
+    include_tags=["smoke"],
+    exclude_fields=["elapsed_time", "doc", "lineno", "owner"],
+)
+for test_name, text in results.as_texts():
+    print(f"--- {test_name} ---\n{text}")
+```
+
+**Token-aware chunking for LLM:**
+
+```python
+from result_companion.core.chunking.rf_results import ChunkingStrategy
+from result_companion.core.parsers.config import TokenizerTypes
+
+strategy = ChunkingStrategy.build(
+    tokenizer=TokenizerTypes.OPENAI,
+    max_content_tokens=8000,
+    system_prompt="Analyze this test failure.",
+)
+results.set_chunking(strategy)
+
+for test_name, chunks, chunk_stats, test_status in results.render_chunks():
+    print(f"{test_name} ({test_status}): {chunk_stats.number_of_chunks} chunks")
+    for chunk in chunks:
+        send_to_llm(chunk)
+```
+
+</details>
 
 ## Dryrun Mode
 

@@ -1,7 +1,10 @@
+from pathlib import Path
+
 import pytest
 
 from result_companion._internal.analysis_helpers import apply_concurrency_overrides
 from result_companion.api import analyze, run_analysis
+from result_companion.core.chunking.rf_results import ContextAwareRobotResults
 from result_companion.core.parsers.config import (
     ChunkingPromptsModel,
     DefaultConfigModel,
@@ -30,21 +33,25 @@ def make_config() -> DefaultConfigModel:
     )
 
 
-def make_test_cases() -> list[dict]:
-    """Creates test case dicts for testing."""
-    return [
-        {"name": "test_pass", "status": "PASS"},
-        {"name": "test_fail", "status": "FAIL"},
-    ]
-
-
 PATCH_API = "result_companion.api"
 PATCH_HELPERS = "result_companion._internal.analysis_helpers"
 
 
+class FakeContextAwareRobotResults(ContextAwareRobotResults):
+    """Pre-built results object for API tests without loading output.xml."""
+
+    def __init__(self, test_names: list[str]) -> None:
+        self._fake_test_names = list(test_names)
+        self._chunking = True
+
+    @property
+    def test_names(self) -> list[str]:
+        return self._fake_test_names
+
+
 async def fake_execute(**kw):
-    names = [t["name"] for t in kw["test_cases"]]
-    return {n: f"Analysis of {n}" for n in names}
+    results = kw["results"]
+    return {n: f"Analysis of {n}" for n in results.test_names}
 
 
 class TestApplyConcurrencyOverrides:
@@ -90,9 +97,9 @@ class TestRunAnalysis:
     @pytest.mark.asyncio
     async def test_returns_analysis_result(self):
         config = make_config()
-        test_cases = [{"name": "test_fail", "status": "FAIL"}]
+        results = FakeContextAwareRobotResults(["test_fail"])
 
-        result = await run_analysis(config=config, test_cases=test_cases)
+        result = await run_analysis(config=config, results=results)
 
         assert isinstance(result, AnalysisResult)
         assert result.llm_results == {"test_fail": "Analysis of test_fail"}
@@ -108,7 +115,7 @@ class TestRunAnalysis:
 
         result = await run_analysis(
             config=make_config(),
-            test_cases=[{"name": "test_fail", "status": "FAIL"}],
+            results=FakeContextAwareRobotResults(["test_fail"]),
             summarize_failures=True,
         )
 
@@ -127,7 +134,7 @@ class TestRunAnalysis:
 
         result = await run_analysis(
             config=make_config(),
-            test_cases=[{"name": "t", "status": "FAIL"}],
+            results=FakeContextAwareRobotResults(["t"]),
             summarize_failures=True,
             dryrun=True,
         )
@@ -137,11 +144,14 @@ class TestRunAnalysis:
 
     @pytest.mark.asyncio
     async def test_accepts_pre_built_objects(self):
-        """Verifies no file paths are needed — only config + test_cases."""
+        """Verifies no file paths are needed — only config + results."""
         config = make_config()
         config.concurrency.test_case = 7
 
-        result = await run_analysis(config=config, test_cases=make_test_cases())
+        result = await run_analysis(
+            config=config,
+            results=FakeContextAwareRobotResults(["test_pass", "test_fail"]),
+        )
 
         assert len(result.test_names) == 2
         assert config.concurrency.test_case == 7
@@ -158,19 +168,19 @@ class TestAnalyze:
         monkeypatch.setattr(f"{PATCH_API}.set_global_log_level", lambda _: None)
         monkeypatch.setattr(f"{PATCH_API}.execute_llm_and_get_results", fake_execute)
 
-    def test_with_list_passes_test_cases_directly(self):
+    def test_with_context_aware_results_passes_results_directly(self):
         config = make_config()
-        test_cases = [{"name": "test_fail", "status": "FAIL"}]
+        results = FakeContextAwareRobotResults(["test_fail"])
 
-        result = analyze(output=test_cases, config=config)
+        result = analyze(output=results, config=config)
 
         assert result.llm_results == {"test_fail": "Analysis of test_fail"}
         assert result.test_names == ["test_fail"]
 
     def test_with_path_loads_and_filters(self, monkeypatch):
         monkeypatch.setattr(
-            f"{PATCH_HELPERS}.get_robot_results_from_file_as_dict",
-            lambda **kw: make_test_cases(),
+            f"{PATCH_API}.get_rc_robot_results",
+            lambda **kw: FakeContextAwareRobotResults(["test_fail"]),
         )
 
         result = analyze(output="output.xml", config=make_config())
@@ -180,8 +190,8 @@ class TestAnalyze:
 
     def test_with_path_includes_passing_when_requested(self, monkeypatch):
         monkeypatch.setattr(
-            f"{PATCH_HELPERS}.get_robot_results_from_file_as_dict",
-            lambda **kw: make_test_cases(),
+            f"{PATCH_API}.get_rc_robot_results",
+            lambda **kw: FakeContextAwareRobotResults(["test_pass", "test_fail"]),
         )
 
         result = analyze(
@@ -191,15 +201,77 @@ class TestAnalyze:
         assert "test_pass" in result.test_names
         assert "test_fail" in result.test_names
 
-    def test_with_list_ignores_tag_filters(self):
+    def test_context_aware_results_ignores_tag_filters(self):
         config = make_config()
-        test_cases = make_test_cases()
+        results = FakeContextAwareRobotResults(["test_pass", "test_fail"])
 
         result = analyze(
-            output=test_cases,
+            output=results,
             config=config,
             include_tags=["smoke"],
             exclude_tags=["wip"],
         )
 
         assert len(result.test_names) == 2
+
+    def test_quiet_false_skips_log_level_change(self, monkeypatch):
+        log_calls: list[str] = []
+        monkeypatch.setattr(f"{PATCH_API}.set_global_log_level", log_calls.append)
+
+        analyze(
+            output=FakeContextAwareRobotResults(["t"]),
+            config=make_config(),
+            quiet=False,
+        )
+
+        assert log_calls == []
+
+    def test_quiet_true_sets_log_level_to_error(self, monkeypatch):
+        log_calls: list[str] = []
+        monkeypatch.setattr(f"{PATCH_API}.set_global_log_level", log_calls.append)
+
+        analyze(
+            output=FakeContextAwareRobotResults(["t"]), config=make_config(), quiet=True
+        )
+
+        assert log_calls == ["ERROR"]
+
+    def test_sets_chunking_when_not_already_set(self, monkeypatch):
+        chunking_set: list[object] = []
+
+        class NoChunkingResults(FakeContextAwareRobotResults):
+            def __init__(self) -> None:
+                super().__init__(["t"])
+                self._chunking = None
+
+            def set_chunking(self, strategy: object) -> "NoChunkingResults":
+                chunking_set.append(strategy)
+                self._chunking = strategy
+                return self
+
+        result = analyze(output=NoChunkingResults(), config=make_config())
+
+        assert len(chunking_set) == 1
+        assert result.test_names == ["t"]
+
+    def test_path_object_forwards_correct_args_to_loader(self, monkeypatch):
+        captured: dict = {}
+
+        def fake_loader(**kw: object) -> FakeContextAwareRobotResults:
+            captured.update(kw)
+            return FakeContextAwareRobotResults(["t"])
+
+        monkeypatch.setattr(f"{PATCH_API}.get_rc_robot_results", fake_loader)
+
+        analyze(
+            output=Path("out.xml"),
+            config=make_config(),
+            include_tags=["smoke"],
+            exclude_tags=["wip"],
+            include_passing=True,
+        )
+
+        assert captured["file_path"] == Path("out.xml")
+        assert captured["include_tags"] == ["smoke"]
+        assert captured["exclude_tags"] == ["wip"]
+        assert captured["exclude_passing"] is False

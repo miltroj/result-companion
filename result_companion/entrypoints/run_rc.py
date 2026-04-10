@@ -5,15 +5,16 @@ from typing import Optional
 
 from result_companion._internal.analysis_helpers import (
     apply_concurrency_overrides,
-    filter_passing_tests,
     resolve_tags,
 )
 from result_companion.api import run_analysis
+from result_companion.core.chunking.chunking import ChunkingStrategy
+from result_companion.core.chunking.rf_results import (
+    ContextAwareRobotResults,
+    get_rc_robot_results,
+)
 from result_companion.core.html.html_creator import create_llm_html_log
 from result_companion.core.parsers.config import DefaultConfigModel, load_config
-from result_companion.core.parsers.result_parser import (
-    get_robot_results_from_file_as_dict,
-)
 from result_companion.core.results.analysis_result import AnalysisResult
 from result_companion.core.results.text_report import (
     render_json_report,
@@ -49,18 +50,28 @@ async def _main(
     parsed_config = load_config(config)
     apply_concurrency_overrides(parsed_config, test_case_concurrency, chunk_concurrency)
 
-    all_test_cases = get_robot_results_from_file_as_dict(
+    results = get_rc_robot_results(
         file_path=output,
         include_tags=resolve_tags(include_tags, parsed_config.test_filter.include_tags),
         exclude_tags=resolve_tags(exclude_tags, parsed_config.test_filter.exclude_tags),
+        exclude_fields=parsed_config.rendering.exclude_fields or None,
+        exclude_passing=not include_passing
+        and not parsed_config.test_filter.include_passing,
     )
-    test_cases = filter_passing_tests(all_test_cases, include_passing, parsed_config)
-    logger.info(f"Filtered to {len(test_cases)} test cases")
+    strategy = ChunkingStrategy(
+        tokenizer_config=parsed_config.tokenizer,
+        system_prompt=parsed_config.llm_config.question_prompt,
+    )
+    results.set_chunking(strategy)
+
+    logger.info(
+        f"Total tests: {results.total_test_count}, filtered: {len(results.test_names)}"
+    )
     logger.debug(f"Using model: {parsed_config.llm_factory.model}")
 
-    result = await run_analysis(
+    analysis_result = await run_analysis(
         config=parsed_config,
-        test_cases=test_cases,
+        results=results,
         summarize_failures=summarize_failures,
         dryrun=dryrun,
         quiet=quiet,
@@ -68,9 +79,9 @@ async def _main(
 
     _emit_reports(
         output=output,
-        result=result,
+        analysis_result=analysis_result,
         config=parsed_config,
-        all_test_cases=all_test_cases,
+        results=results,
         report=report,
         html_report=html_report,
         text_report=text_report,
@@ -85,9 +96,9 @@ async def _main(
 
 def _emit_reports(
     output: Path,
-    result: AnalysisResult,
+    analysis_result: AnalysisResult,
     config: DefaultConfigModel,
-    all_test_cases: list[dict],
+    results: ContextAwareRobotResults,
     report: Optional[str],
     html_report: bool,
     text_report: Optional[str],
@@ -96,22 +107,22 @@ def _emit_reports(
 ) -> None:
     """Writes HTML/text/JSON reports from analysis results."""
     report_path = report if report else "rc_log.html"
-    if result.llm_results and html_report:
+    if analysis_result.llm_results and html_report:
         create_llm_html_log(
             input_result_path=output,
             llm_output_path=report_path,
-            llm_results=result.llm_results,
+            llm_results=analysis_result.llm_results,
             model_info={"model": config.llm_factory.model},
-            overall_summary=result.summary,
+            overall_summary=analysis_result.summary,
         )
         logger.info(f"Report created: {Path(report_path).resolve()}")
 
     should_emit_text = bool(text_report) or print_text_report
     if should_emit_text:
         text_output = render_text_report(
-            llm_results=result.llm_results,
-            analyzed_test_names=result.test_names,
-            overall_summary=result.summary,
+            llm_results=analysis_result.llm_results,
+            analyzed_test_names=analysis_result.test_names,
+            overall_summary=analysis_result.summary,
         )
         if text_report:
             Path(text_report).write_text(text_output)
@@ -121,12 +132,13 @@ def _emit_reports(
 
     if json_report:
         json_output = render_json_report(
-            llm_results=result.llm_results,
-            analyzed_test_names=result.test_names,
-            overall_summary=result.summary,
+            llm_results=analysis_result.llm_results,
+            analyzed_test_names=analysis_result.test_names,
+            overall_summary=analysis_result.summary,
             model=config.llm_factory.model,
             source_file=str(output),
-            all_test_cases=all_test_cases,
+            total_test_count=results.total_test_count,
+            source_hash=results.source_hash,
         )
         Path(json_report).write_text(json_output)
         logger.info(f"JSON report created: {Path(json_report).resolve()}")

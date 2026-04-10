@@ -1,41 +1,45 @@
+from __future__ import annotations
+
 import asyncio
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from result_companion.core.analizers.llm_router import _smart_acompletion
 from result_companion.core.chunking.chunking import (
     accumulate_llm_results_for_summarization,
-    chunk_rf_test_lines,
-    deduplicate_consecutive_lines,
-    render_lines_to_text,
-    render_rf_test_structure,
 )
-from result_companion.core.chunking.utils import Chunking, calculate_chunk_size
+from result_companion.core.chunking.utils import Chunking
 from result_companion.core.parsers.config import DefaultConfigModel, LLMFactoryModel
 from result_companion.core.utils.logging_config import get_progress_logger
 from result_companion.core.utils.progress import run_tasks_with_progress
+
+if TYPE_CHECKING:
+    from result_companion.core.chunking.rf_results import ContextAwareRobotResults
 
 logger = get_progress_logger("Analyzer")
 
 
 def _stats_header(
-    status: str, chunk: Chunking, dryrun: bool = False, name: str = ""
+    test_status: str,
+    chunk_stats: Chunking,
+    dryrun: bool = False,
+    test_name: str = "",
 ) -> str:
     """Returns markdown stats line for analysis.
 
     Args:
-        status: Test case status (PASS/FAIL).
-        chunk: Chunking information.
+        test_status: Test case status (PASS/FAIL).
+        chunk_stats: Chunking information.
         dryrun: Whether this is a dryrun.
-        name: Test case name.
+        test_name: Test case name.
 
     Returns:
         Formatted markdown header string.
     """
-    chunks = chunk.number_of_chunks if chunk.requires_chunking else 0
+    chunks = chunk_stats.number_of_chunks if chunk_stats.requires_chunking else 0
     prefix = "**[DRYRUN]** " if dryrun else ""
-    return f"""## {prefix} {name}
+    return f"""## {prefix} {test_name}
 
-#### Status: {status} · Chunks: {chunks} · Tokens: ~{chunk.tokens_from_raw_text} · Raw length: {chunk.raw_text_len}
+#### Status: {test_status} · Chunks: {chunks} · Tokens: ~{chunk_stats.tokens_from_raw_text} · Raw length: {chunk_stats.raw_text_len}
 
 ---
 
@@ -111,15 +115,15 @@ async def analyze_test_case(
 
 
 async def execute_llm_and_get_results(
-    test_cases: list,
+    results: ContextAwareRobotResults,
     config: DefaultConfigModel,
     dryrun: bool = False,
     quiet: bool = False,
 ) -> dict:
-    """Executes LLM analysis on test cases and returns results.
+    """Executes LLM analysis on pre-configured ContextAwareRobotResults.
 
     Args:
-        test_cases: List of test case dictionaries.
+        results: Configured ContextAwareRobotResults with chunking strategy set.
         config: Parsed configuration.
         dryrun: If True, skip actual LLM calls.
         quiet: If True, suppress progress output.
@@ -129,41 +133,24 @@ async def execute_llm_and_get_results(
     """
     question_prompt = config.llm_config.question_prompt
     prompt_template = config.llm_config.prompt_template
-    tokenizer = config.tokenizer
     test_case_concurrency = config.concurrency.test_case
     chunk_concurrency = config.concurrency.chunk
     chunk_analysis_prompt = config.llm_config.chunking.chunk_analysis_prompt
     final_synthesis_prompt = config.llm_config.chunking.final_synthesis_prompt
-
     llm_params = _build_llm_params(config.llm_factory)
 
-    llm_results = {}
     coroutines = []
-    test_case_stats = {}  # name -> (chunk, status) for adding headers later
+    test_case_stats: dict[str, tuple[Chunking, str]] = {}
 
-    logger.info(
-        f"Executing analysis, {len(test_cases)=}, {test_case_concurrency=}, {chunk_concurrency=}"
-    )
-
-    for test_case in test_cases:
-        lines = deduplicate_consecutive_lines(render_rf_test_structure(test_case))
-        rendered_text = render_lines_to_text(lines)
-        logger.debug(
-            f"Test case {test_case['name']} full rendered text:\n{rendered_text}"
-        )
-        chunk_info = calculate_chunk_size(rendered_text, question_prompt, tokenizer)
-        chunks = chunk_rf_test_lines(lines, chunk_info.chunk_size)
-        test_case_stats[test_case["name"]] = (
-            chunk_info,
-            test_case.get("status", "N/A"),
-        )
+    for test_name, chunks, chunk_stats, test_status in results.render_chunks():
+        test_case_stats[test_name] = (chunk_stats, test_status)
 
         if dryrun:
-            coroutines.append(_dryrun_result(test_case["name"]))
+            coroutines.append(_dryrun_result(test_name))
         elif len(chunks) == 1:
             coroutines.append(
                 analyze_test_case(
-                    test_name=test_case["name"],
+                    test_name=test_name,
                     test_case_text=chunks[0],
                     question_prompt=question_prompt,
                     prompt_template=prompt_template,
@@ -173,7 +160,7 @@ async def execute_llm_and_get_results(
         else:
             coroutines.append(
                 accumulate_llm_results_for_summarization(
-                    test_name=test_case["name"],
+                    test_name=test_name,
                     chunks=chunks,
                     chunk_analysis_prompt=chunk_analysis_prompt,
                     final_synthesis_prompt=final_synthesis_prompt,
@@ -182,19 +169,23 @@ async def execute_llm_and_get_results(
                 )
             )
 
-    semaphore = asyncio.Semaphore(test_case_concurrency)
+    test_count = len(coroutines)
+    logger.info(
+        f"Executing analysis, {test_count=}, {test_case_concurrency=}, {chunk_concurrency=}"
+    )
 
-    desc = f"Analyzing {len(test_cases)} test cases"
-    results = await run_tasks_with_progress(
+    semaphore = asyncio.Semaphore(test_case_concurrency)
+    task_results = await run_tasks_with_progress(
         coroutines,
         semaphore=semaphore,
-        desc=desc,
+        desc=f"Analyzing {test_count} test cases",
         disable_progress=quiet,
     )
 
-    for result, name, chunks in results:
-        chunk, status = test_case_stats[name]
-        header = _stats_header(status, chunk, dryrun, name)
+    llm_results = {}
+    for result, name, _chunks in task_results:
+        chunk_stats, test_status = test_case_stats[name]
+        header = _stats_header(test_status, chunk_stats, dryrun, name)
         llm_results[name] = header + result
 
     return llm_results

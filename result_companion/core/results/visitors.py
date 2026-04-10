@@ -5,29 +5,36 @@ from result_companion.core.utils.logging_config import logger
 
 # TODO: workaround to fix potentail problem with exposing llm results to invalid test cases in log.html
 class UniqueNameResultVisitor(ResultVisitor):
-    """Custom visitor that ensures unique test case names by appending IDs to duplicates."""
+    """Ensures unique test and suite names by appending IDs to duplicates."""
 
     def __init__(self):
         super().__init__()
-        self.test_names = {}
+        self._test_names: dict[str, int] = {}
+        self._suite_names: dict[str, int] = {}
 
-    def start_test(self, test):
-        """Called when a test is encountered during traversal."""
-        if test.name in self.test_names:
-            self.test_names[test.name] += 1
-        else:
-            self.test_names[test.name] = 1
+    def start_test(self, test) -> None:
+        """Counts test name occurrences."""
+        self._test_names[test.name] = self._test_names.get(test.name, 0) + 1
 
-    def _rename_test(self, test):
-        if self.test_names.get(test.name, 0) > 1:
-            logger.debug(f"Renaming test '{test.name}' to '{test.name} {test.id}'")
-            test.name = f"{test.name} {test.id}"
+    def start_suite(self, suite) -> None:
+        """Counts suite name occurrences."""
+        self._suite_names[suite.name] = self._suite_names.get(suite.name, 0) + 1
 
-    def end_suite(self, suite):
-        """Called when suite processing is complete."""
+    def end_suite(self, suite) -> None:
+        """Renames duplicates — suite itself, then its direct tests."""
+        if self._suite_names.get(suite.name, 0) > 1:
+            logger.debug(f"Renaming suite '{suite.name}' to '{suite.name} {suite.id}'")
+            suite.name = f"{suite.name} {suite.id}"
+
         for test in suite.tests:
-            self._rename_test(test)
+            if self._test_names.get(test.name, 0) > 1:
+                logger.debug(f"Renaming test '{test.name}' to '{test.name} {test.id}'")
+                test.name = f"{test.name} {test.id}"
 
         for child_suite in suite.suites:
             for test in child_suite.tests:
-                self._rename_test(test)
+                if self._test_names.get(test.name, 0) > 1:
+                    logger.debug(
+                        f"Renaming test '{test.name}' to '{test.name} {test.id}'"
+                    )
+                    test.name = f"{test.name} {test.id}"

@@ -5,6 +5,9 @@ test_filter:
   exclude_tags: []
   include_passing: false
 
+rendering:
+  exclude_fields: [elapsed_time, lineno, owner, assign]
+
 llm_config:
   question_prompt: |
     You analyze Robot Framework test failures. The input is hierarchical text: suite lines (if any), then the test line, then keywords and log messages (nested). Lines look like `Keyword: <name> - <status>`; messages appear as plain lines under keywords.

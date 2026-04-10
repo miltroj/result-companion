@@ -3,7 +3,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from typer import echo
+from click import echo
 from typer.testing import CliRunner
 
 from result_companion.core.analizers.local.ollama_server_manager import (

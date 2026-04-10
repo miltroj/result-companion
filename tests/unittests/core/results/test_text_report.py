@@ -13,7 +13,6 @@ from result_companion.core.parsers.config import (
 from result_companion.core.results.text_report import (
     AnalyzeReport,
     _build_overall_summary_prompt,
-    compute_source_hash,
     render_json_report,
     summarize_failures_with_llm,
 )
@@ -149,27 +148,6 @@ class TestAnalyzeReport:
         assert report.source_hash is None
 
 
-class TestComputeSourceHash:
-    """Tests for compute_source_hash."""
-
-    def test_returns_12_char_hex_string(self):
-        result = compute_source_hash([{"name": "t1", "status": "FAIL"}])
-
-        assert len(result) == 12
-        assert all(c in "0123456789abcdef" for c in result)
-
-    def test_same_input_produces_same_hash(self):
-        data = [{"name": "t1", "status": "FAIL"}]
-
-        assert compute_source_hash(data) == compute_source_hash(data)
-
-    def test_different_input_produces_different_hash(self):
-        a = [{"name": "t1", "status": "FAIL"}]
-        b = [{"name": "t2", "status": "PASS"}]
-
-        assert compute_source_hash(a) != compute_source_hash(b)
-
-
 class TestRenderJsonReport:
     """Tests for render_json_report function."""
 
@@ -197,27 +175,24 @@ class TestRenderJsonReport:
         assert parsed["failed_test_count"] == 0
         assert parsed["overall_summary"] is None
 
-    def test_includes_metadata_when_all_test_cases_provided(self):
-        all_cases = [
-            {"name": "t1", "status": "FAIL"},
-            {"name": "t2", "status": "PASS"},
-        ]
+    def test_includes_metadata_when_total_and_hash_provided(self):
         result = render_json_report(
             llm_results={"t1": "err"},
             analyzed_test_names=["t1"],
             overall_summary=None,
             model="openai/gpt-4",
             source_file="output.xml",
-            all_test_cases=all_cases,
+            total_test_count=2,
+            source_hash="abc123def456",
         )
         parsed = json.loads(result)
 
         assert parsed["model"] == "openai/gpt-4"
         assert parsed["source_file"] == "output.xml"
         assert parsed["total_test_count"] == 2
-        assert len(parsed["source_hash"]) == 12
+        assert parsed["source_hash"] == "abc123def456"
 
-    def test_metadata_none_when_no_test_cases_provided(self):
+    def test_metadata_none_when_total_and_hash_not_provided(self):
         result = render_json_report(
             llm_results={},
             analyzed_test_names=[],

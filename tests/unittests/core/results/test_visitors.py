@@ -77,3 +77,34 @@ def test_no_keyerror_when_end_suite_called_bottom_up_for_nested_suites():
 
     assert test_in_parent.name == "Duplicate Test s1-t1"
     assert test_in_child.name == "Duplicate Test s1-s2-t1"
+
+
+def test_renames_duplicate_suite_names_and_keeps_unique_ones():
+    visitor = UniqueNameResultVisitor()
+
+    unique_suite = create_autospec(TestSuite)
+    unique_suite.name = "Unique Suite"
+    unique_suite.id = "s1"
+    unique_suite.tests = []
+    unique_suite.suites = []
+
+    dup_suite_a = create_autospec(TestSuite)
+    dup_suite_a.name = "Shared Suite"
+    dup_suite_a.id = "s2"
+    dup_suite_a.tests = []
+    dup_suite_a.suites = []
+
+    dup_suite_b = create_autospec(TestSuite)
+    dup_suite_b.name = "Shared Suite"
+    dup_suite_b.id = "s3"
+    dup_suite_b.tests = []
+    dup_suite_b.suites = []
+
+    for suite in (unique_suite, dup_suite_a, dup_suite_b):
+        visitor.start_suite(suite)
+    for suite in (unique_suite, dup_suite_a, dup_suite_b):
+        visitor.end_suite(suite)
+
+    assert unique_suite.name == "Unique Suite"
+    assert dup_suite_a.name == "Shared Suite s2"
+    assert dup_suite_b.name == "Shared Suite s3"

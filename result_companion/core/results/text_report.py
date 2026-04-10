@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -9,12 +8,6 @@ from result_companion.core.analizers.factory_common import _build_llm_params
 from result_companion.core.analizers.llm_router import _smart_acompletion
 from result_companion.core.parsers.config import DefaultConfigModel
 from result_companion.core.utils.logging_config import logger
-
-
-def compute_source_hash(test_cases: list[dict]) -> str:
-    """Computes a short SHA-256 hash of raw test data before LLM processing."""
-    blob = json.dumps(test_cases, sort_keys=True).encode()
-    return hashlib.sha256(blob).hexdigest()[:12]
 
 
 @dataclass
@@ -102,7 +95,8 @@ def render_json_report(
     overall_summary: str | None,
     model: str | None = None,
     source_file: str | None = None,
-    all_test_cases: list[dict] | None = None,
+    total_test_count: int | None = None,
+    source_hash: str | None = None,
 ) -> str:
     """Builds JSON report from LLM per-test results.
 
@@ -112,7 +106,8 @@ def render_json_report(
         overall_summary: Optional synthesized summary.
         model: LLM model used for analysis.
         source_file: Path to the input output.xml.
-        all_test_cases: Raw test data before pass/fail filtering (for metadata).
+        total_test_count: Total number of tests (before pass/fail filtering).
+        source_hash: Hash of the rendered source data for reproducibility.
 
     Returns:
         JSON string of the AnalyzeReport.
@@ -124,8 +119,8 @@ def render_json_report(
         overall_summary=overall_summary,
         model=model,
         source_file=source_file,
-        total_test_count=len(all_test_cases) if all_test_cases else None,
-        source_hash=compute_source_hash(all_test_cases) if all_test_cases else None,
+        total_test_count=total_test_count,
+        source_hash=source_hash,
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
     return report.to_json()
