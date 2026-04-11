@@ -4,6 +4,9 @@ from typing import Any
 from result_companion.core.analizers.llm_router import _smart_acompletion
 from result_companion.core.chunking.chunking import (
     accumulate_llm_results_for_summarization,
+    chunk_rf_test_lines,
+    render_lines_to_text,
+    render_rf_test_structure,
 )
 from result_companion.core.chunking.utils import Chunking, calculate_chunk_size
 from result_companion.core.parsers.config import DefaultConfigModel, LLMFactoryModel
@@ -61,23 +64,22 @@ def _build_llm_params(llm_factory: LLMFactoryModel) -> dict[str, Any]:
     return params
 
 
-async def _dryrun_result(test_case: dict) -> tuple[str, str, list]:
+async def _dryrun_result(test_name: str) -> tuple[str, str, list]:
     """Returns placeholder without calling LLM.
 
     Args:
-        test_case: Test case dictionary.
+        test_name: Test case name.
 
     Returns:
         Tuple of (result, test_name, chunks).
     """
-    logger.info(
-        f"### Test Case: {test_case['name']}, content length: {len(str(test_case))}"
-    )
-    return ("*No LLM analysis in dryrun mode.*", test_case["name"], [])
+    logger.info(f"### Test Case: {test_name} [dryrun]")
+    return ("*No LLM analysis in dryrun mode.*", test_name, [])
 
 
 async def analyze_test_case(
-    test_case: dict,
+    test_name: str,
+    test_case_text: str,
     question_prompt: str,
     prompt_template: str,
     llm_params: dict[str, Any],
@@ -85,7 +87,8 @@ async def analyze_test_case(
     """Analyzes a single test case using LiteLLM.
 
     Args:
-        test_case: Test case dictionary.
+        test_name: Name of the test case.
+        test_case_text: Rendered test case text.
         question_prompt: The analysis question/prompt.
         prompt_template: Template for formatting the prompt.
         llm_params: Parameters for LiteLLM acompletion.
@@ -93,22 +96,17 @@ async def analyze_test_case(
     Returns:
         Tuple of (result, test_name, chunks).
     """
-    logger.info(
-        f"### Test Case: {test_case['name']}, content length: {len(str(test_case))}"
-    )
+    logger.info(f"### Test Case: {test_name}, content length: {len(test_case_text)}")
 
-    # Format the prompt using the template
     formatted_prompt = prompt_template.format(
         question=question_prompt,
-        context=str(test_case),
+        context=test_case_text,
     )
 
-    messages = [{"role": "user", "content": formatted_prompt}]
-
-    response = await _smart_acompletion(messages=messages, **llm_params)
-    result = response.choices[0].message.content
-
-    return (result, test_case["name"], [])
+    response = await _smart_acompletion(
+        messages=[{"role": "user", "content": formatted_prompt}], **llm_params
+    )
+    return (response.choices[0].message.content, test_name, [])
 
 
 async def execute_llm_and_get_results(
@@ -147,16 +145,22 @@ async def execute_llm_and_get_results(
     )
 
     for test_case in test_cases:
-        raw_test_case_text = str(test_case)
-        chunk = calculate_chunk_size(raw_test_case_text, question_prompt, tokenizer)
-        test_case_stats[test_case["name"]] = (chunk, test_case.get("status", "N/A"))
+        lines = render_rf_test_structure(test_case)
+        rendered_text = render_lines_to_text(lines)
+        chunk_info = calculate_chunk_size(rendered_text, question_prompt, tokenizer)
+        chunks = chunk_rf_test_lines(lines, chunk_info.chunk_size)
+        test_case_stats[test_case["name"]] = (
+            chunk_info,
+            test_case.get("status", "N/A"),
+        )
 
         if dryrun:
-            coroutines.append(_dryrun_result(test_case))
-        elif not chunk.requires_chunking:
+            coroutines.append(_dryrun_result(test_case["name"]))
+        elif len(chunks) == 1:
             coroutines.append(
                 analyze_test_case(
-                    test_case=test_case,
+                    test_name=test_case["name"],
+                    test_case_text=chunks[0],
                     question_prompt=question_prompt,
                     prompt_template=prompt_template,
                     llm_params=llm_params,
@@ -165,10 +169,10 @@ async def execute_llm_and_get_results(
         else:
             coroutines.append(
                 accumulate_llm_results_for_summarization(
-                    test_case=test_case,
+                    test_name=test_case["name"],
+                    chunks=chunks,
                     chunk_analysis_prompt=chunk_analysis_prompt,
                     final_synthesis_prompt=final_synthesis_prompt,
-                    chunking_strategy=chunk,
                     llm_params=llm_params,
                     chunk_concurrency=chunk_concurrency,
                 )

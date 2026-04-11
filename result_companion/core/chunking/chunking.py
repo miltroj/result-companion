@@ -2,7 +2,6 @@ import asyncio
 from typing import Any
 
 from result_companion.core.analizers.llm_router import _smart_acompletion
-from result_companion.core.chunking.utils import Chunking
 from result_companion.core.utils.logging_config import get_progress_logger
 
 logger = get_progress_logger("Chunking")
@@ -67,7 +66,12 @@ def _render_rf_keywords(body: list[dict], depth: int) -> list[tuple[int, str]]:
     return lines
 
 
-def _render_rf_test_structure(test_case: dict) -> list[tuple[int, str]]:
+def render_lines_to_text(lines: list[tuple[int, str]]) -> str:
+    """Joins (depth, text) pairs into an indented string."""
+    return "\n".join(_indent(d, t) for d, t in lines)
+
+
+def render_rf_test_structure(test_case: dict) -> list[tuple[int, str]]:
     """Renders RF suite ancestry → test case → keywords as (depth, text) lines."""
     suite_context = test_case.get("suite_context", [])
     suite_lines = [(i, f"Suite: {ctx['name']}") for i, ctx in enumerate(suite_context)]
@@ -154,6 +158,9 @@ def chunk_rf_test_lines(lines: list[tuple[int, str]], chunk_size: int) -> list[s
     """
     if not lines:
         return []
+
+    if chunk_size <= 0:
+        return [render_lines_to_text(lines)]
 
     total = sum(len(_indent(d, t)) + 1 for d, t in lines)
     if total <= chunk_size:
@@ -259,31 +266,26 @@ async def synthesize_summaries(
 
 
 async def accumulate_llm_results_for_summarization(
-    test_case: dict,
+    test_name: str,
+    chunks: list[str],
     chunk_analysis_prompt: str,
     final_synthesis_prompt: str,
-    chunking_strategy: Chunking,
     llm_params: dict[str, Any],
     chunk_concurrency: int = 1,
 ) -> tuple[str, str, list]:
     """Summarizes large test case by analyzing chunks and synthesizing results.
 
     Args:
-        test_case: Test case dictionary with name and data.
+        test_name: Name of the test case.
+        chunks: Pre-computed text chunks.
         chunk_analysis_prompt: Template for analyzing chunks (with {text}).
         final_synthesis_prompt: Template for final synthesis (with {summary}).
-        chunking_strategy: Chunking configuration.
         llm_params: Parameters for LiteLLM acompletion.
         chunk_concurrency: Chunks to process concurrently.
 
     Returns:
         Tuple of (final_analysis, test_name, chunks).
     """
-    chunks = chunk_rf_test_lines(
-        _render_rf_test_structure(test_case), chunking_strategy.chunk_size
-    )
-
-    test_name = test_case["name"]
     total_chunks = len(chunks)
     logger.info(f"### For test case {test_name}, {len(chunks)=}")
 
