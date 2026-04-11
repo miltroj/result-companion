@@ -5,6 +5,12 @@ test_filter:
   exclude_tags: []
   include_passing: false
 
+context_fields:
+  exclude_fields:
+    - lineno
+    - owner
+    - elapsed_time
+
 llm_config:
   question_prompt: |
     You analyze Robot Framework test failures in JSON format.

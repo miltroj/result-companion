@@ -5,15 +5,12 @@ from typing import Optional
 
 from result_companion._internal.analysis_helpers import (
     apply_concurrency_overrides,
-    filter_passing_tests,
+    build_chunkable,
     resolve_tags,
 )
 from result_companion.api import run_analysis
 from result_companion.core.html.html_creator import create_llm_html_log
 from result_companion.core.parsers.config import DefaultConfigModel, load_config
-from result_companion.core.parsers.result_parser import (
-    get_robot_results_from_file_as_dict,
-)
 from result_companion.core.results.analysis_result import AnalysisResult
 from result_companion.core.results.text_report import (
     render_json_report,
@@ -49,18 +46,18 @@ async def _main(
     parsed_config = load_config(config)
     apply_concurrency_overrides(parsed_config, test_case_concurrency, chunk_concurrency)
 
-    all_test_cases = get_robot_results_from_file_as_dict(
-        file_path=output,
+    chunkable = build_chunkable(
+        output=output,
+        config=parsed_config,
         include_tags=resolve_tags(include_tags, parsed_config.test_filter.include_tags),
         exclude_tags=resolve_tags(exclude_tags, parsed_config.test_filter.exclude_tags),
     )
-    test_cases = filter_passing_tests(all_test_cases, include_passing, parsed_config)
-    logger.info(f"Filtered to {len(test_cases)} test cases")
     logger.debug(f"Using model: {parsed_config.llm_factory.model}")
 
     result = await run_analysis(
         config=parsed_config,
-        test_cases=test_cases,
+        chunkable=chunkable,
+        include_passing=include_passing,
         summarize_failures=summarize_failures,
         dryrun=dryrun,
         quiet=quiet,
@@ -70,7 +67,8 @@ async def _main(
         output=output,
         result=result,
         config=parsed_config,
-        all_test_cases=all_test_cases,
+        total_test_count=chunkable.test_count,
+        source_hash=chunkable.source_hash(),
         report=report,
         html_report=html_report,
         text_report=text_report,
@@ -87,7 +85,8 @@ def _emit_reports(
     output: Path,
     result: AnalysisResult,
     config: DefaultConfigModel,
-    all_test_cases: list[dict],
+    total_test_count: int,
+    source_hash: str,
     report: Optional[str],
     html_report: bool,
     text_report: Optional[str],
@@ -126,7 +125,8 @@ def _emit_reports(
             overall_summary=result.summary,
             model=config.llm_factory.model,
             source_file=str(output),
-            all_test_cases=all_test_cases,
+            total_test_count=total_test_count,
+            source_hash=source_hash,
         )
         Path(json_report).write_text(json_output)
         logger.info(f"JSON report created: {Path(json_report).resolve()}")

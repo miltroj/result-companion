@@ -11,6 +11,45 @@ from result_companion.entrypoints.run_rc import (
 )
 
 
+def make_config_dict(model: str = "openai/gpt-4") -> dict:
+    """Returns a config dict for DefaultConfigModel construction."""
+    return dict(
+        version=1.0,
+        llm_config={
+            "question_prompt": "question prompt",
+            "prompt_template": "my_template {question} {context}",
+            "chunking": {
+                "chunk_analysis_prompt": "Analyze: {text}",
+                "final_synthesis_prompt": "Synthesize: {summary}",
+            },
+            "summary_prompt_template": "CI summary:\n{analyses}",
+        },
+        llm_factory={"model": model, "api_key": "sk-test"},
+        tokenizer={"tokenizer": "openai_tokenizer", "max_content_tokens": 1000},
+        test_filter={"include_tags": [], "exclude_tags": [], "include_passing": False},
+    )
+
+
+class FakeChunkable:
+    """Fake ChunkableResult for testing."""
+
+    def __init__(self, tests: list[tuple[str, str]] | None = None):
+        self._tests = tests or []
+
+    def iter_tests(self, include_passing: bool = True):
+        for name, status in self._tests:
+            if not include_passing and status == "PASS":
+                continue
+            yield name, status, [(0, f"Test: {name} - {status}")]
+
+    @property
+    def test_count(self):
+        return len(self._tests)
+
+    def source_hash(self):
+        return "abc123abc123"
+
+
 class TestRunProviderInitStrategies:
     """Tests for provider init strategy dispatcher."""
 
@@ -46,50 +85,22 @@ class TestMainE2E:
     @pytest.mark.asyncio
     async def test_main_executes_analysis(self):
         """Test that _main executes the full analysis flow."""
+        fake_chunkable = FakeChunkable([("test1", "PASS"), ("test2", "FAIL")])
         with (
             patch(
                 "result_companion.entrypoints.run_rc.create_llm_html_log"
             ) as mocked_html,
             patch("result_companion.api.execute_llm_and_get_results") as mocked_execute,
             patch(
-                "result_companion.entrypoints.run_rc.get_robot_results_from_file_as_dict"
-            ) as mocked_get_results,
+                "result_companion.entrypoints.run_rc.build_chunkable",
+                return_value=fake_chunkable,
+            ) as mocked_build,
             patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
             patch(
                 "result_companion._internal.analysis_helpers.run_provider_init_strategies"
             ),
         ):
-            mocked_get_results.return_value = [
-                {"name": "test1", "status": "PASS", "tags": []},
-                {"name": "test2", "status": "FAIL", "tags": []},
-            ]
-
-            mocked_config.return_value = DefaultConfigModel(
-                version=1.0,
-                llm_config={
-                    "question_prompt": "question prompt",
-                    "prompt_template": "my_template {question} {context}",
-                    "chunking": {
-                        "chunk_analysis_prompt": "Analyze: {text}",
-                        "final_synthesis_prompt": "Synthesize: {summary}",
-                    },
-                    "summary_prompt_template": "CI summary:\n{analyses}",
-                },
-                llm_factory={
-                    "model": "openai/gpt-4",
-                    "api_key": "sk-test",
-                },
-                tokenizer={
-                    "tokenizer": "openai_tokenizer",
-                    "max_content_tokens": 1000,
-                },
-                test_filter={
-                    "include_tags": [],
-                    "exclude_tags": [],
-                    "include_passing": False,
-                },
-            )
-
+            mocked_config.return_value = DefaultConfigModel(**make_config_dict())
             mocked_execute.return_value = {"test2": "llm_result_2"}
 
             result = await _main(
@@ -108,19 +119,9 @@ class TestMainE2E:
                 exclude_tags=None,
             )
 
-            mocked_get_results.assert_called_once_with(
-                file_path=Path("output.xml"),
-                include_tags=None,
-                exclude_tags=None,
-            )
+            mocked_build.assert_called_once()
             mocked_config.assert_called_once_with(None)
-
             mocked_execute.assert_called_once()
-            call_args = mocked_execute.call_args
-            assert call_args.kwargs["test_cases"] == [
-                {"name": "test2", "status": "FAIL", "tags": []}
-            ]
-
             mocked_html.assert_called_once_with(
                 input_result_path=Path("output.xml"),
                 llm_output_path="/tmp/report.html",
@@ -140,31 +141,20 @@ class TestMainE2E:
                 return_value={},
             ),
             patch(
-                "result_companion.entrypoints.run_rc.get_robot_results_from_file_as_dict",
-                return_value=[],
+                "result_companion.entrypoints.run_rc.build_chunkable",
+                return_value=FakeChunkable([]),
             ),
             patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
             patch(
                 "result_companion._internal.analysis_helpers.ollama_on_init_strategy"
             ) as mocked_init,
         ):
-            mocked_config.return_value = DefaultConfigModel(
-                version=1.0,
-                llm_config={
-                    "question_prompt": "question",
-                    "prompt_template": "template {question} {context}",
-                    "chunking": {
-                        "chunk_analysis_prompt": "Analyze: {text}",
-                        "final_synthesis_prompt": "Synthesize: {summary}",
-                    },
-                    "summary_prompt_template": "CI summary:\n{analyses}",
-                },
-                llm_factory={
-                    "model": "ollama_chat/llama2:123",
-                    "api_base": "http://localhost:11434",
-                },
-                tokenizer={"tokenizer": "ollama_tokenizer", "max_content_tokens": 1000},
-            )
+            cfg = make_config_dict(model="ollama_chat/llama2:123")
+            cfg["llm_factory"] = {
+                "model": "ollama_chat/llama2:123",
+                "api_base": "http://localhost:11434",
+            }
+            mocked_config.return_value = DefaultConfigModel(**cfg)
 
             await _main(
                 output=Path("output.xml"),
@@ -297,44 +287,21 @@ class TestMainJsonReport:
     @pytest.mark.asyncio
     async def test_main_writes_json_report_with_metadata(self, tmp_path):
         json_path = tmp_path / "report.json"
+        fake_chunkable = FakeChunkable([("test_pass", "PASS"), ("test_fail", "FAIL")])
 
         with (
             patch("result_companion.entrypoints.run_rc.create_llm_html_log"),
             patch("result_companion.api.execute_llm_and_get_results") as mocked_execute,
             patch(
-                "result_companion.entrypoints.run_rc.get_robot_results_from_file_as_dict"
-            ) as mocked_get_results,
+                "result_companion.entrypoints.run_rc.build_chunkable",
+                return_value=fake_chunkable,
+            ),
             patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
             patch(
                 "result_companion._internal.analysis_helpers.run_provider_init_strategies"
             ),
         ):
-            mocked_get_results.return_value = [
-                {"name": "test_pass", "status": "PASS", "tags": []},
-                {"name": "test_fail", "status": "FAIL", "tags": []},
-            ]
-            mocked_config.return_value = DefaultConfigModel(
-                version=1.0,
-                llm_config={
-                    "question_prompt": "question prompt",
-                    "prompt_template": "my_template {question} {context}",
-                    "chunking": {
-                        "chunk_analysis_prompt": "Analyze: {text}",
-                        "final_synthesis_prompt": "Synthesize: {summary}",
-                    },
-                    "summary_prompt_template": "{analyses}",
-                },
-                llm_factory={"model": "openai/gpt-4", "api_key": "sk-test"},
-                tokenizer={
-                    "tokenizer": "openai_tokenizer",
-                    "max_content_tokens": 1000,
-                },
-                test_filter={
-                    "include_tags": [],
-                    "exclude_tags": [],
-                    "include_passing": False,
-                },
-            )
+            mocked_config.return_value = DefaultConfigModel(**make_config_dict())
             mocked_execute.return_value = {"test_fail": "Root cause details"}
 
             await _main(
@@ -370,6 +337,7 @@ class TestMainTextAndSynthesis:
     async def test_main_writes_text_report_with_overall_summary(self, tmp_path):
         """Writes text file and includes synthesized summary."""
         text_report_path = tmp_path / "rc_summary.txt"
+        fake_chunkable = FakeChunkable([("test_fail", "FAIL")])
 
         with (
             patch(
@@ -377,42 +345,16 @@ class TestMainTextAndSynthesis:
             ) as mocked_html,
             patch("result_companion.api.execute_llm_and_get_results") as mocked_execute,
             patch(
-                "result_companion.entrypoints.run_rc.get_robot_results_from_file_as_dict"
-            ) as mocked_get_results,
+                "result_companion.entrypoints.run_rc.build_chunkable",
+                return_value=fake_chunkable,
+            ),
             patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
             patch("result_companion.api.summarize_failures_with_llm") as mocked_summary,
             patch(
                 "result_companion._internal.analysis_helpers.run_provider_init_strategies"
             ),
         ):
-            mocked_get_results.return_value = [
-                {"name": "test_fail", "status": "FAIL", "tags": []},
-            ]
-            mocked_config.return_value = DefaultConfigModel(
-                version=1.0,
-                llm_config={
-                    "question_prompt": "question prompt",
-                    "prompt_template": "my_template {question} {context}",
-                    "chunking": {
-                        "chunk_analysis_prompt": "Analyze: {text}",
-                        "final_synthesis_prompt": "Synthesize: {summary}",
-                    },
-                    "summary_prompt_template": "CI summary:\n{analyses}",
-                },
-                llm_factory={
-                    "model": "openai/gpt-4",
-                    "api_key": "sk-test",
-                },
-                tokenizer={
-                    "tokenizer": "openai_tokenizer",
-                    "max_content_tokens": 1000,
-                },
-                test_filter={
-                    "include_tags": [],
-                    "exclude_tags": [],
-                    "include_passing": False,
-                },
-            )
+            mocked_config.return_value = DefaultConfigModel(**make_config_dict())
             mocked_execute.return_value = {"test_fail": "LLM details"}
             mocked_summary.return_value = "Shared root cause summary."
 

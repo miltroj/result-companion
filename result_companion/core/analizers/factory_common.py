@@ -4,7 +4,9 @@ from typing import Any
 from result_companion.core.analizers.llm_router import _smart_acompletion
 from result_companion.core.chunking.chunking import (
     accumulate_llm_results_for_summarization,
+    chunk_rf_test_lines,
 )
+from result_companion.core.chunking.rf_chunker import ChunkableResult
 from result_companion.core.chunking.utils import Chunking, calculate_chunk_size
 from result_companion.core.parsers.config import DefaultConfigModel, LLMFactoryModel
 from result_companion.core.utils.logging_config import get_progress_logger
@@ -55,29 +57,28 @@ def _build_llm_params(llm_factory: LLMFactoryModel) -> dict[str, Any]:
     if llm_factory.api_key:
         params["api_key"] = llm_factory.api_key
 
-    # Merge any additional parameters
     params.update(llm_factory.parameters)
 
     return params
 
 
-async def _dryrun_result(test_case: dict) -> tuple[str, str, list]:
+async def _dryrun_result(test_name: str, rendered_text: str) -> tuple[str, str, list]:
     """Returns placeholder without calling LLM.
 
     Args:
-        test_case: Test case dictionary.
+        test_name: Test case name.
+        rendered_text: Rendered test case text.
 
     Returns:
         Tuple of (result, test_name, chunks).
     """
-    logger.info(
-        f"### Test Case: {test_case['name']}, content length: {len(str(test_case))}"
-    )
-    return ("*No LLM analysis in dryrun mode.*", test_case["name"], [])
+    logger.info(f"### Test Case: {test_name}, content length: {len(rendered_text)}")
+    return ("*No LLM analysis in dryrun mode.*", test_name, [])
 
 
 async def analyze_test_case(
-    test_case: dict,
+    test_name: str,
+    rendered_text: str,
     question_prompt: str,
     prompt_template: str,
     llm_params: dict[str, Any],
@@ -85,7 +86,8 @@ async def analyze_test_case(
     """Analyzes a single test case using LiteLLM.
 
     Args:
-        test_case: Test case dictionary.
+        test_name: Test case name.
+        rendered_text: Rendered test case text.
         question_prompt: The analysis question/prompt.
         prompt_template: Template for formatting the prompt.
         llm_params: Parameters for LiteLLM acompletion.
@@ -93,35 +95,31 @@ async def analyze_test_case(
     Returns:
         Tuple of (result, test_name, chunks).
     """
-    logger.info(
-        f"### Test Case: {test_case['name']}, content length: {len(str(test_case))}"
-    )
+    logger.info(f"### Test Case: {test_name}, content length: {len(rendered_text)}")
 
-    # Format the prompt using the template
     formatted_prompt = prompt_template.format(
         question=question_prompt,
-        context=str(test_case),
+        context=rendered_text,
     )
 
     messages = [{"role": "user", "content": formatted_prompt}]
-
     response = await _smart_acompletion(messages=messages, **llm_params)
-    result = response.choices[0].message.content
-
-    return (result, test_case["name"], [])
+    return (response.choices[0].message.content, test_name, [])
 
 
 async def execute_llm_and_get_results(
-    test_cases: list,
+    chunkable: ChunkableResult,
     config: DefaultConfigModel,
+    include_passing: bool = False,
     dryrun: bool = False,
     quiet: bool = False,
 ) -> dict:
-    """Executes LLM analysis on test cases and returns results.
+    """Executes LLM analysis on tests from ChunkableResult and returns results.
 
     Args:
-        test_cases: List of test case dictionaries.
+        chunkable: ChunkableResult to iterate tests from.
         config: Parsed configuration.
+        include_passing: Whether to include PASS tests.
         dryrun: If True, skip actual LLM calls.
         quiet: If True, suppress progress output.
 
@@ -140,35 +138,39 @@ async def execute_llm_and_get_results(
 
     llm_results = {}
     coroutines = []
-    test_case_stats = {}  # name -> (chunk, status) for adding headers later
+    test_case_stats = {}
+
+    tests = list(chunkable.iter_tests(include_passing=include_passing))
 
     logger.info(
-        f"Executing analysis, {len(test_cases)=}, {test_case_concurrency=}, {chunk_concurrency=}"
+        f"Executing analysis, {len(tests)=}, {test_case_concurrency=}, {chunk_concurrency=}"
     )
 
-    for test_case in test_cases:
-        raw_test_case_text = str(test_case)
-        chunk = calculate_chunk_size(raw_test_case_text, question_prompt, tokenizer)
-        test_case_stats[test_case["name"]] = (chunk, test_case.get("status", "N/A"))
+    for test_name, test_status, lines in tests:
+        rendered_text = "\n".join("    " * depth + text for depth, text in lines)
+        chunk = calculate_chunk_size(rendered_text, question_prompt, tokenizer)
+        test_case_stats[test_name] = (chunk, test_status)
 
         if dryrun:
-            coroutines.append(_dryrun_result(test_case))
+            coroutines.append(_dryrun_result(test_name, rendered_text))
         elif not chunk.requires_chunking:
             coroutines.append(
                 analyze_test_case(
-                    test_case=test_case,
+                    test_name=test_name,
+                    rendered_text=rendered_text,
                     question_prompt=question_prompt,
                     prompt_template=prompt_template,
                     llm_params=llm_params,
                 )
             )
         else:
+            chunks = chunk_rf_test_lines(lines, chunk.chunk_size)
             coroutines.append(
                 accumulate_llm_results_for_summarization(
-                    test_case=test_case,
+                    test_name=test_name,
+                    chunks=chunks,
                     chunk_analysis_prompt=chunk_analysis_prompt,
                     final_synthesis_prompt=final_synthesis_prompt,
-                    chunking_strategy=chunk,
                     llm_params=llm_params,
                     chunk_concurrency=chunk_concurrency,
                 )
@@ -176,7 +178,7 @@ async def execute_llm_and_get_results(
 
     semaphore = asyncio.Semaphore(test_case_concurrency)
 
-    desc = f"Analyzing {len(test_cases)} test cases"
+    desc = f"Analyzing {len(tests)} test cases"
     results = await run_tasks_with_progress(
         coroutines,
         semaphore=semaphore,

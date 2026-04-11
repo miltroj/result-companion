@@ -194,15 +194,26 @@ class TestStatsHeader:
         assert "My Test Case" in header
 
 
+class FakeChunkable:
+    """Fake ChunkableResult for testing factory_common."""
+
+    def __init__(self, tests: list[tuple[str, str]]):
+        self._tests = tests
+
+    def iter_tests(self, include_passing: bool = True):
+        for name, status in self._tests:
+            if not include_passing and status == "PASS":
+                continue
+            yield name, status, [(0, f"Test: {name} - {status}")]
+
+
 class TestDryrunResult:
     """Tests for _dryrun_result function."""
 
     @pytest.mark.asyncio
     async def test_returns_placeholder(self):
         """Test dryrun returns placeholder message and test name."""
-        test_case = {"name": "My Test", "status": "FAIL"}
-
-        result, name, chunks = await _dryrun_result(test_case)
+        result, name, chunks = await _dryrun_result("My Test", "rendered text")
 
         assert name == "My Test"
         assert "No LLM analysis" in result
@@ -215,12 +226,12 @@ class TestAnalyzeTestCase:
     @pytest.mark.asyncio
     async def test_returns_llm_response(self, patch_smart_acompletion):
         """Test that analyze_test_case returns LLM response."""
-        test_case = {"name": "test_login", "status": "FAIL", "error": "timeout"}
         fake_acompletion = make_fake_acompletion("Root cause: timeout error")
         patch_smart_acompletion(fake_acompletion)
 
         result, name, chunks = await analyze_test_case(
-            test_case=test_case,
+            test_name="test_login",
+            rendered_text="Test: test_login - FAIL\n  error: timeout",
             question_prompt="What failed?",
             prompt_template="Q: {question}\nC: {context}",
             llm_params={"model": "test-model"},
@@ -237,18 +248,12 @@ class TestExecuteLLMAndGetResults:
     @pytest.mark.asyncio
     async def test_processes_test_cases(self, patch_smart_acompletion):
         """Test that execute_llm_and_get_results processes all test cases."""
-        config = make_config(max_content_tokens=100000)  # High limit to avoid chunking
-        test_cases = [
-            {"name": "test1", "status": "FAIL"},
-            {"name": "test2", "status": "FAIL"},
-        ]
+        config = make_config(max_content_tokens=100000)
+        chunkable = FakeChunkable([("test1", "FAIL"), ("test2", "FAIL")])
         fake_acompletion = make_fake_acompletion("Analysis result")
         patch_smart_acompletion(fake_acompletion)
 
-        results = await execute_llm_and_get_results(
-            test_cases=test_cases,
-            config=config,
-        )
+        results = await execute_llm_and_get_results(chunkable=chunkable, config=config)
 
         assert "test1" in results
         assert "test2" in results
@@ -259,12 +264,10 @@ class TestExecuteLLMAndGetResults:
     async def test_dryrun_skips_llm_calls(self):
         """Test that dryrun mode skips actual LLM calls."""
         config = make_config()
-        test_cases = [{"name": "test1", "status": "FAIL"}]
+        chunkable = FakeChunkable([("test1", "FAIL")])
 
         results = await execute_llm_and_get_results(
-            test_cases=test_cases,
-            config=config,
-            dryrun=True,
+            chunkable=chunkable, config=config, dryrun=True
         )
 
         assert "test1" in results
@@ -275,14 +278,11 @@ class TestExecuteLLMAndGetResults:
     async def test_includes_stats_header(self, patch_smart_acompletion):
         """Test that results include stats header."""
         config = make_config(max_content_tokens=100000)
-        test_cases = [{"name": "test_with_stats", "status": "FAIL"}]
+        chunkable = FakeChunkable([("test_with_stats", "FAIL")])
         fake_acompletion = make_fake_acompletion("Analysis")
         patch_smart_acompletion(fake_acompletion)
 
-        results = await execute_llm_and_get_results(
-            test_cases=test_cases,
-            config=config,
-        )
+        results = await execute_llm_and_get_results(chunkable=chunkable, config=config)
 
         result = results["test_with_stats"]
         assert "Status: FAIL" in result

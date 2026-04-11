@@ -108,6 +108,18 @@ class TestFilterModel(BaseModel):
     include_passing: bool = Field(default=False, description="Include PASS tests.")
 
 
+class ContextFieldsModel(BaseModel):
+    """Controls which RF fields are rendered for LLM context."""
+
+    include_fields: list[str] = Field(
+        default=[], description="Fields to render (empty = defaults)."
+    )
+    exclude_fields: list[str] = Field(
+        default=["lineno", "owner", "elapsed_time"],
+        description="Fields to exclude from rendering.",
+    )
+
+
 class DefaultConfigModel(BaseModel):
     version: float
     llm_config: LLMConfigModel
@@ -115,6 +127,7 @@ class DefaultConfigModel(BaseModel):
     tokenizer: TokenizerModel
     concurrency: ConcurrencyModel = Field(default_factory=ConcurrencyModel)
     test_filter: TestFilterModel = Field(default_factory=TestFilterModel)
+    context_fields: ContextFieldsModel = Field(default_factory=ContextFieldsModel)
 
 
 class ConfigLoader:
@@ -193,6 +206,10 @@ class ConfigLoader:
                 "test_filter": {
                     **default_config.get("test_filter", {}),
                     **user_config.get("test_filter", {}),
+                },
+                "context_fields": {
+                    **default_config.get("context_fields", {}),
+                    **user_config.get("context_fields", {}),
                 },
             }
             if user_config_file
