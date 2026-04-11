@@ -7,11 +7,10 @@ test_filter:
 
 llm_config:
   question_prompt: |
-    You analyze Robot Framework test failures in JSON format.
-    Structure: test → keywords (recursive) → name, args, messages, status.
+    You analyze Robot Framework test failures. The input is hierarchical text: suite lines (if any), then the test line, then keywords and log messages (nested). Lines look like `Keyword: <name> - <status>`; messages appear as plain lines under keywords.
 
     ANALYSIS PRIORITY:
-    1. Find keywords with status="FAIL" - start there
+    1. Find FAIL keywords or failing assertions—start there
     2. Check preceding PASS keywords for setup issues
     3. Look for: tracebacks, exceptions, assertion errors, timeouts
     4. Cascading failures: find the FIRST failure, not symptoms
