@@ -5,8 +5,6 @@ import pytest
 
 from result_companion.core.chunking.chunking import (
     _collect_ancestor_context_at,
-    _render_rf_keywords,
-    _render_rf_test_structure,
     _split_long_line,
     accumulate_llm_results_for_summarization,
     analyze_chunk,
@@ -14,7 +12,6 @@ from result_companion.core.chunking.chunking import (
     split_text_into_chunks,
     synthesize_summaries,
 )
-from result_companion.core.chunking.utils import Chunking
 
 
 @pytest.fixture
@@ -170,41 +167,25 @@ class TestAccumulateLLMResultsForSummarization:
     @pytest.mark.asyncio
     async def test_splits_and_summarizes(self, patch_smart_acompletion):
         """Test full chunking and summarization flow."""
-        # chunk_size=50: test line (27) + Kw1 (24) overflows → 3 chunks + 1 synthesis = 4 calls
         fake_acompletion = FakeACompletionSequence(
-            responses=["analysis1", "analysis2", "analysis3", "final summary"]
+            responses=["analysis1", "analysis2", "final summary"]
         )
-
-        test_case = {
-            "name": "chunking_test",
-            "status": "FAIL",
-            "body": [
-                {"name": "Kw1", "status": "PASS", "type": "KEYWORD"},
-                {"name": "Kw2", "status": "PASS", "type": "KEYWORD"},
-            ],
-        }
-        chunking_strategy = Chunking(
-            chunk_size=50,
-            number_of_chunks=3,
-            raw_text_len=100,
-            tokens_from_raw_text=25,
-            tokenized_chunks=3,
-        )
+        chunks = ["chunk one content", "chunk two content"]
 
         patch_smart_acompletion(fake_acompletion)
 
-        result, name, chunks = await accumulate_llm_results_for_summarization(
-            test_case=test_case,
+        result, name, returned_chunks = await accumulate_llm_results_for_summarization(
+            test_name="chunking_test",
+            chunks=chunks,
             chunk_analysis_prompt="Analyze: {text}",
             final_synthesis_prompt="Synthesize: {summary}",
-            chunking_strategy=chunking_strategy,
             llm_params={"model": "test-model"},
             chunk_concurrency=1,
         )
 
         assert result == "final summary"
         assert name == "chunking_test"
-        assert len(chunks) > 0
+        assert returned_chunks == chunks
 
     @pytest.mark.asyncio
     async def test_respects_chunk_concurrency(self, patch_smart_acompletion):
@@ -218,39 +199,24 @@ class TestAccumulateLLMResultsForSummarization:
             async with lock:
                 current_concurrent += 1
                 max_concurrent = max(max_concurrent, current_concurrent)
-            await asyncio.sleep(0.01)  # Simulate work
+            await asyncio.sleep(0.01)
             async with lock:
                 current_concurrent -= 1
             return FakeLiteLLMResponse(content="result")
 
-        test_case = {
-            "name": "concurrency_test",
-            "status": "FAIL",
-            "body": [
-                {"name": f"Kw{i}", "status": "PASS", "type": "KEYWORD"}
-                for i in range(8)
-            ],
-        }
-        chunking_strategy = Chunking(
-            chunk_size=50,
-            number_of_chunks=4,
-            raw_text_len=200,
-            tokens_from_raw_text=50,
-            tokenized_chunks=4,
-        )
+        chunks = [f"chunk{i}" for i in range(8)]
 
         patch_smart_acompletion(tracking_acompletion)
 
         await accumulate_llm_results_for_summarization(
-            test_case=test_case,
+            test_name="concurrency_test",
+            chunks=chunks,
             chunk_analysis_prompt="Analyze: {text}",
             final_synthesis_prompt="Synthesize: {summary}",
-            chunking_strategy=chunking_strategy,
             llm_params={"model": "test-model"},
             chunk_concurrency=2,
         )
 
-        # Max concurrent should be limited to 2 (not counting final synthesis)
         assert max_concurrent <= 2
 
 
@@ -382,99 +348,3 @@ class TestChunkRfTestLines:
 
         assert len(result) > 1
         assert len(result[-1]) < len(result[-2])
-
-
-# ---------------------------------------------------------------------------
-# Factories
-# ---------------------------------------------------------------------------
-
-
-def make_kw(
-    name: str = "Kw",
-    status: str = "PASS",
-    args: list | None = None,
-    body: list | None = None,
-    kw_type: str = "KEYWORD",
-) -> dict:
-    item: dict = {"name": name, "status": status, "type": kw_type}
-    if args:
-        item["args"] = args
-    if body:
-        item["body"] = body
-    return item
-
-
-def make_msg(message: str = "log line") -> dict:
-    return {"type": "MESSAGE", "message": message}
-
-
-def make_test(
-    name: str = "My Test",
-    status: str = "PASS",
-    body: list | None = None,
-    suite_context: list | None = None,
-) -> dict:
-    tc: dict = {"name": name, "status": status}
-    if body:
-        tc["body"] = body
-    if suite_context:
-        tc["suite_context"] = suite_context
-    return tc
-
-
-class TestRenderRfKeywords:
-    """Tests for _render_rf_keywords."""
-
-    def test_empty_body_returns_empty_list(self):
-        assert _render_rf_keywords([], depth=0) == []
-
-    def test_message_item_uses_message_text_directly(self):
-        result = _render_rf_keywords([make_msg("log line")], depth=1)
-
-        assert result == [(1, "log line")]
-
-    def test_keyword_renders_kind_name_and_status(self):
-        result = _render_rf_keywords([make_kw("Log", "PASS")], depth=0)
-
-        assert result == [(0, "Keyword: Log - PASS")]
-
-    def test_keyword_with_args_appends_args_line_at_next_depth(self):
-        result = _render_rf_keywords(
-            [make_kw("Log", "PASS", args=["hello", 42])], depth=0
-        )
-
-        assert (0, "Keyword: Log - PASS") in result
-        assert (1, "args: hello, 42") in result
-
-    def test_nested_keyword_body_rendered_at_incremented_depth(self):
-        inner = make_kw("Inner", "PASS")
-        outer = make_kw("Outer", "PASS", body=[inner])
-
-        result = _render_rf_keywords([outer], depth=0)
-
-        assert (0, "Keyword: Outer - PASS") in result
-        assert (1, "Keyword: Inner - PASS") in result
-
-
-class TestRenderRfTestStructure:
-    """Tests for _render_rf_test_structure."""
-
-    def test_no_suite_context_renders_single_test_line_at_depth_0(self):
-        result = _render_rf_test_structure(make_test("Login Test", "PASS"))
-
-        assert result == [(0, "Test: Login Test - PASS")]
-
-    def test_suite_context_produces_nested_suite_lines_before_test(self):
-        suite_ctx = [{"name": "Suite A"}, {"name": "Suite B"}]
-
-        result = _render_rf_test_structure(make_test(suite_context=suite_ctx))
-
-        assert result[0] == (0, "Suite: Suite A")
-        assert result[1] == (1, "Suite: Suite B")
-        assert result[2] == (2, "Test: My Test - PASS")
-
-    def test_body_keywords_appended_after_test_line(self):
-        result = _render_rf_test_structure(make_test(body=[make_kw("Click", "PASS")]))
-
-        assert result[0] == (0, "Test: My Test - PASS")
-        assert result[1] == (1, "Keyword: Click - PASS")

@@ -2,6 +2,7 @@ import pytest
 
 from result_companion._internal.analysis_helpers import apply_concurrency_overrides
 from result_companion.api import analyze, run_analysis
+from result_companion.core.chunking.rf_chunker import ChunkableResult
 from result_companion.core.parsers.config import (
     ChunkingPromptsModel,
     DefaultConfigModel,
@@ -30,21 +31,35 @@ def make_config() -> DefaultConfigModel:
     )
 
 
-def make_test_cases() -> list[dict]:
-    """Creates test case dicts for testing."""
-    return [
-        {"name": "test_pass", "status": "PASS"},
-        {"name": "test_fail", "status": "FAIL"},
-    ]
+def make_fake_chunkable(test_cases: list[tuple[str, str]]) -> ChunkableResult:
+    """Creates a fake ChunkableResult that yields given (name, status) pairs."""
+
+    class FakeChunkable:
+        def iter_tests(self, include_passing: bool = True):
+            for name, status in test_cases:
+                if not include_passing and status == "PASS":
+                    continue
+                yield name, status, [(0, f"Test: {name} - {status}")]
+
+        @property
+        def test_count(self):
+            return len(test_cases)
+
+        def source_hash(self):
+            return "abc123"
+
+    return FakeChunkable()
 
 
 PATCH_API = "result_companion.api"
 PATCH_HELPERS = "result_companion._internal.analysis_helpers"
 
 
-async def fake_execute(**kw):
-    names = [t["name"] for t in kw["test_cases"]]
-    return {n: f"Analysis of {n}" for n in names}
+async def fake_execute(chunkable, config, include_passing=False, **kw):
+    return {
+        name: f"Analysis of {name}"
+        for name, status, _ in chunkable.iter_tests(include_passing=include_passing)
+    }
 
 
 class TestApplyConcurrencyOverrides:
@@ -90,9 +105,9 @@ class TestRunAnalysis:
     @pytest.mark.asyncio
     async def test_returns_analysis_result(self):
         config = make_config()
-        test_cases = [{"name": "test_fail", "status": "FAIL"}]
+        chunkable = make_fake_chunkable([("test_fail", "FAIL")])
 
-        result = await run_analysis(config=config, test_cases=test_cases)
+        result = await run_analysis(config=config, chunkable=chunkable)
 
         assert isinstance(result, AnalysisResult)
         assert result.llm_results == {"test_fail": "Analysis of test_fail"}
@@ -108,7 +123,7 @@ class TestRunAnalysis:
 
         result = await run_analysis(
             config=make_config(),
-            test_cases=[{"name": "test_fail", "status": "FAIL"}],
+            chunkable=make_fake_chunkable([("test_fail", "FAIL")]),
             summarize_failures=True,
         )
 
@@ -127,7 +142,7 @@ class TestRunAnalysis:
 
         result = await run_analysis(
             config=make_config(),
-            test_cases=[{"name": "t", "status": "FAIL"}],
+            chunkable=make_fake_chunkable([("t", "FAIL")]),
             summarize_failures=True,
             dryrun=True,
         )
@@ -136,15 +151,16 @@ class TestRunAnalysis:
         assert not summary_called
 
     @pytest.mark.asyncio
-    async def test_accepts_pre_built_objects(self):
-        """Verifies no file paths are needed — only config + test_cases."""
+    async def test_filters_passing_when_include_passing_false(self):
         config = make_config()
-        config.concurrency.test_case = 7
+        chunkable = make_fake_chunkable([("test_pass", "PASS"), ("test_fail", "FAIL")])
 
-        result = await run_analysis(config=config, test_cases=make_test_cases())
+        result = await run_analysis(
+            config=config, chunkable=chunkable, include_passing=False
+        )
 
-        assert len(result.test_names) == 2
-        assert config.concurrency.test_case == 7
+        assert "test_fail" in result.test_names
+        assert "test_pass" not in result.test_names
 
 
 class TestAnalyze:
@@ -158,30 +174,25 @@ class TestAnalyze:
         monkeypatch.setattr(f"{PATCH_API}.set_global_log_level", lambda _: None)
         monkeypatch.setattr(f"{PATCH_API}.execute_llm_and_get_results", fake_execute)
 
-    def test_with_list_passes_test_cases_directly(self):
-        config = make_config()
-        test_cases = [{"name": "test_fail", "status": "FAIL"}]
-
-        result = analyze(output=test_cases, config=config)
-
-        assert result.llm_results == {"test_fail": "Analysis of test_fail"}
-        assert result.test_names == ["test_fail"]
-
     def test_with_path_loads_and_filters(self, monkeypatch):
         monkeypatch.setattr(
-            f"{PATCH_HELPERS}.get_robot_results_from_file_as_dict",
-            lambda **kw: make_test_cases(),
+            f"{PATCH_API}.build_chunkable",
+            lambda **kw: make_fake_chunkable(
+                [("test_pass", "PASS"), ("test_fail", "FAIL")]
+            ),
         )
 
         result = analyze(output="output.xml", config=make_config())
 
-        assert result.test_names == ["test_fail"]
-        assert "test_pass" not in result.llm_results
+        assert "test_fail" in result.test_names
+        assert "test_pass" not in result.test_names
 
     def test_with_path_includes_passing_when_requested(self, monkeypatch):
         monkeypatch.setattr(
-            f"{PATCH_HELPERS}.get_robot_results_from_file_as_dict",
-            lambda **kw: make_test_cases(),
+            f"{PATCH_API}.build_chunkable",
+            lambda **kw: make_fake_chunkable(
+                [("test_pass", "PASS"), ("test_fail", "FAIL")]
+            ),
         )
 
         result = analyze(
@@ -190,16 +201,3 @@ class TestAnalyze:
 
         assert "test_pass" in result.test_names
         assert "test_fail" in result.test_names
-
-    def test_with_list_ignores_tag_filters(self):
-        config = make_config()
-        test_cases = make_test_cases()
-
-        result = analyze(
-            output=test_cases,
-            config=config,
-            include_tags=["smoke"],
-            exclude_tags=["wip"],
-        )
-
-        assert len(result.test_names) == 2

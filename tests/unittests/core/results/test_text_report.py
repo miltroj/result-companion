@@ -197,18 +197,15 @@ class TestRenderJsonReport:
         assert parsed["failed_test_count"] == 0
         assert parsed["overall_summary"] is None
 
-    def test_includes_metadata_when_all_test_cases_provided(self):
-        all_cases = [
-            {"name": "t1", "status": "FAIL"},
-            {"name": "t2", "status": "PASS"},
-        ]
+    def test_includes_metadata_when_provided(self):
         result = render_json_report(
             llm_results={"t1": "err"},
             analyzed_test_names=["t1"],
             overall_summary=None,
             model="openai/gpt-4",
             source_file="output.xml",
-            all_test_cases=all_cases,
+            total_test_count=2,
+            source_hash="abc123abc123",
         )
         parsed = json.loads(result)
 

@@ -106,14 +106,24 @@ def calculate_overall_chunk_size(
 
 
 def calculate_chunk_size(
-    test_case: dict, system_prompt: str, tokenizer_from_config: TokenizerModel
+    raw_text: str, system_prompt: str, tokenizer_from_config: TokenizerModel
 ) -> Chunking:
-    LLM_fed_text = str(test_case) + system_prompt
+    """Calculates chunking parameters for a test case.
+
+    Args:
+        raw_text: Rendered test case text.
+        system_prompt: Prompt appended alongside the text.
+        tokenizer_from_config: Tokenizer configuration.
+
+    Returns:
+        Chunking with size and count information.
+    """
+    full_text = raw_text + system_prompt
     tokenizer = tokenizer_mappings[tokenizer_from_config.tokenizer]
     max_content_tokens = tokenizer_from_config.max_content_tokens
-    text_to_tokens = tokenizer(LLM_fed_text)
+    text_to_tokens = tokenizer(full_text)
     return calculate_overall_chunk_size(
         actual_tokens_from_text=text_to_tokens,
         max_tokens_acceptable=max_content_tokens,
-        raw_text=LLM_fed_text,
+        raw_text=full_text,
     )

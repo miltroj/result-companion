@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 from typing import Iterator, Sequence
 
@@ -9,6 +11,8 @@ from robot.api import ExecutionResult
 from robot.result.model import Keyword, Message, TestCase, TestSuite
 
 from result_companion.core.chunking.chunking import chunk_rf_test_lines
+from result_companion.core.parsers.config import ContextFieldsModel
+from result_companion.core.results.visitors import UniqueNameResultVisitor
 
 _DEFAULT_FIELDS = frozenset({"name", "status", "type", "args", "message"})
 
@@ -41,13 +45,43 @@ class ChunkableResult:
         )
     """
 
-    def __init__(self, source: Path | TestSuite) -> None:
+    def __init__(
+        self,
+        source: Path | TestSuite,
+        include_tags: list[str] | None = None,
+        exclude_tags: list[str] | None = None,
+    ) -> None:
         if isinstance(source, TestSuite):
             self._suite = source
         else:
-            self._suite = ExecutionResult(source).suite
+            result = ExecutionResult(source)
+            suite_config: dict = {}
+            if include_tags:
+                suite_config["include_tags"] = include_tags
+            if exclude_tags:
+                suite_config["exclude_tags"] = exclude_tags
+            if suite_config:
+                result.configure(suite_config=suite_config)
+            result.visit(UniqueNameResultVisitor())
+            self._suite = result.suite
         self._include: frozenset[str] | None = None
         self._exclude: frozenset[str] = frozenset()
+
+    @classmethod
+    def from_config(
+        cls,
+        source: Path | TestSuite,
+        context_fields: ContextFieldsModel,
+        include_tags: list[str] | None = None,
+        exclude_tags: list[str] | None = None,
+    ) -> ChunkableResult:
+        """Creates a ChunkableResult with field selection from config."""
+        instance = cls(source, include_tags=include_tags, exclude_tags=exclude_tags)
+        if context_fields.include_fields:
+            instance = instance.include_fields(context_fields.include_fields)
+        if context_fields.exclude_fields:
+            instance = instance.exclude_fields(context_fields.exclude_fields)
+        return instance
 
     def include_fields(self, fields: Sequence[str]) -> ChunkableResult:
         """Sets which fields to render (replaces defaults)."""
@@ -79,6 +113,56 @@ class ChunkableResult:
                 self._suite, [], 0, self._active_fields()
             )
         ]
+
+    def iter_tests(
+        self, include_passing: bool = True
+    ) -> Iterator[tuple[str, str, list[tuple[int, str]]]]:
+        """Yields (test_name, test_status, lines) for each test.
+
+        Args:
+            include_passing: If False, skips tests with status PASS.
+        """
+        fields = self._active_fields()
+        for test_name, lines in _iter_tests_with_context(self._suite, [], 0, fields):
+            status = _find_test_status(self._suite, test_name)
+            if not include_passing and status == "PASS":
+                continue
+            yield test_name, status, lines
+
+    @property
+    def test_count(self) -> int:
+        """Total number of tests in the suite tree."""
+        return _count_tests(self._suite)
+
+    def source_hash(self) -> str:
+        """Short SHA-256 hash of rendered test names (stable content fingerprint)."""
+        names = sorted(t.name for t in _iter_all_tests(self._suite))
+        blob = json.dumps(names).encode()
+        return hashlib.sha256(blob).hexdigest()[:12]
+
+
+def _count_tests(suite: TestSuite) -> int:
+    """Recursively counts all tests in the suite tree."""
+    return len(suite.tests) + sum(_count_tests(s) for s in suite.suites)
+
+
+def _iter_all_tests(suite: TestSuite) -> Iterator[TestCase]:
+    """Recursively yields all TestCase objects."""
+    yield from suite.tests
+    for child in suite.suites:
+        yield from _iter_all_tests(child)
+
+
+def _find_test_status(suite: TestSuite, test_name: str) -> str:
+    """Finds status of a test by name, searching recursively."""
+    for test in suite.tests:
+        if test.name == test_name:
+            return test.status
+    for child in suite.suites:
+        status = _find_test_status(child, test_name)
+        if status:
+            return status
+    return ""
 
 
 def _iter_tests_with_context(

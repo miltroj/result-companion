@@ -102,7 +102,8 @@ def render_json_report(
     overall_summary: str | None,
     model: str | None = None,
     source_file: str | None = None,
-    all_test_cases: list[dict] | None = None,
+    total_test_count: int | None = None,
+    source_hash: str | None = None,
 ) -> str:
     """Builds JSON report from LLM per-test results.
 
@@ -112,7 +113,8 @@ def render_json_report(
         overall_summary: Optional synthesized summary.
         model: LLM model used for analysis.
         source_file: Path to the input output.xml.
-        all_test_cases: Raw test data before pass/fail filtering (for metadata).
+        total_test_count: Total tests before pass/fail filtering.
+        source_hash: Short content hash of the source data.
 
     Returns:
         JSON string of the AnalyzeReport.
@@ -124,8 +126,8 @@ def render_json_report(
         overall_summary=overall_summary,
         model=model,
         source_file=source_file,
-        total_test_count=len(all_test_cases) if all_test_cases else None,
-        source_hash=compute_source_hash(all_test_cases) if all_test_cases else None,
+        total_test_count=total_test_count,
+        source_hash=source_hash,
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
     return report.to_json()
