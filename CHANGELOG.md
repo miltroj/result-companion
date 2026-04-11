@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.15] - 2026-04-11
+
+### Changed
+- LLM chunking: structured Robot text (suites → test → keywords/messages) with ancestor context, continuation markers, and long-line splits—replaces `str(test_case)` + overlap.
+- Parser: keep `type` on keyword/message nodes so chunking can distinguish messages from keywords.
+
+### Fixed
+- HTML report: LLM UI injection reads/writes the log with explicit UTF-8 so non-ASCII content is preserved on Windows (#71).
+
+[0.0.15]: https://github.com/miltroj/result-companion/releases/tag/v0.0.15
+
 ## [0.0.14] - 2026-04-05
 
 ### Added
