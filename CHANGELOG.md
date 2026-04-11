@@ -8,8 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.0.15] - 2026-04-11
 
 ### Changed
-- LLM chunking: structured Robot text (suites → test → keywords/messages) with ancestor context, continuation markers, and long-line splits—replaces `str(test_case)` + overlap.
-- Parser: keep `type` on keyword/message nodes so chunking can distinguish messages from keywords.
+- **Context-aware chunking** for LLM input: nested suites → test → keywords/messages; each chunk repeats ancestor lines and uses `{...}` for continuations (plus long-line splits when needed)—replaces `str(test_case)` + overlap.
+
+  ```text
+  Suite: Outer Suite - FAIL
+      Suite: Middle Suite - FAIL
+          Suite: Inner Suite - FAIL
+              Test: Example workflow test - FAIL (120.0s)
+                  Keyword: Run job and wait - PASS (100.0s)
+                      Keyword: Log - PASS (5ms)
+                          {...}
+  ```
 
 ### Fixed
 - HTML report: LLM UI injection reads/writes the log with explicit UTF-8 so non-ASCII content is preserved on Windows (#71).
