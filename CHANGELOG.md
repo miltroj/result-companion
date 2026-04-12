@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
                           {...}
   ```
 
+- Consecutive identical rendered lines (same depth and text) collapse to one line with `(repeats ×N)` before token sizing and chunking.
+
 ### Fixed
 - HTML report: LLM UI injection reads/writes the log with explicit UTF-8 so non-ASCII content is preserved on Windows (#71).
 
