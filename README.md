@@ -210,6 +210,33 @@ test_filter:
 
 See [tag_filtering_config.yaml](https://github.com/miltroj/result-companion/blob/main/examples/configs/tag_filtering_config.yaml) for details.
 
+## Token Efficiency
+
+Before sending a test case to the LLM, result-companion applies two reductions:
+
+**1. Consecutive line deduplication** — repeated log lines are collapsed:
+
+```text
+# Before
+    DeprecationWarning: Call to deprecated create function FieldDescriptor().
+    DeprecationWarning: Call to deprecated create function FieldDescriptor().
+    DeprecationWarning: Call to deprecated create function FieldDescriptor().
+
+# After
+    DeprecationWarning: Call to deprecated create function FieldDescriptor(). (repeats ×3)
+```
+
+**2. Context-aware chunking** — tests that exceed the token budget are split into self-contained chunks. Each chunk repeats the suite → test → keyword ancestor chain so the LLM can interpret it without prior context:
+
+```text
+Suite: Outer Suite - FAIL
+    Suite: Inner Suite - FAIL
+        Test: Example workflow - FAIL
+            Keyword: Run job and wait - PASS
+                {...}                          ← continuation marker
+                Keyword: Log - PASS
+```
+
 ## Limitations
 
 - Text-only analysis (no screenshots/videos)
