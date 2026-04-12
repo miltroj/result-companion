@@ -1,4 +1,5 @@
 import asyncio
+from itertools import groupby
 from typing import Any
 
 from result_companion.core.analizers.llm_router import _smart_acompletion
@@ -64,6 +65,24 @@ def _render_rf_keywords(body: list[dict], depth: int) -> list[tuple[int, str]]:
             lines.append((depth + 1, f"args: {', '.join(str(a) for a in args)}"))
         lines.extend(_render_rf_keywords(item.get("body", []), depth + 1))
     return lines
+
+
+def deduplicate_consecutive_lines(
+    lines: list[tuple[int, str]],
+) -> list[tuple[int, str]]:
+    """Collapses consecutive identical lines into a single annotated line.
+
+    Args:
+        lines: List of (depth, text) pairs.
+
+    Returns:
+        Deduplicated list where runs of identical lines become ``text (×N)``.
+    """
+    result = []
+    for (depth, text), group in groupby(lines):
+        count = sum(1 for _ in group)
+        result.append((depth, text if count == 1 else f"{text} (repeats ×{count})"))
+    return result
 
 
 def render_lines_to_text(lines: list[tuple[int, str]]) -> str:

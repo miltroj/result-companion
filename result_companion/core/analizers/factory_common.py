@@ -5,6 +5,7 @@ from result_companion.core.analizers.llm_router import _smart_acompletion
 from result_companion.core.chunking.chunking import (
     accumulate_llm_results_for_summarization,
     chunk_rf_test_lines,
+    deduplicate_consecutive_lines,
     render_lines_to_text,
     render_rf_test_structure,
 )
@@ -145,8 +146,11 @@ async def execute_llm_and_get_results(
     )
 
     for test_case in test_cases:
-        lines = render_rf_test_structure(test_case)
+        lines = deduplicate_consecutive_lines(render_rf_test_structure(test_case))
         rendered_text = render_lines_to_text(lines)
+        logger.debug(
+            f"Test case {test_case['name']} full rendered text:\n{rendered_text}"
+        )
         chunk_info = calculate_chunk_size(rendered_text, question_prompt, tokenizer)
         chunks = chunk_rf_test_lines(lines, chunk_info.chunk_size)
         test_case_stats[test_case["name"]] = (

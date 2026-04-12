@@ -10,6 +10,7 @@ from result_companion.core.chunking.chunking import (
     accumulate_llm_results_for_summarization,
     analyze_chunk,
     chunk_rf_test_lines,
+    deduplicate_consecutive_lines,
     render_rf_test_structure,
     split_text_into_chunks,
     synthesize_summaries,
@@ -442,3 +443,69 @@ class TestRenderRfTestStructure:
 
         assert result[0] == (0, "Test: My Test - PASS")
         assert result[1] == (1, "Keyword: Click - PASS")
+
+
+class TestDeduplicateConsecutiveLines:
+    """Tests for deduplicate_consecutive_lines."""
+
+    def test_unique_lines_unchanged(self):
+        lines = [(0, "Suite: A"), (1, "Test: B"), (2, "msg one"), (2, "msg two")]
+
+        result = deduplicate_consecutive_lines(lines)
+
+        assert result == lines
+
+    def test_consecutive_duplicates_collapsed_with_count(self):
+        lines = [(2, "same log"), (2, "same log"), (2, "same log")]
+
+        result = deduplicate_consecutive_lines(lines)
+
+        assert result == [(2, "same log (repeats ×3)")]
+
+    def test_non_consecutive_duplicates_not_collapsed(self):
+        lines = [(1, "msg"), (1, "other"), (1, "msg")]
+
+        result = deduplicate_consecutive_lines(lines)
+
+        assert result == [(1, "msg"), (1, "other"), (1, "msg")]
+
+    def test_single_line_unchanged(self):
+        lines = [(0, "only line")]
+
+        result = deduplicate_consecutive_lines(lines)
+
+        assert result == [(0, "only line")]
+
+    def test_empty_input_returns_empty(self):
+        assert deduplicate_consecutive_lines([]) == []
+
+    def test_mixed_run_lengths(self):
+        lines = [(0, "a"), (0, "b"), (0, "b"), (0, "c"), (0, "c"), (0, "c")]
+
+        result = deduplicate_consecutive_lines(lines)
+
+        assert result == [(0, "a"), (0, "b (repeats ×2)"), (0, "c (repeats ×3)")]
+
+    def test_same_log_from_different_keywords_not_collapsed(self):
+        lines = [
+            (1, "Keyword: Step A - PASS"),
+            (2, "log: connection established"),
+            (1, "Keyword: Step B - PASS"),
+            (2, "log: connection established"),
+        ]
+
+        result = deduplicate_consecutive_lines(lines)
+
+        assert result == lines
+
+    def test_deduplications_is_not_reordering_keywords(self):
+        lines = [
+            (1, "Keyword: Step B - PASS"),
+            (1, "Keyword: Step A3 - PASS"),
+            (1, "Keyword: Step A2 - PASS"),
+            (1, "Keyword: Step A1 - PASS"),
+        ]
+
+        result = deduplicate_consecutive_lines(lines)
+
+        assert result == lines
