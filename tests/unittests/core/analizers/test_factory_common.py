@@ -200,9 +200,7 @@ class TestDryrunResult:
     @pytest.mark.asyncio
     async def test_returns_placeholder(self):
         """Test dryrun returns placeholder message and test name."""
-        test_case = {"name": "My Test", "status": "FAIL"}
-
-        result, name, chunks = await _dryrun_result(test_case)
+        result, name, chunks = await _dryrun_result("My Test")
 
         assert name == "My Test"
         assert "No LLM analysis" in result
@@ -215,12 +213,12 @@ class TestAnalyzeTestCase:
     @pytest.mark.asyncio
     async def test_returns_llm_response(self, patch_smart_acompletion):
         """Test that analyze_test_case returns LLM response."""
-        test_case = {"name": "test_login", "status": "FAIL", "error": "timeout"}
         fake_acompletion = make_fake_acompletion("Root cause: timeout error")
         patch_smart_acompletion(fake_acompletion)
 
         result, name, chunks = await analyze_test_case(
-            test_case=test_case,
+            test_name="test_login",
+            test_case_text="Test: test_login - FAIL",
             question_prompt="What failed?",
             prompt_template="Q: {question}\nC: {context}",
             llm_params={"model": "test-model"},

@@ -4,12 +4,17 @@ from dataclasses import dataclass
 import pytest
 
 from result_companion.core.chunking.chunking import (
+    _collect_ancestor_context_at,
+    _render_rf_keywords,
+    _split_long_line,
     accumulate_llm_results_for_summarization,
     analyze_chunk,
+    chunk_rf_test_lines,
+    deduplicate_consecutive_lines,
+    render_rf_test_structure,
     split_text_into_chunks,
     synthesize_summaries,
 )
-from result_companion.core.chunking.utils import Chunking
 
 
 @pytest.fixture
@@ -165,34 +170,23 @@ class TestAccumulateLLMResultsForSummarization:
     @pytest.mark.asyncio
     async def test_splits_and_summarizes(self, patch_smart_acompletion):
         """Test full chunking and summarization flow."""
-        # str(test_case) creates ~155 chars, chunk_size=50 produces 4 chunks + 1 synthesis
         fake_acompletion = FakeACompletionSequence(
-            responses=["chunk1", "chunk2", "chunk3", "chunk4", "final summary"]
+            responses=["analysis1", "analysis2", "final summary"]
         )
-
-        test_case = {"name": "chunking_test", "content": "x" * 100}
-        chunking_strategy = Chunking(
-            chunk_size=50,
-            number_of_chunks=2,
-            raw_text_len=100,
-            tokens_from_raw_text=25,
-            tokenized_chunks=2,
-        )
-
         patch_smart_acompletion(fake_acompletion)
 
         result, name, chunks = await accumulate_llm_results_for_summarization(
-            test_case=test_case,
+            test_name="chunking_test",
+            chunks=["chunk one", "chunk two"],
             chunk_analysis_prompt="Analyze: {text}",
             final_synthesis_prompt="Synthesize: {summary}",
-            chunking_strategy=chunking_strategy,
             llm_params={"model": "test-model"},
             chunk_concurrency=1,
         )
 
         assert result == "final summary"
         assert name == "chunking_test"
-        assert len(chunks) > 0
+        assert len(chunks) == 2
 
     @pytest.mark.asyncio
     async def test_respects_chunk_concurrency(self, patch_smart_acompletion):
@@ -211,25 +205,307 @@ class TestAccumulateLLMResultsForSummarization:
                 current_concurrent -= 1
             return FakeLiteLLMResponse(content="result")
 
-        test_case = {"name": "concurrency_test", "content": "x" * 200}
-        chunking_strategy = Chunking(
-            chunk_size=50,
-            number_of_chunks=4,
-            raw_text_len=200,
-            tokens_from_raw_text=50,
-            tokenized_chunks=4,
-        )
-
         patch_smart_acompletion(tracking_acompletion)
 
         await accumulate_llm_results_for_summarization(
-            test_case=test_case,
+            test_name="concurrency_test",
+            chunks=[f"chunk{i}" for i in range(8)],
             chunk_analysis_prompt="Analyze: {text}",
             final_synthesis_prompt="Synthesize: {summary}",
-            chunking_strategy=chunking_strategy,
             llm_params={"model": "test-model"},
             chunk_concurrency=2,
         )
 
         # Max concurrent should be limited to 2 (not counting final synthesis)
         assert max_concurrent <= 2
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+# Depth-0 suite line, depth-1 test line, depth-2 keyword line used across tests.
+_SUITE = (0, "Suite: S")
+_TEST = (1, "Test: T - PASS")
+_KW1 = (2, "Keyword: K1 - PASS")
+_KW2 = (2, "Keyword: K2 - PASS")
+
+
+class TestCollectAncestorContext:
+    """Tests for _collect_ancestor_context_at."""
+
+    def test_collects_suite_and_test_for_depth_2_line(self):
+        lines = [_SUITE, _TEST, _KW1]
+
+        result = _collect_ancestor_context_at(lines, at_idx=2)
+
+        assert len(result) == 2
+        assert "Suite: S" in result[0]
+        assert "Test: T - PASS" in result[1]
+
+    def test_collects_only_suite_for_depth_1_line(self):
+        lines = [_SUITE, _TEST]
+
+        result = _collect_ancestor_context_at(lines, at_idx=1)
+
+        assert len(result) == 1
+        assert "Suite: S" in result[0]
+
+    def test_returns_empty_list_for_depth_0_line(self):
+        lines = [_SUITE, (0, "Suite: S2")]
+
+        result = _collect_ancestor_context_at(lines, at_idx=1)
+
+        assert result == []
+
+
+class TestSplitLongLine:
+    """Tests for _split_long_line."""
+
+    def test_splits_into_breadcrumb_prefixed_chunks(self):
+        text = "A" * 100
+        breadcrumbs = ["Suite: S", "    Test: T"]
+
+        result = _split_long_line(text, depth=2, breadcrumbs=breadcrumbs, chunk_size=60)
+
+        assert len(result) > 1
+        for chunk in result:
+            assert "Suite: S" in chunk
+            assert "{...}" in chunk
+            assert "A" in chunk
+
+    def test_uses_minimum_piece_size_when_breadcrumbs_consume_most_budget(self):
+        # Breadcrumbs larger than chunk_size force the chunk_size//3 floor.
+        large_breadcrumbs = ["X" * 200]
+        text = "A" * 50
+
+        result = _split_long_line(
+            text, depth=0, breadcrumbs=large_breadcrumbs, chunk_size=30
+        )
+
+        assert len(result) > 0
+        assert all("A" in chunk for chunk in result)
+
+
+class TestChunkRfTestLines:
+    """Tests for chunk_rf_test_lines – all code paths."""
+
+    def test_empty_input_returns_empty_list(self):
+        assert chunk_rf_test_lines([], chunk_size=1000) == []
+
+    def test_fits_in_single_chunk_when_total_under_limit(self):
+        lines = [_SUITE, _TEST, _KW1]
+
+        result = chunk_rf_test_lines(lines, chunk_size=10_000)
+
+        assert len(result) == 1
+        assert "Suite: S" in result[0]
+        assert "Keyword: K1 - PASS" in result[0]
+
+    def test_normal_overflow_flushes_and_starts_continuation_with_breadcrumbs(self):
+        # chunk_size=60: lines 0-2 fit (55 chars), line 3 overflows → 2 chunks.
+        lines = [_SUITE, _TEST, _KW1, _KW2]
+
+        result = chunk_rf_test_lines(lines, chunk_size=60)
+
+        assert len(result) == 2
+        # First chunk has all three initial lines.
+        assert "Suite: S" in result[0]
+        assert "Keyword: K1 - PASS" in result[0]
+        # Second chunk carries ancestor context + continuation marker.
+        assert "Suite: S" in result[1]
+        assert "Test: T - PASS" in result[1]
+        assert "{...}" in result[1]
+        assert "Keyword: K2 - PASS" in result[1]
+
+    def test_long_line_with_no_current_splits_into_sub_chunks(self):
+        # Single oversized line → no current to flush, split directly.
+        lines = [(0, "X" * 100)]
+
+        result = chunk_rf_test_lines(lines, chunk_size=30)
+
+        assert len(result) > 1
+        assert all("{...}" in chunk for chunk in result)
+
+    def test_long_line_with_current_flushes_current_then_splits(self):
+        lines = [_SUITE, (0, "X" * 100)]
+
+        result = chunk_rf_test_lines(lines, chunk_size=50)
+
+        assert len(result) >= 2
+        assert result[0] == "Suite: S"
+        assert "X" not in result[0]
+        assert "X" in result[1]
+
+    def test_initial_chunks_are_fuller_than_last_when_lines_do_not_divide_evenly(self):
+        # 8 depth-0 lines of 10 chars each with chunk_size=35:
+        # chunk1 fits 3 lines (32 chars), continuations fit 2 (27 chars each),
+        # last chunk has 1 line (16 chars) → clearly smaller than all predecessors.
+        lines = [(0, "A" * 10)] * 8
+
+        result = chunk_rf_test_lines(lines, chunk_size=35)
+
+        assert len(result) > 1
+        assert len(result[-1]) < len(result[-2])
+
+
+# ---------------------------------------------------------------------------
+# Factories
+# ---------------------------------------------------------------------------
+
+
+def make_kw(
+    name: str = "Kw",
+    status: str = "PASS",
+    args: list | None = None,
+    body: list | None = None,
+    kw_type: str = "KEYWORD",
+) -> dict:
+    item: dict = {"name": name, "status": status, "type": kw_type}
+    if args:
+        item["args"] = args
+    if body:
+        item["body"] = body
+    return item
+
+
+def make_msg(message: str = "log line") -> dict:
+    return {"type": "MESSAGE", "message": message}
+
+
+def make_test(
+    name: str = "My Test",
+    status: str = "PASS",
+    body: list | None = None,
+    suite_context: list | None = None,
+) -> dict:
+    tc: dict = {"name": name, "status": status}
+    if body:
+        tc["body"] = body
+    if suite_context:
+        tc["suite_context"] = suite_context
+    return tc
+
+
+class TestRenderRfKeywords:
+    """Tests for _render_rf_keywords."""
+
+    def test_empty_body_returns_empty_list(self):
+        assert _render_rf_keywords([], depth=0) == []
+
+    def test_message_item_uses_message_text_directly(self):
+        result = _render_rf_keywords([make_msg("log line")], depth=1)
+
+        assert result == [(1, "log line")]
+
+    def test_keyword_renders_kind_name_and_status(self):
+        result = _render_rf_keywords([make_kw("Log", "PASS")], depth=0)
+
+        assert result == [(0, "Keyword: Log - PASS")]
+
+    def test_keyword_with_args_appends_args_line_at_next_depth(self):
+        result = _render_rf_keywords(
+            [make_kw("Log", "PASS", args=["hello", 42])], depth=0
+        )
+
+        assert (0, "Keyword: Log - PASS") in result
+        assert (1, "args: hello, 42") in result
+
+    def test_nested_keyword_body_rendered_at_incremented_depth(self):
+        inner = make_kw("Inner", "PASS")
+        outer = make_kw("Outer", "PASS", body=[inner])
+
+        result = _render_rf_keywords([outer], depth=0)
+
+        assert (0, "Keyword: Outer - PASS") in result
+        assert (1, "Keyword: Inner - PASS") in result
+
+
+class TestRenderRfTestStructure:
+    """Tests for render_rf_test_structure."""
+
+    def test_no_suite_context_renders_single_test_line_at_depth_0(self):
+        result = render_rf_test_structure(make_test("Login Test", "PASS"))
+
+        assert result == [(0, "Test: Login Test - PASS")]
+
+    def test_suite_context_produces_nested_suite_lines_before_test(self):
+        suite_ctx = [{"name": "Suite A"}, {"name": "Suite B"}]
+
+        result = render_rf_test_structure(make_test(suite_context=suite_ctx))
+
+        assert result[0] == (0, "Suite: Suite A")
+        assert result[1] == (1, "Suite: Suite B")
+        assert result[2] == (2, "Test: My Test - PASS")
+
+    def test_body_keywords_appended_after_test_line(self):
+        result = render_rf_test_structure(make_test(body=[make_kw("Click", "PASS")]))
+
+        assert result[0] == (0, "Test: My Test - PASS")
+        assert result[1] == (1, "Keyword: Click - PASS")
+
+
+class TestDeduplicateConsecutiveLines:
+    """Tests for deduplicate_consecutive_lines."""
+
+    def test_unique_lines_unchanged(self):
+        lines = [(0, "Suite: A"), (1, "Test: B"), (2, "msg one"), (2, "msg two")]
+
+        result = deduplicate_consecutive_lines(lines)
+
+        assert result == lines
+
+    def test_consecutive_duplicates_collapsed_with_count(self):
+        lines = [(2, "same log"), (2, "same log"), (2, "same log")]
+
+        result = deduplicate_consecutive_lines(lines)
+
+        assert result == [(2, "same log (repeats ×3)")]
+
+    def test_non_consecutive_duplicates_not_collapsed(self):
+        lines = [(1, "msg"), (1, "other"), (1, "msg")]
+
+        result = deduplicate_consecutive_lines(lines)
+
+        assert result == [(1, "msg"), (1, "other"), (1, "msg")]
+
+    def test_single_line_unchanged(self):
+        lines = [(0, "only line")]
+
+        result = deduplicate_consecutive_lines(lines)
+
+        assert result == [(0, "only line")]
+
+    def test_empty_input_returns_empty(self):
+        assert deduplicate_consecutive_lines([]) == []
+
+    def test_mixed_run_lengths(self):
+        lines = [(0, "a"), (0, "b"), (0, "b"), (0, "c"), (0, "c"), (0, "c")]
+
+        result = deduplicate_consecutive_lines(lines)
+
+        assert result == [(0, "a"), (0, "b (repeats ×2)"), (0, "c (repeats ×3)")]
+
+    def test_same_log_from_different_keywords_not_collapsed(self):
+        lines = [
+            (1, "Keyword: Step A - PASS"),
+            (2, "log: connection established"),
+            (1, "Keyword: Step B - PASS"),
+            (2, "log: connection established"),
+        ]
+
+        result = deduplicate_consecutive_lines(lines)
+
+        assert result == lines
+
+    def test_deduplications_is_not_reordering_keywords(self):
+        lines = [
+            (1, "Keyword: Step B - PASS"),
+            (1, "Keyword: Step A3 - PASS"),
+            (1, "Keyword: Step A2 - PASS"),
+            (1, "Keyword: Step A1 - PASS"),
+        ]
+
+        result = deduplicate_consecutive_lines(lines)
+
+        assert result == lines

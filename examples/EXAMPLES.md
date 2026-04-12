@@ -492,7 +492,19 @@ result-companion analyze -o output.xml --test-concurrency 2 --chunk-concurrency 
 
 ### Chunking for Large Tests
 
-When tests exceed token limits, customize how chunks are analyzed:
+Over `max_content_tokens`, a test is split into **context-aware** chunks: each chunk repeats the suite → test → keyword ancestors, then more tree (or `{...}` where it continues). Same breadcrumbs wrap very long single lines.
+
+```text
+Suite: Top - FAIL
+    Test: Example - FAIL
+        Keyword: Outer - PASS
+            Keyword: Inner - FAIL
+                {...}
+```
+
+[`--dryrun`](#dryrun-mode): chunk counts and token estimates without LLM calls.
+
+Customize chunk and synthesis prompts:
 
 ```yaml
 llm_config:
