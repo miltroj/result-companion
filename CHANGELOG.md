@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.16] - 2026-04-13
+
+### Fixed
+- SessionPool lock contention — creation now runs outside lock
+- Transient 400 not retried — `invalid_request_body` retried with exponential backoff; non-retryable errors raise immediately
+- Inverted retry branch in `_send_with_retry`
+
+### Added
+- `_is_retryable_error()` for `invalid_request_body` detection
+- Prompt-size debug logging on send
+
+### Docs / Build
+- Linkify "Robot Framework" in README
+- Version 0.0.15 → 0.0.16
+
+[0.0.16]: https://github.com/miltroj/result-companion/releases/tag/v0.0.16
+
 ## [0.0.15] - 2026-04-11
 
 ### Changed
