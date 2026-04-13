@@ -336,6 +336,32 @@ class TestCopilotLLM:
         assert result is expected
 
 
+class TestRetryableErrorDetection:
+    """Tests for _is_retryable_error."""
+
+    def test_detects_invalid_request_body(self):
+        handler = CopilotLLM()
+        assert (
+            handler._is_retryable_error(
+                Exception('CAPIError: 400 {"code":"invalid_request_body"}')
+            )
+            is True
+        )
+
+    def test_ignores_other_400_codes(self):
+        handler = CopilotLLM()
+        assert (
+            handler._is_retryable_error(
+                Exception('CAPIError: 400 {"code":"unauthorized"}')
+            )
+            is False
+        )
+
+    def test_ignores_unrelated_errors(self):
+        handler = CopilotLLM()
+        assert handler._is_retryable_error(ConnectionError("timeout")) is False
+
+
 class TestRateLimitDetection:
     """Tests for _is_rate_limit_error."""
 
@@ -504,6 +530,25 @@ class TestSendWithRetry:
         )
 
         with pytest.raises(ConnectionError, match="network down"):
+            await handler._send_with_retry("hello")
+
+    @pytest.mark.asyncio
+    async def test_retries_on_invalid_request_body_then_succeeds(self):
+        handler = self._make_handler(
+            [Exception('CAPIError: 400 {"code":"invalid_request_body"}'), "ok"],
+            max_retries=3,
+        )
+
+        result = await handler._send_with_retry("hello")
+
+        assert result == "ok"
+
+    @pytest.mark.asyncio
+    async def test_exhausts_retries_on_persistent_invalid_request_body(self):
+        error = Exception('CAPIError: 400 {"code":"invalid_request_body"}')
+        handler = self._make_handler([error] * 4, max_retries=3)
+
+        with pytest.raises(Exception, match="invalid_request_body"):
             await handler._send_with_retry("hello")
 
     @pytest.mark.asyncio
@@ -723,6 +768,73 @@ class TestSessionPool:
             pass
 
         assert client.sessions_created == 2
+
+    def test_reserve_slot_returns_existing_session_when_available(self):
+        pool = SessionPool(FakeCopilotClient(), "gpt-4.1", pool_size=2)
+        fake_session = object()
+        pool._available.put_nowait(fake_session)
+
+        session, should_create = pool._reserve_slot()
+
+        assert session is fake_session
+        assert should_create is False
+
+    def test_reserve_slot_reserves_creation_slot_when_pool_not_full(self):
+        pool = SessionPool(FakeCopilotClient(), "gpt-4.1", pool_size=2)
+
+        session, should_create = pool._reserve_slot()
+
+        assert session is None
+        assert should_create is True
+        assert pool._created == 1
+
+    def test_reserve_slot_returns_neither_when_pool_full(self):
+        pool = SessionPool(FakeCopilotClient(), "gpt-4.1", pool_size=2)
+        pool._created = 2
+
+        session, should_create = pool._reserve_slot()
+
+        assert session is None
+        assert should_create is False
+
+    @pytest.mark.asyncio
+    async def test_creation_failure_rolls_back_created_count(self):
+        class FailingClient:
+            async def create_session(self, config):
+                raise RuntimeError("connection refused")
+
+        pool = SessionPool(FailingClient(), "gpt-4.1", pool_size=2)
+
+        with pytest.raises(RuntimeError, match="connection refused"):
+            async with pool.acquire():
+                pass
+
+        assert pool._created == 0
+
+    @pytest.mark.asyncio
+    async def test_slot_freed_after_creation_failure_allows_retry(self):
+        call_count = 0
+
+        class SometimesFailingClient:
+            async def create_session(self, config):
+                nonlocal call_count
+                call_count += 1
+                if call_count == 1:
+                    raise RuntimeError("first fails")
+                return FakeSession()
+
+        pool = SessionPool(SometimesFailingClient(), "gpt-4.1", pool_size=1)
+
+        with pytest.raises(RuntimeError):
+            async with pool.acquire():
+                pass
+
+        assert pool._created == 0
+
+        async with pool.acquire():
+            pass
+
+        assert pool._created == 1
 
     @pytest.mark.asyncio
     async def test_close_destroys_sessions(self):

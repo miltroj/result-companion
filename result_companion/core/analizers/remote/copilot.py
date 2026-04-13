@@ -56,23 +56,38 @@ class SessionPool:
         except Exception as e:
             logger.debug(f"Failed to destroy session: {session} - {e}")
 
+    def _reserve_slot(self) -> tuple[Any, bool]:
+        """Atomically grabs an available session or reserves a creation slot.
+
+        Returns:
+            (session_or_None, should_create)
+        """
+        if not self._available.empty():
+            return self._available.get_nowait(), False
+        if self._created < self._pool_size:
+            self._created += 1
+            return None, True
+        return None, False
+
     @asynccontextmanager
     async def acquire(self) -> AsyncIterator[Any]:
         """Acquires a session from pool, creates if needed."""
-        session = None
         async with self._lock:
-            if not self._available.empty():
-                session = self._available.get_nowait()
-            elif self._created < self._pool_size:
+            session, should_create = self._reserve_slot()
+
+        if should_create:
+            try:
                 session = await self._client.create_session(
                     {
                         "model": self._model,
                         "on_permission_request": PermissionHandler.approve_all,
                     }
                 )
-                self._created += 1
-
-        if session is None:
+            except Exception:
+                async with self._lock:
+                    self._created -= 1
+                raise
+        elif session is None:
             session = await self._available.get()
 
         failed = False
@@ -181,6 +196,13 @@ class CopilotLLM(CustomLLM):
         """Checks if an exception is a Copilot rate limit error."""
         return "rate limit" in str(error).lower()
 
+    def _is_retryable_error(self, error: Exception) -> bool:
+        """Checks if a non-rate-limit 400 is worth retrying.
+
+        400 invalid_request_body is transient under high session concurrency.
+        """
+        return "invalid_request_body" in str(error)
+
     async def _send_prompt(self, prompt: str) -> Any:
         """Sends a single prompt through the session pool.
 
@@ -190,6 +212,7 @@ class CopilotLLM(CustomLLM):
         Returns:
             Copilot session response.
         """
+        logger.debug("Sending prompt (chars=%d): %.500s", len(prompt), prompt)
         async with self._pool.acquire() as session:
             return await session.send_and_wait(
                 {"prompt": prompt}, timeout=self._timeout
@@ -241,10 +264,31 @@ class CopilotLLM(CustomLLM):
                 self._has_succeeded = True
                 return response
             except Exception as e:
-                if not self._is_rate_limit_error(e):
+                if self._is_rate_limit_error(e):
+                    last_error = e
+                    await self._handle_rate_limit(e, attempt)
+                elif self._is_retryable_error(e):
+                    last_error = e
+                    delay = self._retry_base_delay * (2**attempt)
+                    logger.warning(
+                        "Transient 400 (attempt %d/%d), retry in %.0fs: %r, prompt_len=%d",
+                        attempt,
+                        self._max_retries,
+                        delay,
+                        e,
+                        len(prompt),
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(
+                        "Non-retryable error (attempt %d/%d) prompt_len=%d: %r",
+                        attempt,
+                        self._max_retries,
+                        len(prompt),
+                        e,
+                        exc_info=True,
+                    )
                     raise
-                last_error = e
-                await self._handle_rate_limit(e, attempt)
         raise last_error
 
     async def acompletion(
