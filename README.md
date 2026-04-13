@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/pypi/l/result-companion)](https://github.com/miltroj/result-companion/blob/main/LICENSE)
 [![CI](https://github.com/miltroj/result-companion/actions/workflows/publish.yml/badge.svg)](https://github.com/miltroj/result-companion/actions/workflows/publish.yml)
 
-**Turn your Robot Framework test failures into instant, actionable insights with AI.**
+**Turn your [Robot Framework](https://github.com/robotframework/robotframework) test failures into instant, actionable insights with AI.**
 
 ![Demo](https://raw.githubusercontent.com/miltroj/result-companion/main/assets/demo.gif)
 
