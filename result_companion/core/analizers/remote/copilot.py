@@ -280,14 +280,6 @@ class CopilotLLM(CustomLLM):
                     )
                     await asyncio.sleep(delay)
                 else:
-                    logger.error(
-                        "Non-retryable error (attempt %d/%d) prompt_len=%d: %r",
-                        attempt,
-                        self._max_retries,
-                        len(prompt),
-                        e,
-                        exc_info=True,
-                    )
                     raise
         raise last_error
 
