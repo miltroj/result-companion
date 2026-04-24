@@ -108,7 +108,7 @@ llm_config:
 
       **Failure Categories**
       [Group by root cause pattern. For each group:]
-      - <Category> ({count} tests): <One sentence>
+      - <Category> len(tests): <One sentence>
         Affected: <test names, abbreviated if needed>
         Action: <who fixes this and how — one line>
 
