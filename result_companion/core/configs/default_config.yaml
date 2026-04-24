@@ -96,13 +96,37 @@ llm_config:
     Answer the question based on the following context: {context}
 
   summary_prompt_template: |
-    Summarize the following failed test analyses for CI output.
-    Return plain text only.
-    Format:
-    1) One short paragraph (max 4 sentences) with common failure themes.
-    2) A bullet list of top 3 actionable fixes.
+      You are summarizing {test_count} failed Robot Framework test
+      analyses for a CI triage report. Engineers use this to decide
+      what to fix and in what order.
 
-    {analyses}
+      NO PREAMBLE. DIRECT OUTPUT ONLY.
+
+      **Run Health**
+      [One sentence: X tests failed, severity assessment.
+      If most share one root cause, state explicitly.]
+
+      **Failure Categories**
+      [Group by root cause pattern. For each group:]
+      - <Category> ({count} tests): <One sentence>
+        Affected: <test names, abbreviated if needed>
+        Action: <who fixes this and how — one line>
+
+      [Order by count descending. Max 5 groups.
+      Unique failures go under "Other (N tests)"]
+
+      **Top Actions**
+      1. [Highest-impact fix — most tests]
+      2. [Second priority]
+      3. [Third if applicable]
+
+      [Max 3. Specific and actionable. Not "investigate"
+      but "fix X in Y because Z"]
+
+      **Environment Issues**
+      [Infra/environment problems across tests. Or "None"]
+
+      {analyses}
 
 llm_factory:
   # LiteLLM model format: provider/model-name

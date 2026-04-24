@@ -135,7 +135,7 @@ def _build_overall_summary_prompt(
         per_test_sections.append(f"### {test_name}\n{result.strip()}\n")
 
     analyses = "\n".join(per_test_sections)
-    return prompt_template.format(analyses=analyses)
+    return prompt_template.format(analyses=analyses, test_count=len(llm_results))
 
 
 async def summarize_failures_with_llm(
