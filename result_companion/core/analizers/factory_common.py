@@ -9,13 +9,14 @@ from result_companion.core.chunking.chunking import (
 )
 from result_companion.core.chunking.utils import Chunking
 from result_companion.core.parsers.config import DefaultConfigModel, LLMFactoryModel
-from result_companion.core.utils.logging_config import get_progress_logger
+from result_companion.core.utils.logging_config import get_llm_io_logger, get_progress_logger
 from result_companion.core.utils.progress import run_tasks_with_progress
 
 if TYPE_CHECKING:
     from result_companion.core.chunking.rf_results import ContextAwareRobotResults
 
 logger = get_progress_logger("Analyzer")
+llm_io = get_llm_io_logger()
 
 
 def _stats_header(
@@ -111,7 +112,13 @@ async def analyze_test_case(
     response = await _smart_acompletion(
         messages=[{"role": "user", "content": formatted_prompt}], **llm_params
     )
-    return (response.choices[0].message.content, test_name, [])
+    content = response.choices[0].message.content
+    llm_io.debug(
+        f"\n{'='*60}\n[{test_name}] (single chunk)\n"
+        f"--- PROMPT ---\n{formatted_prompt}\n"
+        f"--- RESPONSE ---\n{content}\n"
+    )
+    return (content, test_name, [])
 
 
 async def execute_llm_and_get_results(

@@ -8,9 +8,10 @@ from typing import Any
 from result_companion.core.analizers.llm_router import _smart_acompletion
 from result_companion.core.chunking.utils import Chunking, calculate_chunk_size
 from result_companion.core.parsers.config import TokenizerModel, TokenizerTypes
-from result_companion.core.utils.logging_config import get_progress_logger
+from result_companion.core.utils.logging_config import get_llm_io_logger, get_progress_logger
 
 logger = get_progress_logger("Chunking")
+llm_io = get_llm_io_logger()
 
 _INDENT = "    "
 
@@ -203,13 +204,20 @@ async def analyze_chunk(
         messages = [{"role": "user", "content": formatted_prompt}]
 
         response = await _smart_acompletion(messages=messages, **llm_params)
-        return response.choices[0].message.content
+        result = response.choices[0].message.content
+        llm_io.debug(
+            f"\n{'='*60}\n[{test_name}] Chunk {chunk_idx + 1}/{total_chunks}\n"
+            f"--- PROMPT ---\n{formatted_prompt}\n"
+            f"--- RESPONSE ---\n{result}\n"
+        )
+        return result
 
 
 async def synthesize_summaries(
     aggregated_summary: str,
     final_synthesis_prompt: str,
     llm_params: dict[str, Any],
+    test_name: str = "",
 ) -> str:
     """Synthesizes chunk summaries into final analysis.
 
@@ -217,6 +225,7 @@ async def synthesize_summaries(
         aggregated_summary: Combined summaries from all chunks.
         final_synthesis_prompt: Prompt template with {summary} placeholder.
         llm_params: Parameters for LiteLLM acompletion.
+        test_name: Test case name for logging purposes.
 
     Returns:
         Final synthesized analysis.
@@ -225,7 +234,13 @@ async def synthesize_summaries(
     messages = [{"role": "user", "content": formatted_prompt}]
 
     response = await _smart_acompletion(messages=messages, **llm_params)
-    return response.choices[0].message.content
+    result = response.choices[0].message.content
+    llm_io.debug(
+        f"\n{'='*60}\n[{test_name}] SYNTHESIS\n"
+        f"--- PROMPT ---\n{formatted_prompt}\n"
+        f"--- RESPONSE ---\n{result}\n"
+    )
+    return result
 
 
 async def accumulate_llm_results_for_summarization(
@@ -282,6 +297,7 @@ async def accumulate_llm_results_for_summarization(
         aggregated_summary=aggregated_summary,
         final_synthesis_prompt=final_synthesis_prompt,
         llm_params=llm_params,
+        test_name=test_name,
     )
 
     return final_result, test_name, chunks

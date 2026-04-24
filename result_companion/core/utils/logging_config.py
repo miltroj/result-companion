@@ -117,5 +117,24 @@ def get_progress_logger(name: str = "RC") -> logging.Logger:
     return logger_registry.get_logger(name)
 
 
+def get_llm_io_logger() -> logging.Logger:
+    """Returns a logger that appends LLM prompt/response pairs to a dedicated file.
+
+    Returns:
+        Logger writing human-readable prompt/response records to llm_io.log.
+    """
+    name = "llm_io"
+    logger = logging.getLogger(name)
+    if logger.hasHandlers():
+        return logger
+    logger.setLevel(logging.DEBUG)
+    log_path = os.path.join(tempfile.gettempdir(), "llm_io.log")
+    handler = logging.FileHandler(log_path, mode="a", encoding="utf-8")
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(handler)
+    logger.propagate = False
+    return logger
+
+
 # Default logger
 logger = get_progress_logger("RC")
