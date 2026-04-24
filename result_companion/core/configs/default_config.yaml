@@ -10,40 +10,52 @@ rendering:
 
 llm_config:
   question_prompt: |
-    You analyze Robot Framework test failures. The input is hierarchical text: suite lines (if any), then the test line, then keywords and log messages (nested). Lines look like `Keyword: <name> - <status>`; messages appear as plain lines under keywords.
+    You analyze Robot Framework test failures. Input is hierarchical:
+    suite → test → keywords → log messages.
+    Lines: `Keyword: <name> - <status>`, messages as plain lines.
 
-    ANALYSIS PRIORITY:
-    1. Find FAIL keywords or failing assertions—start there
-    2. Check preceding PASS keywords for setup issues
-    3. Look for: tracebacks, exceptions, assertion errors, timeouts
-    4. Cascading failures: find the FIRST failure, not symptoms
+    PRIORITY:
+    1. FAIL keywords or failing assertions first
+    2. Preceding PASS keywords for setup issues
+    3. Tracebacks, exceptions, assertion errors, timeouts
+    4. Find FIRST failure, not symptoms
 
-    RESPOND EXACTLY IN THIS FORMAT (be terse):
+    RESPOND EXACTLY:
 
     **Flow**
-    - [Only keywords leading to failure. Max 5 bullets]
+    - [Keywords leading to failure. Max 5 bullets]
 
     **Root Cause**
-    [Keyword name in quotes. Error type. Why it failed. Max 2-3 sentences]
-    [If its possible quote the exact error message from the log]
+    [First FAIL keyword in quotes. Error type. Why.
+    Quote exact error message if available. Max 2-3 sentences]
     Confidence: HIGH/MEDIUM/LOW
 
+    **Contributing Factors**
+    [Earlier warnings/errors that may relate. CONFIRMED/SUSPECTED.
+    Or "None"]
+
+    **Other Errors**
+    [Unrelated actionable errors. Or "None"]
+
     **Fix**
-    - [Actionable fix for test code or environment. Max 1-2 bullets]
+    - [Actionable fix. Max 1-2 bullets]
 
     NO PREAMBLE. NO REASONING. DIRECT ANSWER ONLY.
 
   chunking:
     chunk_analysis_prompt: |
-      EXTRACT failure-relevant info from this Robot Framework test chunk.
+      This is chunk {chunk_number}/{total_chunks} of a Robot Framework
+      test (execution order). Extract failure-relevant info.
 
-      OUTPUT FORMAT (use exactly):
-      ERRORS: [any exceptions, tracebacks, assertion failures - quote exact text]
+      OUTPUT FORMAT:
+      PHASE: [SETUP/BODY/TEARDOWN/UNKNOWN]
+      ERRORS: [exceptions, tracebacks, assertion failures - exact text]
       FAIL_KEYWORDS: [keyword names with status=FAIL, in order]
-      SUSPECT_KEYWORDS: [PASS keywords with warnings/errors in messages]
-      NOTES: [one line only - anything else relevant, or "none"]
+      SUSPECT_KEYWORDS: [PASS keywords with errors/exceptions in
+      messages - NOT deprecation warnings alone]
+      NOTES: [one line - anything relevant, or "none"]
 
-      If chunk has no errors/failures: respond only "CLEAN: no issues"
+      If NO errors, NO failures, NO suspect keywords: "CLEAN"
 
       {text}
 
@@ -51,15 +63,27 @@ llm_config:
       NO PREAMBLE. NO REASONING. DIRECT OUTPUT ONLY.
 
       Synthesize chunk summaries into final analysis.
+      Chunks are in EXECUTION ORDER (Chunk 1 = first).
       Ignore CLEAN chunks. Deduplicate repeated errors.
-      Find the FIRST failure in execution order - that's the root cause.
+
+      If only FAIL_KEYWORDS are in TEARDOWN, check whether
+      BODY/SETUP errors explain the teardown failure.
 
       **Flow**
-      - [Only failure-path keywords from all chunks. Max 5 bullets]
+      - [Failure-path keywords from all chunks. Max 5 bullets]
 
       **Root Cause**
-      [First failing keyword in quotes. Error type. Why. Max 2-3 sentences]
+      [First FAIL_KEYWORD in execution order. If no FAIL_KEYWORD
+      before identified failure, state explicitly. Quote exact
+      error message. Max 2-3 sentences]
       Confidence: HIGH/MEDIUM/LOW
+
+      **Contributing Factors**
+      [Earlier errors/warnings that may have caused root failure.
+      Mark CONFIRMED or SUSPECTED]
+
+      **Other Errors**
+      [Independently actionable errors. Or "None"]
 
       **Fix**
       - [Actionable fix. Max 1-2 bullets]

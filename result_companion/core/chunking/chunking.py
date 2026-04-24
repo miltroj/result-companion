@@ -8,7 +8,10 @@ from typing import Any
 from result_companion.core.analizers.llm_router import _smart_acompletion
 from result_companion.core.chunking.utils import Chunking, calculate_chunk_size
 from result_companion.core.parsers.config import TokenizerModel, TokenizerTypes
-from result_companion.core.utils.logging_config import get_llm_io_logger, get_progress_logger
+from result_companion.core.utils.logging_config import (
+    get_llm_io_logger,
+    get_progress_logger,
+)
 
 logger = get_progress_logger("Chunking")
 llm_io = get_llm_io_logger()
@@ -200,7 +203,9 @@ async def analyze_chunk(
         )
 
         # Format the prompt with the chunk text
-        formatted_prompt = chunk_analysis_prompt.format(text=chunk)
+        formatted_prompt = chunk_analysis_prompt.format(
+            text=chunk, chunk_number=chunk_idx + 1, total_chunks=total_chunks
+        )
         messages = [{"role": "user", "content": formatted_prompt}]
 
         response = await _smart_acompletion(messages=messages, **llm_params)
