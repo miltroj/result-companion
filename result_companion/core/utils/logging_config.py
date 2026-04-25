@@ -1,12 +1,9 @@
-from __future__ import annotations
-
 import json
 import logging
 import os
 import tempfile
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
-from typing import Callable, Dict
+from typing import Dict
 
 from tqdm import tqdm
 
@@ -118,23 +115,6 @@ def set_global_log_level(log_level: str | int) -> None:
 def get_progress_logger(name: str = "RC") -> logging.Logger:
     """Get a logger that works with progress bars."""
     return logger_registry.get_logger(name)
-
-
-def make_llm_debug_writer(path: Path) -> Callable[[str], None]:
-    """Returns a callable that appends LLM prompt/response records to path.
-
-    Args:
-        path: File path to write debug records to.
-
-    Returns:
-        Callable that accepts a text string and appends it to path.
-    """
-
-    def write(text: str) -> None:
-        with open(path, "a", encoding="utf-8") as f:
-            f.write(text)
-
-    return write
 
 
 # Default logger

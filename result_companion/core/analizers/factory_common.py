@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from result_companion.core.analizers.llm_router import _smart_acompletion
 from result_companion.core.chunking.chunking import (
@@ -9,6 +9,7 @@ from result_companion.core.chunking.chunking import (
 )
 from result_companion.core.chunking.utils import Chunking
 from result_companion.core.parsers.config import DefaultConfigModel, LLMFactoryModel
+from result_companion.core.utils.llm_debug import is_llm_debug_enabled, write_llm_record
 from result_companion.core.utils.logging_config import get_progress_logger
 from result_companion.core.utils.progress import run_tasks_with_progress
 
@@ -88,7 +89,6 @@ async def analyze_test_case(
     question_prompt: str,
     prompt_template: str,
     llm_params: dict[str, Any],
-    debug_writer: Callable[[str], None] | None = None,
 ) -> tuple[str, str, list]:
     """Analyzes a single test case using LiteLLM.
 
@@ -98,7 +98,6 @@ async def analyze_test_case(
         question_prompt: The analysis question/prompt.
         prompt_template: Template for formatting the prompt.
         llm_params: Parameters for LiteLLM acompletion.
-        debug_writer: Optional callable to write prompt/response pairs to file.
 
     Returns:
         Tuple of (result, test_name, chunks).
@@ -113,11 +112,11 @@ async def analyze_test_case(
         messages=[{"role": "user", "content": formatted_prompt}], **llm_params
     )
     content = response.choices[0].message.content
-    if debug_writer:
-        debug_writer(
-            f"\n{'='*60}\n[{test_name}] (single chunk)\n"
-            f"--- PROMPT ---\n{formatted_prompt}\n"
-            f"--- RESPONSE ---\n{content}\n"
+    if is_llm_debug_enabled():
+        write_llm_record(
+            label=f"[{test_name}] (single chunk)",
+            prompt=formatted_prompt,
+            response=content,
         )
     return (content, test_name, [])
 
@@ -127,7 +126,6 @@ async def execute_llm_and_get_results(
     config: DefaultConfigModel,
     dryrun: bool = False,
     quiet: bool = False,
-    debug_writer: Callable[[str], None] | None = None,
 ) -> dict:
     """Executes LLM analysis on pre-configured ContextAwareRobotResults.
 
@@ -136,7 +134,6 @@ async def execute_llm_and_get_results(
         config: Parsed configuration.
         dryrun: If True, skip actual LLM calls.
         quiet: If True, suppress progress output.
-        debug_writer: Optional callable to write prompt/response pairs to file.
 
     Returns:
         Dictionary mapping test case names to analysis results.
@@ -165,7 +162,6 @@ async def execute_llm_and_get_results(
                     question_prompt=question_prompt,
                     prompt_template=prompt_template,
                     llm_params=llm_params,
-                    debug_writer=debug_writer,
                 )
             )
         else:
@@ -177,7 +173,6 @@ async def execute_llm_and_get_results(
                     final_synthesis_prompt=final_synthesis_prompt,
                     llm_params=llm_params,
                     chunk_concurrency=chunk_concurrency,
-                    debug_writer=debug_writer,
                 )
             )
 

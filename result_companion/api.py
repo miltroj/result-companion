@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Optional
 
 from result_companion._internal.analysis_helpers import run_provider_init_strategies
 from result_companion.core.analizers.factory_common import execute_llm_and_get_results
@@ -26,7 +26,6 @@ async def run_analysis(
     summarize_failures: bool = False,
     dryrun: bool = False,
     quiet: bool = True,
-    debug_writer: Callable[[str], None] | None = None,
 ) -> AnalysisResult:
     """Runs LLM analysis on configured ContextAwareRobotResults.
 
@@ -36,7 +35,6 @@ async def run_analysis(
         summarize_failures: Whether to generate an overall failure summary.
         dryrun: If True, skip LLM calls.
         quiet: If True, suppress logs and progress output.
-        debug_writer: Optional callable to write prompt/response pairs to file.
 
     Returns:
         AnalysisResult with llm_results, test_names, and optional summary.
@@ -48,7 +46,6 @@ async def run_analysis(
         config=config,
         dryrun=dryrun,
         quiet=quiet,
-        debug_writer=debug_writer,
     )
 
     summary = None
