@@ -548,9 +548,14 @@ class TestIterTestsWithContext:
         setup.status = "FAIL"
         setup.elapsed_time = "0:00:00.001000"
         child1 = RFTestSuite(name="Shared Name")
-        child1.tests.append(RFTestCase(name="Test A", status="FAIL"))
+        # Tests which shouldn't be visible - below setup, inherits setup failure
+        child1.tests.append(
+            RFTestCase(name="Test A - Should not be visible!", status="FAIL")
+        )
         child2 = RFTestSuite(name="Shared Name")
-        child2.tests.append(RFTestCase(name="Test B", status="FAIL"))
+        child2.tests.append(
+            RFTestCase(name="Test B - Should not be visible!", status="FAIL")
+        )
 
         root = RFTestSuite(name="Root")
         root.setup = setup
