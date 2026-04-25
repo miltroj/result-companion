@@ -52,7 +52,6 @@ class TestLines:
         return render_lines_to_text(self.lines)
 
 
-# TODO: it seems that suite setup fail is not working need to investigate
 class ContextAwareRobotResults:
     """Iterates RF result tree per-test with suite context, field filtering, and chunking.
 
