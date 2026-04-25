@@ -198,6 +198,7 @@ async def analyze_chunk(
             f"[{test_name}] Processing chunk {chunk_idx + 1}/{total_chunks}, "
             f"length {len(chunk)}"
         )
+        # TODO: consider putting params like chunk_number, total_chunks into config.yaml
         formatted_prompt = chunk_analysis_prompt.format(
             text=chunk, chunk_number=chunk_idx + 1, total_chunks=total_chunks
         )
