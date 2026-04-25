@@ -907,10 +907,13 @@ class TestContextAwareRobotResultsSourcePaths:
 
 
 class TestApplyConfig:
-    def test_noop_when_result_is_none(self):
+    def test_raise_type_error_on_filtering_on_TestSuite_object(self):
         results = ContextAwareRobotResults(RFTestSuite(name="S"))
-        # Should not raise even though _result is None.
-        results.include_tags(["smoke"])
+        with pytest.raises(
+            TypeError,
+            match="Source is TestSuite, not ExecutionResult, TAG filtering is not available!",
+        ):
+            results.include_tags(["smoke"])
 
     def test_raises_value_error_on_data_error(self, tmp_path, monkeypatch):
         xml = tmp_path / "output.xml"

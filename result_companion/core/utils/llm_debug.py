@@ -46,4 +46,6 @@ def write_llm_record(label: str, prompt: str, response: str) -> None:
         prompt: The formatted prompt sent to the LLM.
         response: The LLM response content.
     """
+    if _writer is None:
+        return
     _writer(_format_llm_record(label, prompt, response))  # type: ignore[misc]

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
+from functools import cached_property
 from pathlib import Path
 from typing import Iterator, Sequence
 
@@ -83,14 +84,20 @@ class ContextAwareRobotResults:
         self._chunking: ChunkingStrategy | None = None
         self._exclude_passing: bool = False
 
+    def _invalidate_cache(self) -> None:
+        for attr in ("test_names", "source_hash"):
+            self.__dict__.pop(attr, None)
+
     def include_fields(self, fields: Sequence[str]) -> ContextAwareRobotResults:
         """Sets which fields to render (replaces all)."""
         self._fields = frozenset(fields)
+        self._invalidate_cache()
         return self
 
     def exclude_fields(self, fields: Sequence[str]) -> ContextAwareRobotResults:
         """Removes fields from active set."""
         self._fields = self._fields - frozenset(fields)
+        self._invalidate_cache()
         return self
 
     def include_tags(self, tags: Sequence[str]) -> ContextAwareRobotResults:
@@ -105,10 +112,9 @@ class ContextAwareRobotResults:
 
     def _apply_config(self, suite_config: dict) -> None:
         if self._result is None:
-            logger.warning(
-                "Tag filtering ignored: source is TestSuite, not ExecutionResult."
+            raise TypeError(
+                "Source is TestSuite, not ExecutionResult, TAG filtering is not available!"
             )
-            return
         try:
             self._result.configure(suite_config=suite_config)
         except DataError as exc:
@@ -118,10 +124,12 @@ class ContextAwareRobotResults:
                 f"RF error: {exc}"
             ) from exc
         self._suite = self._result.suite
+        self._invalidate_cache()
 
     def exclude_passing(self, exclude: bool = True) -> ContextAwareRobotResults:
         """When True, skips tests with PASS or SKIP status from iteration."""
         self._exclude_passing = exclude
+        self._invalidate_cache()
         return self
 
     @property
@@ -158,13 +166,13 @@ class ContextAwareRobotResults:
         """Total tests in (tag-filtered) suite, ignoring exclude_passing."""
         return sum(1 for _ in self._suite.all_tests)
 
-    @property
+    @cached_property
     def source_hash(self) -> str:
         """Short SHA-256 hash of the rendered suite for reproducibility tracking."""
         blob = str(self).encode()
         return hashlib.sha256(blob).hexdigest()[:12]
 
-    @property
+    @cached_property
     def test_names(self) -> list[str]:
         """Names of tests that pass current filters (excluding passing if set)."""
         return [name for name, _, _ in self._iter_tests()]
