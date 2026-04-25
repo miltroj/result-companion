@@ -143,6 +143,11 @@ def analyze(
         "--dryrun",
         help="Skip LLM calls, generate HTML with debug metadata",
     ),
+    debug_log: Optional[Path] = typer.Option(
+        None,
+        "--debug-log",
+        help="Write all LLM prompts and responses to file (for prompt tuning)",
+    ),
 ):
     """Analyze Robot Framework test results with LLM assistance."""
     if not quiet:
@@ -190,6 +195,7 @@ def analyze(
         print_text_report=print_text_report,
         summarize_failures=overall_summary,
         quiet=quiet,
+        debug_log=debug_log,
     )
 
 

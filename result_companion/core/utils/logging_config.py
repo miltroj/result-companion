@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import json
 import logging
 import os
 import tempfile
 from logging.handlers import RotatingFileHandler
-from typing import Dict
+from pathlib import Path
+from typing import Callable, Dict
 
 from tqdm import tqdm
 
@@ -117,23 +120,21 @@ def get_progress_logger(name: str = "RC") -> logging.Logger:
     return logger_registry.get_logger(name)
 
 
-def get_llm_io_logger() -> logging.Logger:
-    """Returns a logger that appends LLM prompt/response pairs to a dedicated file.
+def make_llm_debug_writer(path: Path) -> Callable[[str], None]:
+    """Returns a callable that appends LLM prompt/response records to path.
+
+    Args:
+        path: File path to write debug records to.
 
     Returns:
-        Logger writing human-readable prompt/response records to llm_io.log.
+        Callable that accepts a text string and appends it to path.
     """
-    name = "llm_io"
-    logger = logging.getLogger(name)
-    if logger.hasHandlers():
-        return logger
-    logger.setLevel(logging.DEBUG)
-    log_path = os.path.join(tempfile.gettempdir(), "llm_io.log")
-    handler = logging.FileHandler(log_path, mode="a", encoding="utf-8")
-    handler.setFormatter(logging.Formatter("%(message)s"))
-    logger.addHandler(handler)
-    logger.propagate = False
-    return logger
+
+    def write(text: str) -> None:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(text)
+
+    return write
 
 
 # Default logger

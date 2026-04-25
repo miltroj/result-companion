@@ -21,7 +21,11 @@ from result_companion.core.results.text_report import (
     render_text_report,
 )
 from result_companion.core.utils.log_levels import LogLevels
-from result_companion.core.utils.logging_config import logger, set_global_log_level
+from result_companion.core.utils.logging_config import (
+    logger,
+    make_llm_debug_writer,
+    set_global_log_level,
+)
 
 
 async def _main(
@@ -41,6 +45,7 @@ async def _main(
     print_text_report: bool = False,
     summarize_failures: bool = False,
     quiet: bool = False,
+    debug_log: Optional[Path] = None,
 ) -> bool:
     resolved_log_level = "ERROR" if quiet else str(log_level)
     set_global_log_level(resolved_log_level)
@@ -75,6 +80,7 @@ async def _main(
         summarize_failures=summarize_failures,
         dryrun=dryrun,
         quiet=quiet,
+        debug_writer=make_llm_debug_writer(debug_log) if debug_log else None,
     )
 
     _emit_reports(
@@ -161,6 +167,7 @@ def run_rc(
     print_text_report: bool = False,
     summarize_failures: bool = False,
     quiet: bool = False,
+    debug_log: Optional[Path] = None,
 ) -> bool:
     """Runs the Result Companion analysis.
 
@@ -204,6 +211,7 @@ def run_rc(
                 include_tags=include_tags,
                 exclude_tags=exclude_tags,
                 dryrun=dryrun,
+                debug_log=debug_log,
             )
         )
     except Exception:

@@ -26,6 +26,7 @@ Quick-start configurations for different LLM providers and use cases.
     - [Field Reference](#field-reference)
     - [Common Presets](#common-presets)
   - [Dryrun Mode](#dryrun-mode)
+  - [Debugging Prompts](#debugging-prompts)
   - [Text Output for CI](#text-output-for-ci)
   - [Agent Chat Workflows](#agent-chat-workflows)
   - [Custom Analysis](#custom-analysis)
@@ -450,6 +451,53 @@ Generates `rc_log.html` with debug metadata per test:
 - Debug XML parsing issues
 - Verify tag filtering works correctly
 - Check chunking behavior before real runs
+
+## Debugging Prompts
+
+Use `--debug-log` to capture every prompt sent to the LLM and its response. Run a real analysis and inspect the file to see exactly what the model receives and returns.
+
+```bash
+result-companion analyze -o output.xml -c my_config.yaml --debug-log debug.log
+```
+
+Each record in the output file follows this format:
+
+```
+============================================================
+[My Test Case Name] (single chunk)
+--- PROMPT ---
+Analyze the following Robot Framework test execution...
+
+--- RESPONSE ---
+The test failed because...
+============================================================
+[Another Test] Chunk 1/3
+--- PROMPT ---
+...
+--- RESPONSE ---
+...
+============================================================
+[Another Test] SYNTHESIS
+--- PROMPT ---
+...
+--- RESPONSE ---
+...
+```
+
+**Record types:**
+
+| Record | When |
+|--------|------|
+| `(single chunk)` | Test fits within token budget — one LLM call |
+| `Chunk X/Y` | Test required chunking — one call per chunk |
+| `SYNTHESIS` | Final synthesis call combining all chunk results |
+
+**Write order:** records are written in LLM completion order, not test declaration order. Each record is tagged with the test name and chunk index, so the file is readable regardless of order.
+
+**Use cases:**
+- See how your `question_prompt` and `prompt_template` look after formatting
+- Compare responses before and after prompt edits
+- Verify chunking boundaries for large tests
 
 ## Text Output for CI
 
