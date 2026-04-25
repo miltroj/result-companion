@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot generator="Robot 7.2 (Python 3.10.14 on darwin)" generated="2026-03-05T21:04:17.181170" rpa="false" schemaversion="5">
+<suite id="s1" name="Chunking Scenarios" source="/Users/mtroj/Repos/rc-WK/robot_suite_setup/tests/integration/e2e/chunking_scenarios">
+<kw name="Log" owner="BuiltIn" type="SETUP">
+<msg time="2026-03-05T21:04:17.218997" level="INFO">Top-level suite setup: PASS</msg>
+<arg>Top-level suite setup: PASS</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-03-05T21:04:17.218874" elapsed="0.000165"/>
+</kw>
+<suite id="s1-s1" name="Failing Setup" source="/Users/mtroj/Repos/rc-WK/robot_suite_setup/tests/integration/e2e/chunking_scenarios/failing_setup">
+<kw name="Suite Setup Fails" type="SETUP">
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-03-05T21:04:17.220031" level="INFO">Suite setup about to fail</msg>
+<arg>Suite setup about to fail</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-03-05T21:04:17.219973" elapsed="0.000087"/>
+</kw>
+<kw name="Fail" owner="BuiltIn">
+<msg time="2026-03-05T21:04:17.220218" level="FAIL">Intentional suite setup failure - children should be skipped by extract_analyzable_items</msg>
+<arg>Intentional suite setup failure - children should be skipped by extract_analyzable_items</arg>
+<doc>Fails the test with the given message and optionally alters its tags.</doc>
+<status status="FAIL" start="2026-03-05T21:04:17.220115" elapsed="0.000145">Intentional suite setup failure - children should be skipped by extract_analyzable_items</status>
+</kw>
+<status status="FAIL" start="2026-03-05T21:04:17.219862" elapsed="0.000458">Intentional suite setup failure - children should be skipped by extract_analyzable_items</status>
+</kw>
+<suite id="s1-s1-s1" name="Test Skipped" source="/Users/mtroj/Repos/rc-WK/robot_suite_setup/tests/integration/e2e/chunking_scenarios/failing_setup/test_skipped.robot">
+<test id="s1-s1-s1-t1" name="Test Never Reached Due To Suite Setup Failure" line="5">
+<tag>chunking</tag>
+<tag>failing-setup</tag>
+<status status="FAIL" start="2026-03-05T21:04:17.220568" elapsed="0.000259">Parent suite setup failed:
+Intentional suite setup failure - children should be skipped by extract_analyzable_items</status>
+</test>
+<test id="s1-s1-s1-t2" name="Another Test Never Reached" line="10">
+<tag>chunking</tag>
+<tag>failing-setup</tag>
+<status status="FAIL" start="2026-03-05T21:04:17.220948" elapsed="0.000162">Parent suite setup failed:
+Intentional suite setup failure - children should be skipped by extract_analyzable_items</status>
+</test>
+<status status="FAIL" start="2026-03-05T21:04:17.220352" elapsed="0.000962">Parent suite setup failed:
+Intentional suite setup failure - children should be skipped by extract_analyzable_items</status>
+</suite>
+<kw name="Log" owner="BuiltIn" type="TEARDOWN">
+<msg time="2026-03-05T21:04:17.221730" level="INFO">Suite teardown runs even after setup failure</msg>
+<arg>Suite teardown runs even after setup failure</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-03-05T21:04:17.221669" elapsed="0.000088"/>
+</kw>
+<status status="FAIL" start="2026-03-05T21:04:17.219082" elapsed="0.002696">Suite setup failed:
+Intentional suite setup failure - children should be skipped by extract_analyzable_items</status>
+</suite>
+<suite id="s1-s2" name="Failing Teardown" source="/Users/mtroj/Repos/rc-WK/robot_suite_setup/tests/integration/e2e/chunking_scenarios/failing_teardown">
+<kw name="Log" owner="BuiltIn" type="SETUP">
+<msg time="2026-03-05T21:04:17.222790" level="INFO">Suite setup: PASS - tests will run</msg>
+<arg>Suite setup: PASS - tests will run</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-03-05T21:04:17.222733" elapsed="0.000085"/>
+</kw>
+<suite id="s1-s2-s1" name="Test Runs" source="/Users/mtroj/Repos/rc-WK/robot_suite_setup/tests/integration/e2e/chunking_scenarios/failing_teardown/test_runs.robot">
+<test id="s1-s2-s1-t1" name="Test Runs But Suite Teardown Will Fail" line="5">
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-03-05T21:04:17.223919" level="INFO">Suite setup passed so this test runs normally</msg>
+<arg>Suite setup passed so this test runs normally</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-03-05T21:04:17.223839" elapsed="0.000115"/>
+</kw>
+<tag>chunking</tag>
+<tag>failing-teardown</tag>
+<status status="PASS" start="2026-03-05T21:04:17.223487" elapsed="0.000562"/>
+</test>
+<test id="s1-s2-s1-t2" name="Another Test That Runs Despite Teardown Failure" line="9">
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-03-05T21:04:17.224425" level="INFO">Suite teardown failure does not prevent test execution</msg>
+<arg>Suite teardown failure does not prevent test execution</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-03-05T21:04:17.224363" elapsed="0.000090"/>
+</kw>
+<kw name="Fail" owner="BuiltIn">
+<msg time="2026-03-05T21:04:17.224619" level="FAIL">Intentional test failure alongside failing suite teardown</msg>
+<arg>Intentional test failure alongside failing suite teardown</arg>
+<doc>Fails the test with the given message and optionally alters its tags.</doc>
+<status status="FAIL" start="2026-03-05T21:04:17.224524" elapsed="0.000133">Intentional test failure alongside failing suite teardown</status>
+</kw>
+<tag>chunking</tag>
+<tag>failing-teardown</tag>
+<status status="FAIL" start="2026-03-05T21:04:17.224161" elapsed="0.000595">Intentional test failure alongside failing suite teardown</status>
+</test>
+<status status="FAIL" start="2026-03-05T21:04:17.222846" elapsed="0.002068"/>
+</suite>
+<kw name="Suite Teardown Fails" type="TEARDOWN">
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-03-05T21:04:17.225447" level="INFO">Suite teardown about to fail</msg>
+<arg>Suite teardown about to fail</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-03-05T21:04:17.225392" elapsed="0.000082"/>
+</kw>
+<kw name="Fail" owner="BuiltIn">
+<msg time="2026-03-05T21:04:17.225710" level="FAIL">Intentional suite teardown failure - tests already ran</msg>
+<arg>Intentional suite teardown failure - tests already ran</arg>
+<doc>Fails the test with the given message and optionally alters its tags.</doc>
+<status status="FAIL" start="2026-03-05T21:04:17.225525" elapsed="0.000219">Intentional suite teardown failure - tests already ran</status>
+</kw>
+<status status="FAIL" start="2026-03-05T21:04:17.225287" elapsed="0.000518">Intentional suite teardown failure - tests already ran</status>
+</kw>
+<status status="FAIL" start="2026-03-05T21:04:17.222031" elapsed="0.003806">Suite teardown failed:
+Intentional suite teardown failure - tests already ran</status>
+</suite>
+<suite id="s1-s3" name="Passing Setup" source="/Users/mtroj/Repos/rc-WK/robot_suite_setup/tests/integration/e2e/chunking_scenarios/passing_setup">
+<kw name="Suite Setup Passes" type="SETUP">
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-03-05T21:04:17.227005" level="INFO">Suite setup: PASS</msg>
+<arg>Suite setup: PASS</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-03-05T21:04:17.226951" elapsed="0.000082"/>
+</kw>
+<kw name="Set Suite Variable" owner="BuiltIn">
+<msg time="2026-03-05T21:04:17.227489" level="INFO">${SUITE_READY} = True</msg>
+<arg>${SUITE_READY}</arg>
+<arg>True</arg>
+<doc>Makes a variable available everywhere within the scope of the current suite.</doc>
+<status status="PASS" start="2026-03-05T21:04:17.227093" elapsed="0.000422"/>
+</kw>
+<status status="PASS" start="2026-03-05T21:04:17.226857" elapsed="0.000696"/>
+</kw>
+<suite id="s1-s3-s1" name="Deeply Nested" source="/Users/mtroj/Repos/rc-WK/robot_suite_setup/tests/integration/e2e/chunking_scenarios/passing_setup/deeply_nested">
+<kw name="Log" owner="BuiltIn" type="SETUP">
+<msg time="2026-03-05T21:04:17.228554" level="INFO">Deeply nested suite setup: PASS</msg>
+<arg>Deeply nested suite setup: PASS</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-03-05T21:04:17.228442" elapsed="0.000150"/>
+</kw>
+<suite id="s1-s3-s1-s1" name="Test Deep" source="/Users/mtroj/Repos/rc-WK/robot_suite_setup/tests/integration/e2e/chunking_scenarios/passing_setup/deeply_nested/test_deep.robot">
+<test id="s1-s3-s1-s1-t1" name="Deep Test That Passes" line="5">
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-03-05T21:04:17.229787" level="INFO">Three levels deep - setup passed at every level</msg>
+<arg>Three levels deep - setup passed at every level</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-03-05T21:04:17.229722" elapsed="0.000100"/>
+</kw>
+<tag>chunking</tag>
+<tag>deeply-nested</tag>
+<status status="PASS" start="2026-03-05T21:04:17.229519" elapsed="0.000387"/>
+</test>
+<test id="s1-s3-s1-s1-t2" name="Deep Test That Fails" line="9">
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-03-05T21:04:17.230253" level="INFO">Three levels deep - this test fails intentionally</msg>
+<arg>Three levels deep - this test fails intentionally</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-03-05T21:04:17.230192" elapsed="0.000089"/>
+</kw>
+<kw name="Fail" owner="BuiltIn">
+<msg time="2026-03-05T21:04:17.230442" level="FAIL">Intentional failure at deep nesting level</msg>
+<arg>Intentional failure at deep nesting level</arg>
+<doc>Fails the test with the given message and optionally alters its tags.</doc>
+<status status="FAIL" start="2026-03-05T21:04:17.230351" elapsed="0.000129">Intentional failure at deep nesting level</status>
+</kw>
+<tag>chunking</tag>
+<tag>deeply-nested</tag>
+<status status="FAIL" start="2026-03-05T21:04:17.230014" elapsed="0.000566">Intentional failure at deep nesting level</status>
+</test>
+<status status="FAIL" start="2026-03-05T21:04:17.228631" elapsed="0.002107"/>
+</suite>
+<kw name="Log" owner="BuiltIn" type="TEARDOWN">
+<msg time="2026-03-05T21:04:17.231179" level="INFO">Deeply nested suite teardown: PASS</msg>
+<arg>Deeply nested suite teardown: PASS</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-03-05T21:04:17.231118" elapsed="0.000088"/>
+</kw>
+<status status="FAIL" start="2026-03-05T21:04:17.227577" elapsed="0.003650"/>
+</suite>
+<suite id="s1-s3-s2" name="Test Normal" source="/Users/mtroj/Repos/rc-WK/robot_suite_setup/tests/integration/e2e/chunking_scenarios/passing_setup/test_normal.robot">
+<test id="s1-s3-s2-t1" name="Test That Passes After Suite Setup" line="5">
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-03-05T21:04:17.232488" level="INFO">Suite setup passed - this test should be individually analyzable</msg>
+<arg>Suite setup passed - this test should be individually analyzable</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-03-05T21:04:17.232425" elapsed="0.000092"/>
+</kw>
+<tag>chunking</tag>
+<tag>passing-setup</tag>
+<status status="PASS" start="2026-03-05T21:04:17.232239" elapsed="0.000355"/>
+</test>
+<test id="s1-s3-s2-t2" name="Test That Fails After Suite Setup" line="9">
+<kw name="Log" owner="BuiltIn">
+<msg time="2026-03-05T21:04:17.232917" level="INFO">Suite setup passed - this test fails intentionally</msg>
+<arg>Suite setup passed - this test fails intentionally</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-03-05T21:04:17.232862" elapsed="0.000082"/>
+</kw>
+<kw name="Fail" owner="BuiltIn">
+<msg time="2026-03-05T21:04:17.233101" level="FAIL">Intentional failure to verify chunking picks up individual test</msg>
+<arg>Intentional failure to verify chunking picks up individual test</arg>
+<doc>Fails the test with the given message and optionally alters its tags.</doc>
+<status status="FAIL" start="2026-03-05T21:04:17.233008" elapsed="0.000131">Intentional failure to verify chunking picks up individual test</status>
+</kw>
+<tag>chunking</tag>
+<tag>passing-setup</tag>
+<status status="FAIL" start="2026-03-05T21:04:17.232696" elapsed="0.000540">Intentional failure to verify chunking picks up individual test</status>
+</test>
+<status status="FAIL" start="2026-03-05T21:04:17.231506" elapsed="0.001879"/>
+</suite>
+<kw name="Log" owner="BuiltIn" type="TEARDOWN">
+<msg time="2026-03-05T21:04:17.233879" level="INFO">Suite teardown: PASS</msg>
+<arg>Suite teardown: PASS</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-03-05T21:04:17.233788" elapsed="0.000126"/>
+</kw>
+<status status="FAIL" start="2026-03-05T21:04:17.226094" elapsed="0.007846"/>
+</suite>
+<kw name="Log" owner="BuiltIn" type="TEARDOWN">
+<msg time="2026-03-05T21:04:17.234545" level="INFO">Top-level suite teardown: PASS</msg>
+<arg>Top-level suite teardown: PASS</arg>
+<doc>Logs the given message with the given level.</doc>
+<status status="PASS" start="2026-03-05T21:04:17.234475" elapsed="0.000098"/>
+</kw>
+<status status="FAIL" start="2026-03-05T21:04:17.182080" elapsed="0.052516"/>
+</suite>
+<statistics>
+<total>
+<stat pass="2" fail="6" skip="0">All Tests</stat>
+</total>
+<tag>
+<stat pass="2" fail="6" skip="0">chunking</stat>
+<stat pass="1" fail="1" skip="0">deeply-nested</stat>
+<stat pass="0" fail="2" skip="0">failing-setup</stat>
+<stat pass="0" fail="2" skip="0">failing-teardown</stat>
+<stat pass="1" fail="1" skip="0">passing-setup</stat>
+</tag>
+<suite>
+<stat name="Chunking Scenarios" id="s1" pass="2" fail="6" skip="0">Chunking Scenarios</stat>
+<stat name="Failing Setup" id="s1-s1" pass="0" fail="2" skip="0">Chunking Scenarios.Failing Setup</stat>
+<stat name="Test Skipped" id="s1-s1-s1" pass="0" fail="2" skip="0">Chunking Scenarios.Failing Setup.Test Skipped</stat>
+<stat name="Failing Teardown" id="s1-s2" pass="0" fail="2" skip="0">Chunking Scenarios.Failing Teardown</stat>
+<stat name="Test Runs" id="s1-s2-s1" pass="0" fail="2" skip="0">Chunking Scenarios.Failing Teardown.Test Runs</stat>
+<stat name="Passing Setup" id="s1-s3" pass="2" fail="2" skip="0">Chunking Scenarios.Passing Setup</stat>
+<stat name="Deeply Nested" id="s1-s3-s1" pass="1" fail="1" skip="0">Chunking Scenarios.Passing Setup.Deeply Nested</stat>
+<stat name="Test Deep" id="s1-s3-s1-s1" pass="1" fail="1" skip="0">Chunking Scenarios.Passing Setup.Deeply Nested.Test Deep</stat>
+<stat name="Test Normal" id="s1-s3-s2" pass="1" fail="1" skip="0">Chunking Scenarios.Passing Setup.Test Normal</stat>
+</suite>
+</statistics>
+<errors>
+</errors>
+</robot>
