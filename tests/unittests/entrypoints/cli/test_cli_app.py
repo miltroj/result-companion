@@ -3,7 +3,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from typer import echo
+from click import echo
 from typer.testing import CliRunner
 
 from result_companion.core.analizers.local.ollama_server_manager import (
@@ -199,6 +199,17 @@ class TestAnalizeEntrypoint:
         assert "Overall Summary: False" in result.output
         mock_run.assert_called_once()
         assert mock_run.call_args.kwargs["summarize_failures"] is False
+
+    def test_cli_passes_debug_log_path(self):
+        mock_run = MagicMock()
+        result = self.runner.invoke(
+            app,
+            [self.ENTRYPOINT, "-o", existing_xml_path, "--debug-log", "debug.log"],
+            obj={"analyze": mock_run},
+        )
+        assert result.exit_code == 0
+        mock_run.assert_called_once()
+        assert mock_run.call_args.kwargs["debug_log"] == Path("debug.log")
 
     def test_cli_sets_quiet_mode_and_hides_parameter_echo(self):
         mock_run = MagicMock()

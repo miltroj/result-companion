@@ -4,17 +4,16 @@ from dataclasses import dataclass
 import pytest
 
 from result_companion.core.chunking.chunking import (
+    ChunkingStrategy,
     _collect_ancestor_context_at,
-    _render_rf_keywords,
     _split_long_line,
     accumulate_llm_results_for_summarization,
     analyze_chunk,
     chunk_rf_test_lines,
     deduplicate_consecutive_lines,
-    render_rf_test_structure,
-    split_text_into_chunks,
     synthesize_summaries,
 )
+from result_companion.core.parsers.config import TokenizerModel, TokenizerTypes
 
 
 @pytest.fixture
@@ -65,48 +64,6 @@ class FakeACompletionSequence:
             self.call_count += 1
             return FakeLiteLLMResponse(content=response)
         return FakeLiteLLMResponse(content="default response")
-
-
-class TestSplitTextIntoChunks:
-    """Tests for split_text_into_chunks function."""
-
-    def test_splits_text_into_chunks(self):
-        """Test basic text splitting."""
-        text = "abcdefghij"
-        chunks = split_text_into_chunks(text, chunk_size=4, overlap=1)
-
-        assert len(chunks) == 4
-        assert chunks[0] == "abcd"
-        assert chunks[1] == "defg"
-        assert chunks[2] == "ghij"
-
-    def test_handles_text_shorter_than_chunk_size(self):
-        """Test with text shorter than chunk size."""
-        text = "abc"
-        chunks = split_text_into_chunks(text, chunk_size=10, overlap=2)
-
-        assert chunks == ["abc"]
-
-    def test_handles_empty_text(self):
-        """Test with empty text."""
-        chunks = split_text_into_chunks("", chunk_size=10, overlap=2)
-
-        assert chunks == []
-
-    def test_handles_zero_chunk_size(self):
-        """Test with zero chunk size returns original text."""
-        text = "test"
-        chunks = split_text_into_chunks(text, chunk_size=0, overlap=0)
-
-        assert chunks == ["test"]
-
-    def test_overlap_larger_than_chunk_size_uses_default(self):
-        """Test that overlap >= chunk_size falls back to 10%."""
-        text = "abcdefghij"
-        chunks = split_text_into_chunks(text, chunk_size=4, overlap=10)
-
-        # Should not infinite loop, overlap reduced to chunk_size // 10
-        assert len(chunks) > 0
 
 
 class TestAnalyzeChunk:
@@ -187,6 +144,33 @@ class TestAccumulateLLMResultsForSummarization:
         assert result == "final summary"
         assert name == "chunking_test"
         assert len(chunks) == 2
+
+    @pytest.mark.asyncio
+    async def test_aggregates_chunk_summaries_with_numbering(
+        self, patch_smart_acompletion
+    ):
+        """Test that chunk summaries are numbered and joined before final synthesis."""
+        captured_synthesis_prompt = []
+
+        async def capture_acompletion(messages: list[dict], **kwargs):
+            content = messages[0]["content"]
+            captured_synthesis_prompt.append(content)
+            return FakeLiteLLMResponse(content="final")
+
+        patch_smart_acompletion(capture_acompletion)
+
+        await accumulate_llm_results_for_summarization(
+            test_name="agg_test",
+            chunks=["chunk_a", "chunk_b"],
+            chunk_analysis_prompt="Analyze: {text}",
+            final_synthesis_prompt="Synthesize: {summary}",
+            llm_params={"model": "test-model"},
+        )
+
+        # Last call is the synthesis; its prompt contains numbered chunk summaries.
+        synthesis_input = captured_synthesis_prompt[-1]
+        assert "Chunk 1/2" in synthesis_input
+        assert "Chunk 2/2" in synthesis_input
 
     @pytest.mark.asyncio
     async def test_respects_chunk_concurrency(self, patch_smart_acompletion):
@@ -327,14 +311,15 @@ class TestChunkRfTestLines:
         assert len(result) > 1
         assert all("{...}" in chunk for chunk in result)
 
-    def test_long_line_with_current_flushes_current_then_splits(self):
+    def test_long_line_with_current_fills_chunk_before_flushing(self):
         lines = [_SUITE, (0, "X" * 100)]
 
         result = chunk_rf_test_lines(lines, chunk_size=50)
 
         assert len(result) >= 2
-        assert result[0] == "Suite: S"
-        assert "X" not in result[0]
+        assert "Suite: S" in result[0]
+        assert "X" in result[0]  # current chunk filled to capacity before flush
+        assert len(result[0]) <= 50
         assert "X" in result[1]
 
     def test_initial_chunks_are_fuller_than_last_when_lines_do_not_divide_evenly(self):
@@ -347,102 +332,6 @@ class TestChunkRfTestLines:
 
         assert len(result) > 1
         assert len(result[-1]) < len(result[-2])
-
-
-# ---------------------------------------------------------------------------
-# Factories
-# ---------------------------------------------------------------------------
-
-
-def make_kw(
-    name: str = "Kw",
-    status: str = "PASS",
-    args: list | None = None,
-    body: list | None = None,
-    kw_type: str = "KEYWORD",
-) -> dict:
-    item: dict = {"name": name, "status": status, "type": kw_type}
-    if args:
-        item["args"] = args
-    if body:
-        item["body"] = body
-    return item
-
-
-def make_msg(message: str = "log line") -> dict:
-    return {"type": "MESSAGE", "message": message}
-
-
-def make_test(
-    name: str = "My Test",
-    status: str = "PASS",
-    body: list | None = None,
-    suite_context: list | None = None,
-) -> dict:
-    tc: dict = {"name": name, "status": status}
-    if body:
-        tc["body"] = body
-    if suite_context:
-        tc["suite_context"] = suite_context
-    return tc
-
-
-class TestRenderRfKeywords:
-    """Tests for _render_rf_keywords."""
-
-    def test_empty_body_returns_empty_list(self):
-        assert _render_rf_keywords([], depth=0) == []
-
-    def test_message_item_uses_message_text_directly(self):
-        result = _render_rf_keywords([make_msg("log line")], depth=1)
-
-        assert result == [(1, "log line")]
-
-    def test_keyword_renders_kind_name_and_status(self):
-        result = _render_rf_keywords([make_kw("Log", "PASS")], depth=0)
-
-        assert result == [(0, "Keyword: Log - PASS")]
-
-    def test_keyword_with_args_appends_args_line_at_next_depth(self):
-        result = _render_rf_keywords(
-            [make_kw("Log", "PASS", args=["hello", 42])], depth=0
-        )
-
-        assert (0, "Keyword: Log - PASS") in result
-        assert (1, "args: hello, 42") in result
-
-    def test_nested_keyword_body_rendered_at_incremented_depth(self):
-        inner = make_kw("Inner", "PASS")
-        outer = make_kw("Outer", "PASS", body=[inner])
-
-        result = _render_rf_keywords([outer], depth=0)
-
-        assert (0, "Keyword: Outer - PASS") in result
-        assert (1, "Keyword: Inner - PASS") in result
-
-
-class TestRenderRfTestStructure:
-    """Tests for render_rf_test_structure."""
-
-    def test_no_suite_context_renders_single_test_line_at_depth_0(self):
-        result = render_rf_test_structure(make_test("Login Test", "PASS"))
-
-        assert result == [(0, "Test: Login Test - PASS")]
-
-    def test_suite_context_produces_nested_suite_lines_before_test(self):
-        suite_ctx = [{"name": "Suite A"}, {"name": "Suite B"}]
-
-        result = render_rf_test_structure(make_test(suite_context=suite_ctx))
-
-        assert result[0] == (0, "Suite: Suite A")
-        assert result[1] == (1, "Suite: Suite B")
-        assert result[2] == (2, "Test: My Test - PASS")
-
-    def test_body_keywords_appended_after_test_line(self):
-        result = render_rf_test_structure(make_test(body=[make_kw("Click", "PASS")]))
-
-        assert result[0] == (0, "Test: My Test - PASS")
-        assert result[1] == (1, "Keyword: Click - PASS")
 
 
 class TestDeduplicateConsecutiveLines:
@@ -509,3 +398,64 @@ class TestDeduplicateConsecutiveLines:
         result = deduplicate_consecutive_lines(lines)
 
         assert result == lines
+
+
+class TestChunkingStrategy:
+    """Tests for ChunkingStrategy dataclass."""
+
+    def test_build_returns_strategy_with_correct_tokenizer_config(self):
+        strategy = ChunkingStrategy.build(
+            tokenizer=TokenizerTypes.OPENAI,
+            max_content_tokens=4000,
+            system_prompt="sys",
+        )
+
+        assert isinstance(strategy, ChunkingStrategy)
+        assert strategy.tokenizer_config.tokenizer == TokenizerTypes.OPENAI
+        assert strategy.tokenizer_config.max_content_tokens == 4000
+        assert strategy.system_prompt == "sys"
+
+    def test_build_uses_defaults(self):
+        strategy = ChunkingStrategy.build()
+
+        assert strategy.tokenizer_config.tokenizer == TokenizerTypes.OPENAI
+        assert strategy.tokenizer_config.max_content_tokens == 8000
+        assert strategy.system_prompt == ""
+
+    def test_apply_returns_single_chunk_when_content_fits(self):
+        strategy = ChunkingStrategy(
+            tokenizer_config=TokenizerModel(
+                tokenizer=TokenizerTypes.OPENAI, max_content_tokens=100_000
+            )
+        )
+        lines = [(0, "Suite: S"), (1, "Test: T - FAIL"), (2, "Keyword: K - FAIL")]
+
+        chunks, chunk_info = strategy.apply(lines)
+
+        assert len(chunks) == 1
+        assert "Suite: S" in chunks[0]
+        assert not chunk_info.requires_chunking
+
+    def test_apply_returns_multiple_chunks_when_content_exceeds_budget(self):
+        strategy = ChunkingStrategy(
+            tokenizer_config=TokenizerModel(
+                tokenizer=TokenizerTypes.OPENAI, max_content_tokens=1
+            )
+        )
+        lines = [(0, "Suite: S"), (1, "Test: T - FAIL"), (2, "Keyword: K - FAIL")]
+
+        chunks, chunk_info = strategy.apply(lines)
+
+        assert len(chunks) > 1
+        assert chunk_info.requires_chunking
+
+    def test_apply_empty_lines_returns_empty_chunks(self):
+        strategy = ChunkingStrategy(
+            tokenizer_config=TokenizerModel(
+                tokenizer=TokenizerTypes.OPENAI, max_content_tokens=1000
+            )
+        )
+
+        chunks, _ = strategy.apply([])
+
+        assert chunks == []

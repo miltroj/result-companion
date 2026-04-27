@@ -62,6 +62,25 @@ def make_fake_acompletion(response: str):
     return fake_acompletion
 
 
+_FAKE_CHUNK_STATS = Chunking(
+    chunk_size=100,
+    number_of_chunks=1,
+    raw_text_len=50,
+    tokens_from_raw_text=10,
+    tokenized_chunks=1,
+)
+
+
+class FakeContextAwareResults:
+    """Fake ContextAwareRobotResults for testing."""
+
+    def __init__(self, test_data: list[tuple[str, list[str], Chunking, str]]):
+        self._data = test_data
+
+    def render_chunks(self):
+        yield from self._data
+
+
 def make_config(
     model: str = "ollama_chat/test-model",
     max_content_tokens: int = 10,
@@ -149,7 +168,7 @@ class TestStatsHeader:
 
     def test_returns_formatted_metadata(self):
         """Test stats header contains test info and stats."""
-        chunk = Chunking(
+        chunk_stats = Chunking(
             chunk_size=100,
             number_of_chunks=3,
             raw_text_len=5000,
@@ -157,7 +176,9 @@ class TestStatsHeader:
             tokenized_chunks=3,
         )
 
-        header = _stats_header("FAIL", chunk, dryrun=False)
+        header = _stats_header(
+            test_status="FAIL", chunk_stats=chunk_stats, dryrun=False
+        )
 
         assert "FAIL" in header
         assert "Chunks: 3" in header
@@ -166,7 +187,7 @@ class TestStatsHeader:
 
     def test_dryrun_mode(self):
         """Test stats header shows DRYRUN prefix when enabled."""
-        chunk = Chunking(
+        chunk_stats = Chunking(
             chunk_size=0,
             number_of_chunks=0,
             raw_text_len=1000,
@@ -174,14 +195,14 @@ class TestStatsHeader:
             tokenized_chunks=0,
         )
 
-        header = _stats_header("PASS", chunk, dryrun=True)
+        header = _stats_header(test_status="PASS", chunk_stats=chunk_stats, dryrun=True)
 
         assert "[DRYRUN]" in header
         assert "Chunks: 0" in header
 
     def test_includes_test_name(self):
         """Test stats header includes test name."""
-        chunk = Chunking(
+        chunk_stats = Chunking(
             chunk_size=0,
             number_of_chunks=0,
             raw_text_len=100,
@@ -189,7 +210,11 @@ class TestStatsHeader:
             tokenized_chunks=0,
         )
 
-        header = _stats_header("FAIL", chunk, name="My Test Case")
+        header = _stats_header(
+            test_status="FAIL",
+            chunk_stats=chunk_stats,
+            test_name="My Test Case",
+        )
 
         assert "My Test Case" in header
 
@@ -236,15 +261,17 @@ class TestExecuteLLMAndGetResults:
     async def test_processes_test_cases(self, patch_smart_acompletion):
         """Test that execute_llm_and_get_results processes all test cases."""
         config = make_config(max_content_tokens=100000)  # High limit to avoid chunking
-        test_cases = [
-            {"name": "test1", "status": "FAIL"},
-            {"name": "test2", "status": "FAIL"},
-        ]
+        fake_results = FakeContextAwareResults(
+            [
+                ("test1", ["body"], _FAKE_CHUNK_STATS, "FAIL"),
+                ("test2", ["body"], _FAKE_CHUNK_STATS, "FAIL"),
+            ]
+        )
         fake_acompletion = make_fake_acompletion("Analysis result")
         patch_smart_acompletion(fake_acompletion)
 
         results = await execute_llm_and_get_results(
-            test_cases=test_cases,
+            results=fake_results,
             config=config,
         )
 
@@ -257,10 +284,12 @@ class TestExecuteLLMAndGetResults:
     async def test_dryrun_skips_llm_calls(self):
         """Test that dryrun mode skips actual LLM calls."""
         config = make_config()
-        test_cases = [{"name": "test1", "status": "FAIL"}]
+        fake_results = FakeContextAwareResults(
+            [("test1", ["body"], _FAKE_CHUNK_STATS, "FAIL")]
+        )
 
         results = await execute_llm_and_get_results(
-            test_cases=test_cases,
+            results=fake_results,
             config=config,
             dryrun=True,
         )
@@ -273,12 +302,14 @@ class TestExecuteLLMAndGetResults:
     async def test_includes_stats_header(self, patch_smart_acompletion):
         """Test that results include stats header."""
         config = make_config(max_content_tokens=100000)
-        test_cases = [{"name": "test_with_stats", "status": "FAIL"}]
+        fake_results = FakeContextAwareResults(
+            [("test_with_stats", ["body"], _FAKE_CHUNK_STATS, "FAIL")]
+        )
         fake_acompletion = make_fake_acompletion("Analysis")
         patch_smart_acompletion(fake_acompletion)
 
         results = await execute_llm_and_get_results(
-            test_cases=test_cases,
+            results=fake_results,
             config=config,
         )
 
@@ -286,3 +317,76 @@ class TestExecuteLLMAndGetResults:
         assert "Status: FAIL" in result
         assert "Tokens:" in result
         assert "Analysis" in result
+
+    @pytest.mark.asyncio
+    async def test_uses_accumulate_path_when_multiple_chunks(self, monkeypatch):
+        """Test that multi-chunk tests are routed to accumulate_llm_results_for_summarization."""
+        config = make_config()
+        multi_chunk_stats = Chunking(
+            chunk_size=50,
+            number_of_chunks=2,
+            raw_text_len=200,
+            tokens_from_raw_text=50,
+            tokenized_chunks=2,
+        )
+        fake_results = FakeContextAwareResults(
+            [("chunked_test", ["chunk1", "chunk2"], multi_chunk_stats, "FAIL")]
+        )
+
+        async def fake_accumulate(test_name, chunks, **kwargs):
+            return ("synthesized result", test_name, chunks)
+
+        monkeypatch.setattr(
+            "result_companion.core.analizers.factory_common.accumulate_llm_results_for_summarization",
+            fake_accumulate,
+        )
+
+        results = await execute_llm_and_get_results(results=fake_results, config=config)
+
+        assert "chunked_test" in results
+        assert "synthesized result" in results["chunked_test"]
+        assert "Status: FAIL" in results["chunked_test"]
+
+    @pytest.mark.asyncio
+    async def test_processes_mixed_single_and_multi_chunk_tests(
+        self, monkeypatch, patch_smart_acompletion
+    ):
+        """Test that single-chunk and multi-chunk tests are routed correctly."""
+        config = make_config()
+        multi_chunk_stats = Chunking(
+            chunk_size=50,
+            number_of_chunks=2,
+            raw_text_len=200,
+            tokens_from_raw_text=50,
+            tokenized_chunks=2,
+        )
+        fake_results = FakeContextAwareResults(
+            [
+                ("single_chunk_test", ["body"], _FAKE_CHUNK_STATS, "FAIL"),
+                ("multi_chunk_test", ["chunk1", "chunk2"], multi_chunk_stats, "FAIL"),
+            ]
+        )
+        patch_smart_acompletion(make_fake_acompletion("single analysis"))
+
+        async def fake_accumulate(test_name, chunks, **kwargs):
+            return ("multi analysis", test_name, chunks)
+
+        monkeypatch.setattr(
+            "result_companion.core.analizers.factory_common.accumulate_llm_results_for_summarization",
+            fake_accumulate,
+        )
+
+        results = await execute_llm_and_get_results(results=fake_results, config=config)
+
+        assert "single analysis" in results["single_chunk_test"]
+        assert "multi analysis" in results["multi_chunk_test"]
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_dict_when_no_tests(self):
+        """Test that empty results yields empty dict."""
+        config = make_config()
+        fake_results = FakeContextAwareResults([])
+
+        results = await execute_llm_and_get_results(results=fake_results, config=config)
+
+        assert results == {}

@@ -39,6 +39,8 @@ result-companion analyze -o output.xml --print-text-report
 result-companion analyze -o output.xml --no-overall-summary
 ```
 
+To inspect every prompt sent to the LLM and its response, use `--debug-log`. See [Debugging Prompts](examples/EXAMPLES.md#debugging-prompts) for details.
+
 ## Copilot Review Agent
 
 Replaces the manual "which commit broke this test?" investigation. AI cross-references Robot Framework failures with PR code changes via GitHub Copilot and posts the verdict as a PR comment:
@@ -212,9 +214,18 @@ See [tag_filtering_config.yaml](https://github.com/miltroj/result-companion/blob
 
 ## Token Efficiency
 
-Before sending a test case to the LLM, result-companion applies two reductions:
+Before sending a test case to the LLM, result-companion applies two reductions and one context enhancement:
 
-**1. Consecutive line deduplication** — repeated log lines are collapsed:
+**1. Field filtering** — exclude RF fields irrelevant to your analysis via `rendering.exclude_fields`:
+
+```yaml
+rendering:
+  exclude_fields: [elapsed_time, lineno, owner, assign]
+```
+
+See [field reference in EXAMPLES.md](examples/EXAMPLES.md#field-reference) for the full list and common presets.
+
+**2. Consecutive line deduplication** — repeated log lines are collapsed:
 
 ```text
 # Before
@@ -226,7 +237,7 @@ Before sending a test case to the LLM, result-companion applies two reductions:
     DeprecationWarning: Call to deprecated create function FieldDescriptor(). (repeats ×3)
 ```
 
-**2. Context-aware chunking** — tests that exceed the token budget are split into self-contained chunks. Each chunk repeats the suite → test → keyword ancestor chain so the LLM can interpret it without prior context:
+**3. Context-aware chunking** — tests that exceed the token budget are split into self-contained chunks. Each chunk repeats the suite → test → keyword ancestor chain so the LLM can interpret it without prior context:
 
 ```text
 Suite: Outer Suite - FAIL

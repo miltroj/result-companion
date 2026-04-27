@@ -22,7 +22,11 @@ Quick-start configurations for different LLM providers and use cases.
     - [CLI Examples](#cli-examples)
     - [Config File](#config-file)
     - [Filter Logic](#filter-logic)
+  - [Output Rendering \& Field Filtering](#output-rendering--field-filtering)
+    - [Field Reference](#field-reference)
+    - [Common Presets](#common-presets)
   - [Dryrun Mode](#dryrun-mode)
+  - [Debugging Prompts](#debugging-prompts)
   - [Text Output for CI](#text-output-for-ci)
   - [Agent Chat Workflows](#agent-chat-workflows)
   - [Custom Analysis](#custom-analysis)
@@ -322,6 +326,136 @@ result-companion analyze -o output.xml -c examples/configs/tag_filtering_config.
 
 **Note**: Exclude patterns override include patterns.
 
+## Output Rendering & Field Filtering
+
+`rendering.exclude_fields` controls what data is included in the text sent to the LLM.
+The default config already excludes low-signal fields — override as needed.
+
+```yaml
+# default
+rendering:
+  exclude_fields: [elapsed_time, lineno, owner, assign]
+```
+
+Same test fragment — **without** those excludes (noisier) vs **default** (those lines omitted):
+
+```text
+Suite: Checkout
+    Test: Pay With Card - FAIL
+        elapsed: 0:00:02.410
+        lineno: 18
+        owner: PaymentKeywords
+        Keyword: Submit Payment - FAIL
+            args: card_id=1234
+            assign: ${receipt}
+            elapsed: 0:00:00.120
+            lineno: 44
+            Invalid card.
+
+Suite: Checkout
+    Test: Pay With Card - FAIL
+        Keyword: Submit Payment - FAIL
+            args: card_id=1234
+            Invalid card.
+```
+
+### Field Reference
+
+| Field | Description | Exclude to save tokens? |
+|-------|-------------|------------------------|
+| `name` | Suite/Test/Keyword name | No (structural) |
+| `status` | PASS/FAIL | No (structural) |
+| `type` | Item type (Keyword, Setup, Teardown) | No (structural) |
+| `args` | Keyword arguments | Sometimes |
+| `message` | Log messages from keywords | Rarely — key for root cause |
+| `doc` | Documentation strings | Yes — low signal |
+| `tags` | Test/keyword tags | Yes — usually noise |
+| `setup` | Suite/test setup keywords | Situational |
+| `teardown` | Suite/test teardown keywords | Situational |
+| `level` | Log level (INFO, DEBUG…) | Yes |
+| `elapsed_time` | Execution duration | Yes (unless perf analysis) |
+| `assign` | Variable assignments | Situational |
+| `timestamp` | Log message timestamps | Yes |
+| `lineno` | Source line numbers | Yes |
+| `owner` | Keyword owner library | Yes |
+
+### Common Presets
+
+**Balanced — fewer tokens, no real info loss:**
+
+```yaml
+rendering:
+  exclude_fields: ["elapsed_time", "doc", "lineno", "owner", "timestamp", "level"]
+```
+
+**Skeleton — pass/fail tree only, minimum tokens:**
+
+```yaml
+rendering:
+  exclude_fields:
+    - message
+    - doc
+    - tags
+    - elapsed_time
+    - assign
+    - timestamp
+    - lineno
+    - owner
+    - level
+    - args
+```
+
+Output becomes a pure structure view — useful when you only need to know *which* keyword failed:
+
+```text
+Suite: My Application
+    Suite: Data Pipeline
+        Test: Process And Write - FAIL
+            Keyword: Connect To Database - PASS
+            Keyword: Write Output - FAIL
+```
+
+<details>
+<summary>Programmatic usage (advanced)</summary>
+
+Use `get_rc_robot_results` to access rendered output directly from Python.
+
+**Basic iteration:**
+
+```python
+from pathlib import Path
+from result_companion.core.chunking.rf_results import get_rc_robot_results
+
+results = get_rc_robot_results(
+    Path("output.xml"),
+    include_tags=["smoke"],
+    exclude_fields=["elapsed_time", "doc", "lineno", "owner"],
+)
+for test_name, text in results.as_texts():
+    print(f"--- {test_name} ---\n{text}")
+```
+
+**Token-aware chunking for LLM:**
+
+```python
+from result_companion.core.chunking.rf_results import ChunkingStrategy
+from result_companion.core.parsers.config import TokenizerTypes
+
+strategy = ChunkingStrategy.build(
+    tokenizer=TokenizerTypes.OPENAI,
+    max_content_tokens=8000,
+    system_prompt="Analyze this test failure.",
+)
+results.set_chunking(strategy)
+
+for test_name, chunks, chunk_stats, test_status in results.render_chunks():
+    print(f"{test_name} ({test_status}): {chunk_stats.number_of_chunks} chunks")
+    for chunk in chunks:
+        send_to_llm(chunk)
+```
+
+</details>
+
 ## Dryrun Mode
 
 Validate parsing and configuration without calling LLMs:
@@ -339,6 +473,53 @@ Generates `rc_log.html` with debug metadata per test:
 - Debug XML parsing issues
 - Verify tag filtering works correctly
 - Check chunking behavior before real runs
+
+## Debugging Prompts
+
+Use `--debug-log` to capture every prompt sent to the LLM and its response. Run a real analysis and inspect the file to see exactly what the model receives and returns.
+
+```bash
+result-companion analyze -o output.xml -c my_config.yaml --debug-log debug.log
+```
+
+Each record in the output file follows this format:
+
+```
+============================================================
+[My Test Case Name] (single chunk)
+--- PROMPT ---
+Analyze the following Robot Framework test execution...
+
+--- RESPONSE ---
+The test failed because...
+============================================================
+[Another Test] Chunk 1/3
+--- PROMPT ---
+...
+--- RESPONSE ---
+...
+============================================================
+[Another Test] SYNTHESIS
+--- PROMPT ---
+...
+--- RESPONSE ---
+...
+```
+
+**Record types:**
+
+| Record | When |
+|--------|------|
+| `(single chunk)` | Test fits within token budget — one LLM call |
+| `Chunk X/Y` | Test required chunking — one call per chunk |
+| `SYNTHESIS` | Final synthesis call combining all chunk results |
+
+**Write order:** records are written in LLM completion order, not test declaration order. Each record is tagged with the test name and chunk index, so the file is readable regardless of order.
+
+**Use cases:**
+- See how your `question_prompt` and `prompt_template` look after formatting
+- Compare responses before and after prompt edits
+- Verify chunking boundaries for large tests
 
 ## Text Output for CI
 
