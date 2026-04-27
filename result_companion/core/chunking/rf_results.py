@@ -234,6 +234,15 @@ def get_rc_robot_results(
     return results
 
 
+def _render_suite_teardown(
+    suite: TestSuite, depth: int, fields: frozenset[str]
+) -> list[RenderLine]:
+    """Renders suite teardown if field enabled and teardown exists."""
+    if "teardown" not in fields or not suite.has_teardown:
+        return []
+    return _render_keyword(suite.teardown, depth + 1, fields)
+
+
 def _iter_tests_with_context(
     suite: TestSuite,
     ancestor_lines: list[RenderLine],
@@ -244,32 +253,26 @@ def _iter_tests_with_context(
     """Yields RenderedTest for each test, with ancestor suite context prepended."""
     if ancestor_teardowns is None:
         ancestor_teardowns = []
+
     context = ancestor_lines + (
         [RenderLine(depth, f"Suite: {suite.name}")] if "name" in fields else []
     )
-    if suite.has_setup:
-        if "setup" in fields:
-            context = context + _render_keyword(suite.setup, depth + 1, fields)
-        if getattr(suite.setup, "status", None) == "FAIL":
-            skipped = sum(1 for _ in suite.all_tests)
-            logger.warning(
-                f"Suite setup FAILED for '{suite.name}' — "
-                f"collapsing {skipped} skipped test(s) into single analysis unit."
-            )
-            suite_teardown = (
-                _render_keyword(suite.teardown, depth + 1, fields)
-                if "teardown" in fields and suite.has_teardown
-                else []
-            )
-            yield RenderedTest(
-                suite.name, "FAIL", context + suite_teardown + ancestor_teardowns
-            )
-            return
-    suite_teardown = (
-        _render_keyword(suite.teardown, depth + 1, fields)
-        if "teardown" in fields and suite.has_teardown
-        else []
-    )
+    if suite.has_setup and "setup" in fields:
+        context = context + _render_keyword(suite.setup, depth + 1, fields)
+
+    suite_teardown = _render_suite_teardown(suite, depth, fields)
+
+    if suite.has_setup and getattr(suite.setup, "status", None) == "FAIL":
+        skipped = sum(1 for _ in suite.all_tests)
+        logger.warning(
+            f"Suite setup FAILED for '{suite.name}' — "
+            f"collapsing {skipped} skipped test(s) into single analysis unit."
+        )
+        yield RenderedTest(
+            suite.name, "FAIL", context + suite_teardown + ancestor_teardowns
+        )
+        return
+
     all_teardowns = suite_teardown + ancestor_teardowns
     for test in suite.tests:
         yield RenderedTest(
