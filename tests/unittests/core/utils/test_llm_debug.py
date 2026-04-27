@@ -1,34 +1,25 @@
-import pytest
-
-import result_companion.core.utils.llm_debug as llm_debug
-from result_companion.core.utils.llm_debug import (
-    enable_llm_debug,
-    is_llm_debug_enabled,
-    write_llm_record,
-)
+from result_companion.core.utils.llm_debug import LLMDebugLogger
 
 
-@pytest.fixture(autouse=True)
-def reset_writer():
-    llm_debug._writer = None
-    yield
-    llm_debug._writer = None
+def test_disabled_by_default():
+    assert not LLMDebugLogger().enabled
 
 
-def test_is_llm_debug_enabled_false_by_default():
-    assert not is_llm_debug_enabled()
+def test_enabled_after_from_path(tmp_path):
+    logger = LLMDebugLogger.from_path(tmp_path / "debug.log")
+    assert logger.enabled
 
 
-def test_is_llm_debug_enabled_true_after_enable(tmp_path):
-    enable_llm_debug(tmp_path / "debug.log")
-    assert is_llm_debug_enabled()
+def test_write_record_is_noop_when_disabled(tmp_path):
+    logger = LLMDebugLogger()
+    logger.write_record(label="test", prompt="p", response="r")
 
 
-def test_enable_llm_debug_writes_record(tmp_path):
+def test_write_record_appends_to_file(tmp_path):
     path = tmp_path / "debug.log"
-    enable_llm_debug(path)
+    logger = LLMDebugLogger.from_path(path)
 
-    write_llm_record(
+    logger.write_record(
         label="[My Test] (single chunk)", prompt="my prompt", response="my response"
     )
 
@@ -38,12 +29,12 @@ def test_enable_llm_debug_writes_record(tmp_path):
     assert "my response" in content
 
 
-def test_write_llm_record_appends_multiple_records(tmp_path):
+def test_write_record_appends_multiple_records(tmp_path):
     path = tmp_path / "debug.log"
-    enable_llm_debug(path)
+    logger = LLMDebugLogger.from_path(path)
 
-    write_llm_record(label="[Test A]", prompt="prompt A", response="response A")
-    write_llm_record(label="[Test B]", prompt="prompt B", response="response B")
+    logger.write_record(label="[Test A]", prompt="prompt A", response="response A")
+    logger.write_record(label="[Test B]", prompt="prompt B", response="response B")
 
     content = path.read_text(encoding="utf-8")
     assert "prompt A" in content

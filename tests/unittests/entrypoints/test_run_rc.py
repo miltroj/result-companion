@@ -229,6 +229,7 @@ class TestRunRC:
                 include_tags=None,
                 exclude_tags=None,
                 dryrun=False,
+                debug_log=None,
             )
             assert result == "RESULT"
 

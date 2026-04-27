@@ -1,30 +1,48 @@
+"""Injectable LLM debug logger — replaces global state."""
+
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
-
-_writer: Callable[[str], None] | None = None
 
 
-def enable_llm_debug(path: Path) -> None:
-    """Activates LLM prompt/response logging to path.
+@dataclass(frozen=True)
+class LLMDebugLogger:
+    """Logs LLM prompts and responses to a file for debugging.
 
     Args:
-        path: File to append debug records to.
+        path: File to append debug records to. None = disabled (no-op).
     """
-    global _writer
-    _writer = _make_writer(path)
+
+    path: Path | None = None
+
+    @classmethod
+    def from_path(cls, path: Path) -> LLMDebugLogger:
+        """Creates an enabled logger writing to path."""
+        return cls(path=path)
+
+    @property
+    def enabled(self) -> bool:
+        """True if debug logging is active."""
+        return self.path is not None
+
+    def write_record(self, label: str, prompt: str, response: str) -> None:
+        """Appends a prompt/response record to the debug file.
+
+        No-op when logger is disabled (path is None).
+
+        Args:
+            label: Record header (e.g. '[Test Name] Chunk 1/3').
+            prompt: The formatted prompt sent to the LLM.
+            response: The LLM response content.
+        """
+        if self.path is None:
+            return
+        with open(self.path, "a", encoding="utf-8") as f:
+            f.write(_format_record(label, prompt, response))
 
 
-def _make_writer(path: Path) -> Callable[[str], None]:
-    def write(text: str) -> None:
-        with open(path, "a", encoding="utf-8") as f:
-            f.write(text)
-
-    return write
-
-
-def _format_llm_record(label: str, prompt: str, response: str) -> str:
+def _format_record(label: str, prompt: str, response: str) -> str:
     """Formats a single LLM prompt/response pair as a debug record."""
     return (
         f"\n{'='*60}\n{label}\n"
@@ -33,19 +51,18 @@ def _format_llm_record(label: str, prompt: str, response: str) -> str:
     )
 
 
+_writer: LLMDebugLogger | None = None
+
+
+def enable_llm_debug(path: Path) -> None:
+    global _writer
+    _writer = LLMDebugLogger.from_path(path)
+
+
 def is_llm_debug_enabled() -> bool:
-    """Returns True if LLM debug logging is active."""
-    return _writer is not None
+    return _writer is not None and _writer.enabled
 
 
 def write_llm_record(label: str, prompt: str, response: str) -> None:
-    """Appends a prompt/response record to the debug file.
-
-    Args:
-        label: Record header (e.g. '[Test Name] Chunk 1/3').
-        prompt: The formatted prompt sent to the LLM.
-        response: The LLM response content.
-    """
-    if _writer is None:
-        return
-    _writer(_format_llm_record(label, prompt, response))  # type: ignore[misc]
+    if _writer:
+        _writer.write_record(label, prompt, response)

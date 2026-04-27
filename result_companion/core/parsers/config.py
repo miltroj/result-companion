@@ -5,8 +5,9 @@ from pathlib import Path
 from typing import TypeVar
 
 import yaml
-from pydantic import BaseModel, Field, ValidationError, model_serializer
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_serializer
 
+from result_companion.core.utils.llm_debug import LLMDebugLogger
 from result_companion.core.utils.logging_config import logger
 
 T = TypeVar("T", bound=BaseModel)
@@ -117,6 +118,8 @@ class RenderingModel(BaseModel):
 
 
 class DefaultConfigModel(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     version: float
     llm_config: LLMConfigModel
     llm_factory: LLMFactoryModel
@@ -124,6 +127,7 @@ class DefaultConfigModel(BaseModel):
     concurrency: ConcurrencyModel = Field(default_factory=ConcurrencyModel)
     test_filter: TestFilterModel = Field(default_factory=TestFilterModel)
     rendering: RenderingModel = Field(default_factory=RenderingModel)
+    debug_logger: LLMDebugLogger = Field(default_factory=LLMDebugLogger, exclude=True)
 
 
 class ConfigLoader:

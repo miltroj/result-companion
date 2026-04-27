@@ -20,7 +20,7 @@ from result_companion.core.results.text_report import (
     render_json_report,
     render_text_report,
 )
-from result_companion.core.utils.llm_debug import enable_llm_debug
+from result_companion.core.utils.llm_debug import LLMDebugLogger
 from result_companion.core.utils.log_levels import LogLevels
 from result_companion.core.utils.logging_config import logger, set_global_log_level
 
@@ -42,6 +42,7 @@ async def _main(
     print_text_report: bool = False,
     summarize_failures: bool = False,
     quiet: bool = False,
+    debug_log: Optional[Path] = None,
 ) -> bool:
     resolved_log_level = "ERROR" if quiet else str(log_level)
     set_global_log_level(resolved_log_level)
@@ -49,6 +50,8 @@ async def _main(
     logger.info("Starting Result Companion!")
     start = time.time()
     parsed_config = load_config(config)
+    if debug_log:
+        parsed_config.debug_logger = LLMDebugLogger.from_path(debug_log)
     apply_concurrency_overrides(parsed_config, test_case_concurrency, chunk_concurrency)
 
     results = get_rc_robot_results(
@@ -188,8 +191,6 @@ def run_rc(
     Returns:
         True if analysis completed successfully.
     """
-    if debug_log:
-        enable_llm_debug(debug_log)
     try:
         return asyncio.run(
             _main(
@@ -209,6 +210,7 @@ def run_rc(
                 include_tags=include_tags,
                 exclude_tags=exclude_tags,
                 dryrun=dryrun,
+                debug_log=debug_log,
             )
         )
     except Exception:

@@ -8,7 +8,7 @@ from typing import Any
 from result_companion.core.analizers.llm_router import _smart_acompletion
 from result_companion.core.chunking.utils import Chunking, calculate_chunk_size
 from result_companion.core.parsers.config import TokenizerModel, TokenizerTypes
-from result_companion.core.utils.llm_debug import is_llm_debug_enabled, write_llm_record
+from result_companion.core.utils.llm_debug import LLMDebugLogger
 from result_companion.core.utils.logging_config import get_progress_logger
 
 logger = get_progress_logger("Chunking")
@@ -178,6 +178,7 @@ async def analyze_chunk(
     chunk_analysis_prompt: str,
     llm_params: dict[str, Any],
     semaphore: asyncio.Semaphore,
+    debug_logger: LLMDebugLogger = LLMDebugLogger(),
 ) -> str:
     """Analyzes a single chunk using LiteLLM.
 
@@ -189,6 +190,7 @@ async def analyze_chunk(
         chunk_analysis_prompt: Prompt template with {text} placeholder.
         llm_params: Parameters for LiteLLM acompletion.
         semaphore: Semaphore for concurrency control.
+        debug_logger: Logger for prompt/response debugging.
 
     Returns:
         Analysis result for the chunk.
@@ -206,8 +208,8 @@ async def analyze_chunk(
             messages=[{"role": "user", "content": formatted_prompt}], **llm_params
         )
         result = response.choices[0].message.content
-        if is_llm_debug_enabled():
-            write_llm_record(
+        if debug_logger.enabled:
+            debug_logger.write_record(
                 label=f"[{test_name}] Chunk {chunk_idx + 1}/{total_chunks}",
                 prompt=formatted_prompt,
                 response=result,
@@ -220,6 +222,7 @@ async def synthesize_summaries(
     final_synthesis_prompt: str,
     llm_params: dict[str, Any],
     test_name: str = "",
+    debug_logger: LLMDebugLogger = LLMDebugLogger(),
 ) -> str:
     """Synthesizes chunk summaries into final analysis.
 
@@ -228,6 +231,7 @@ async def synthesize_summaries(
         final_synthesis_prompt: Prompt template with {summary} placeholder.
         llm_params: Parameters for LiteLLM acompletion.
         test_name: Test case name for logging purposes.
+        debug_logger: Logger for prompt/response debugging.
 
     Returns:
         Final synthesized analysis.
@@ -237,8 +241,8 @@ async def synthesize_summaries(
         messages=[{"role": "user", "content": formatted_prompt}], **llm_params
     )
     result = response.choices[0].message.content
-    if is_llm_debug_enabled():
-        write_llm_record(
+    if debug_logger.enabled:
+        debug_logger.write_record(
             label=f"[{test_name}] SYNTHESIS",
             prompt=formatted_prompt,
             response=result,
@@ -253,6 +257,7 @@ async def accumulate_llm_results_for_summarization(
     final_synthesis_prompt: str,
     llm_params: dict[str, Any],
     chunk_concurrency: int = 1,
+    debug_logger: LLMDebugLogger = LLMDebugLogger(),
 ) -> tuple[str, str, list]:
     """Summarizes large test case by analyzing chunks and synthesizing results.
 
@@ -263,6 +268,7 @@ async def accumulate_llm_results_for_summarization(
         final_synthesis_prompt: Template for final synthesis (with {summary}).
         llm_params: Parameters for LiteLLM acompletion.
         chunk_concurrency: Chunks to process concurrently.
+        debug_logger: Logger for prompt/response debugging.
 
     Returns:
         Tuple of (final_analysis, test_name, chunks).
@@ -281,6 +287,7 @@ async def accumulate_llm_results_for_summarization(
             chunk_analysis_prompt=chunk_analysis_prompt,
             llm_params=llm_params,
             semaphore=semaphore,
+            debug_logger=debug_logger,
         )
         for i, chunk in enumerate(chunks)
     ]
@@ -298,6 +305,7 @@ async def accumulate_llm_results_for_summarization(
         final_synthesis_prompt=final_synthesis_prompt,
         llm_params=llm_params,
         test_name=test_name,
+        debug_logger=debug_logger,
     )
 
     return final_result, test_name, chunks
