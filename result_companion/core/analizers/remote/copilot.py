@@ -212,7 +212,7 @@ class CopilotLLM(CustomLLM):
         Returns:
             Copilot session response.
         """
-        logger.debug("Sending prompt (chars=%d): %.500s", len(prompt), prompt)
+        logger.debug("Sending prompt (chars=%d).", len(prompt))
         async with self._pool.acquire() as session:
             return await session.send_and_wait(
                 {"prompt": prompt}, timeout=self._timeout
