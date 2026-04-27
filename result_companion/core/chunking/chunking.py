@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from itertools import groupby
-from typing import Any
+from typing import Any, NamedTuple
 
 from result_companion.core.analizers.llm_router import _smart_acompletion
 from result_companion.core.chunking.utils import Chunking, calculate_chunk_size
@@ -16,14 +16,21 @@ logger = get_progress_logger("Chunking")
 _INDENT = "    "
 
 
+class RenderLine(NamedTuple):
+    """Single rendered line with indentation depth and text content."""
+
+    depth: int
+    text: str
+
+
 def _indent(depth: int, text: str) -> str:
     """Returns text prefixed with depth levels of indentation."""
     return f"{_INDENT * depth}{text}"
 
 
 def deduplicate_consecutive_lines(
-    lines: list[tuple[int, str]],
-) -> list[tuple[int, str]]:
+    lines: list[RenderLine],
+) -> list[RenderLine]:
     """Collapses consecutive identical lines into a single annotated line.
 
     Args:
@@ -35,18 +42,18 @@ def deduplicate_consecutive_lines(
     result = []
     for (depth, text), group in groupby(lines):
         count = sum(1 for _ in group)
-        result.append((depth, text if count == 1 else f"{text} (repeats ×{count})"))
+        result.append(
+            RenderLine(depth, text if count == 1 else f"{text} (repeats ×{count})")
+        )
     return result
 
 
-def render_lines_to_text(lines: list[tuple[int, str]]) -> str:
+def render_lines_to_text(lines: list[RenderLine]) -> str:
     """Joins (depth, text) pairs into an indented string."""
     return "\n".join(_indent(d, t) for d, t in lines)
 
 
-def _collect_ancestor_context_at(
-    lines: list[tuple[int, str]], at_idx: int
-) -> list[str]:
+def _collect_ancestor_context_at(lines: list[RenderLine], at_idx: int) -> list[str]:
     """Collects the suite→test→keyword ancestor chain for the line at at_idx.
 
     Walks backwards through rendered lines, picking exactly one line per depth
@@ -60,7 +67,7 @@ def _collect_ancestor_context_at(
     # Start one level above the target line and walk up, collecting exactly
     # one representative line per depth level until we reach the root (depth 0).
     target = lines[at_idx][0] - 1
-    ancestors: list[tuple[int, str]] = []
+    ancestors: list[RenderLine] = []
     for i in range(at_idx - 1, -1, -1):
         if lines[i][0] == target:
             ancestors.insert(0, lines[i])
@@ -103,7 +110,7 @@ def _split_long_line(
     ]
 
 
-def chunk_rf_test_lines(lines: list[tuple[int, str]], chunk_size: int) -> list[str]:
+def chunk_rf_test_lines(lines: list[RenderLine], chunk_size: int) -> list[str]:
     """Splits RF test structure lines into context-aware chunks.
 
     Each chunk starts with the suite→test→keyword ancestor context so the LLM
@@ -332,7 +339,7 @@ class ChunkingStrategy:
             system_prompt=system_prompt,
         )
 
-    def apply(self, lines: list[tuple[int, str]]) -> tuple[list[str], Chunking]:
+    def apply(self, lines: list[RenderLine]) -> tuple[list[str], Chunking]:
         """Chunks rendered lines, sizing based on token budget."""
         rendered = render_lines_to_text(lines)
         chunk_info = calculate_chunk_size(

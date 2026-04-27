@@ -4,7 +4,7 @@ import hashlib
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Iterator, Sequence
+from typing import Iterator, NamedTuple, Sequence
 
 from robot.api import ExecutionResult
 from robot.errors import DataError
@@ -12,6 +12,7 @@ from robot.result.model import Keyword, Message, TestCase, TestSuite
 
 from result_companion.core.chunking.chunking import (
     ChunkingStrategy,
+    RenderLine,
     deduplicate_consecutive_lines,
     render_lines_to_text,
 )
@@ -42,12 +43,20 @@ ALL_FIELDS = frozenset(
 )
 
 
+class RenderedTest(NamedTuple):
+    """Internal representation of a test with its render context."""
+
+    name: str
+    status: str
+    lines: list[RenderLine]
+
+
 @dataclass
 class TestLines:
     """Rendered lines for a single test with suite ancestry context."""
 
     name: str
-    lines: list[tuple[int, str]]
+    lines: list[RenderLine]
 
     def __str__(self) -> str:
         return render_lines_to_text(self.lines)
@@ -142,14 +151,14 @@ class ContextAwareRobotResults:
         self._chunking = strategy
         return self
 
-    def _iter_tests(self) -> Iterator[tuple[str, str, list[tuple[int, str]]]]:
+    def _iter_tests(self) -> Iterator[RenderedTest]:
         """Internal iterator with passing-test filter and line deduplication applied."""
         for name, status, lines in _iter_tests_with_context(
             self._suite, [], 0, self._fields
         ):
             if self._exclude_passing and status in ("PASS", "SKIP"):
                 continue
-            yield name, status, deduplicate_consecutive_lines(lines)
+            yield RenderedTest(name, status, deduplicate_consecutive_lines(lines))
 
     def __iter__(self) -> Iterator[tuple[str, TestLines]]:
         """Yields (test_name, TestLines) for each test with suite ancestry context."""
@@ -227,16 +236,16 @@ def get_rc_robot_results(
 
 def _iter_tests_with_context(
     suite: TestSuite,
-    ancestor_lines: list[tuple[int, str]],
+    ancestor_lines: list[RenderLine],
     depth: int,
     fields: frozenset[str],
-    ancestor_teardowns: list[tuple[int, str]] | None = None,
-) -> Iterator[tuple[str, str, list[tuple[int, str]]]]:
-    """Yields (test_name, test_status, lines) for each test, with ancestor suite context prepended."""
+    ancestor_teardowns: list[RenderLine] | None = None,
+) -> Iterator[RenderedTest]:
+    """Yields RenderedTest for each test, with ancestor suite context prepended."""
     if ancestor_teardowns is None:
         ancestor_teardowns = []
     context = ancestor_lines + (
-        [(depth, f"Suite: {suite.name}")] if "name" in fields else []
+        [RenderLine(depth, f"Suite: {suite.name}")] if "name" in fields else []
     )
     if suite.has_setup:
         if "setup" in fields:
@@ -252,7 +261,9 @@ def _iter_tests_with_context(
                 if "teardown" in fields and suite.has_teardown
                 else []
             )
-            yield suite.name, "FAIL", context + suite_teardown + ancestor_teardowns
+            yield RenderedTest(
+                suite.name, "FAIL", context + suite_teardown + ancestor_teardowns
+            )
             return
     suite_teardown = (
         _render_keyword(suite.teardown, depth + 1, fields)
@@ -261,9 +272,11 @@ def _iter_tests_with_context(
     )
     all_teardowns = suite_teardown + ancestor_teardowns
     for test in suite.tests:
-        yield test.name, test.status, context + _render_test(
-            test, depth + 1, fields
-        ) + all_teardowns
+        yield RenderedTest(
+            test.name,
+            test.status,
+            context + _render_test(test, depth + 1, fields) + all_teardowns,
+        )
     for child in suite.suites:
         yield from _iter_tests_with_context(
             child, context, depth + 1, fields, all_teardowns
@@ -272,13 +285,13 @@ def _iter_tests_with_context(
 
 def _render_suite(
     suite: TestSuite, depth: int, fields: frozenset[str]
-) -> list[tuple[int, str]]:
+) -> list[RenderLine]:
     """Recursively renders a suite and its children."""
-    lines: list[tuple[int, str]] = []
+    lines: list[RenderLine] = []
     if "name" in fields:
-        lines.append((depth, f"Suite: {suite.name}"))
+        lines.append(RenderLine(depth, f"Suite: {suite.name}"))
     if "doc" in fields and suite.doc:
-        lines.append((depth + 1, f"doc: {suite.doc}"))
+        lines.append(RenderLine(depth + 1, f"doc: {suite.doc}"))
     if "setup" in fields and suite.has_setup:
         lines.extend(_render_keyword(suite.setup, depth + 1, fields))
     for test in suite.tests:
@@ -292,32 +305,32 @@ def _render_suite(
 
 def _render_common_fields(
     obj: TestCase | Keyword, depth: int, fields: frozenset[str]
-) -> list[tuple[int, str]]:
+) -> list[RenderLine]:
     """Renders elapsed_time, lineno, doc, tags — shared by test and keyword."""
-    lines: list[tuple[int, str]] = []
+    lines: list[RenderLine] = []
     if "elapsed_time" in fields and obj.elapsed_time is not None:
-        lines.append((depth, f"elapsed: {obj.elapsed_time}"))
+        lines.append(RenderLine(depth, f"elapsed: {obj.elapsed_time}"))
     if "lineno" in fields and getattr(obj, "lineno", None):
-        lines.append((depth, f"lineno: {obj.lineno}"))
+        lines.append(RenderLine(depth, f"lineno: {obj.lineno}"))
     if "doc" in fields and obj.doc:
-        lines.append((depth, f"doc: {obj.doc}"))
+        lines.append(RenderLine(depth, f"doc: {obj.doc}"))
     if "tags" in fields and obj.tags:
-        lines.append((depth, f"tags: {', '.join(obj.tags)}"))
+        lines.append(RenderLine(depth, f"tags: {', '.join(obj.tags)}"))
     return lines
 
 
 def _render_test(
     test: TestCase, depth: int, fields: frozenset[str]
-) -> list[tuple[int, str]]:
+) -> list[RenderLine]:
     """Renders a test case header and its body."""
     header = _join_parts(
         test.name if "name" in fields else None,
         test.status if "status" in fields else None,
     )
-    lines: list[tuple[int, str]] = [(depth, f"Test: {header}")]
+    lines: list[RenderLine] = [RenderLine(depth, f"Test: {header}")]
     lines.extend(_render_common_fields(test, depth + 1, fields))
     if "owner" in fields and getattr(test, "owner", None):
-        lines.append((depth + 1, f"owner: {test.owner}"))
+        lines.append(RenderLine(depth + 1, f"owner: {test.owner}"))
     if "setup" in fields and test.has_setup:
         lines.extend(_render_keyword(test.setup, depth + 1, fields))
     for item in test.body:
@@ -331,18 +344,20 @@ def _render_test(
 
 def _render_keyword(
     kw: Keyword, depth: int, fields: frozenset[str]
-) -> list[tuple[int, str]]:
+) -> list[RenderLine]:
     """Renders a keyword header, args, and its body recursively."""
     kind = kw.type.title() if "type" in fields else "Keyword"
     header = _join_parts(
         kw.name if "name" in fields else None,
         kw.status if "status" in fields else None,
     )
-    lines: list[tuple[int, str]] = [(depth, f"{kind}: {header}")]
+    lines: list[RenderLine] = [RenderLine(depth, f"{kind}: {header}")]
     if "args" in fields and kw.args:
-        lines.append((depth + 1, f"args: {', '.join(str(a) for a in kw.args)}"))
+        lines.append(
+            RenderLine(depth + 1, f"args: {', '.join(str(a) for a in kw.args)}")
+        )
     if "assign" in fields and kw.assign:
-        lines.append((depth + 1, f"assign: {', '.join(kw.assign)}"))
+        lines.append(RenderLine(depth + 1, f"assign: {', '.join(kw.assign)}"))
     lines.extend(_render_common_fields(kw, depth + 1, fields))
     for item in kw.body:
         lines.extend(_render_body_item(item, depth + 1, fields))
@@ -351,7 +366,7 @@ def _render_keyword(
 
 def _render_body_item(
     item: object, depth: int, fields: frozenset[str]
-) -> list[tuple[int, str]]:
+) -> list[RenderLine]:
     """Dispatches rendering: Keyword, Message, or recurses into control structures."""
     if isinstance(item, Message):
         return _render_message(item, depth, fields)
@@ -360,7 +375,7 @@ def _render_body_item(
     body = getattr(item, "body", None)
     if not body:
         return []
-    lines: list[tuple[int, str]] = []
+    lines: list[RenderLine] = []
     for child in body:
         lines.extend(_render_body_item(child, depth, fields))
     return lines
@@ -368,7 +383,7 @@ def _render_body_item(
 
 def _render_message(
     msg: Message, depth: int, fields: frozenset[str]
-) -> list[tuple[int, str]]:
+) -> list[RenderLine]:
     """Renders a log message, optionally prefixed with level."""
     if "message" not in fields:
         return []
@@ -377,7 +392,7 @@ def _render_message(
         prefix += f"{msg.timestamp} "
     if "level" in fields:
         prefix += f"[{msg.level}] "
-    return [(depth, f"{prefix}{msg.message}")]
+    return [RenderLine(depth, f"{prefix}{msg.message}")]
 
 
 def _join_parts(*parts: str | None) -> str:
