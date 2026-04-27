@@ -337,6 +337,28 @@ rendering:
   exclude_fields: [elapsed_time, lineno, owner, assign]
 ```
 
+Same test fragment — **without** those excludes (noisier) vs **default** (those lines omitted):
+
+```text
+Suite: Checkout
+    Test: Pay With Card - FAIL
+        elapsed: 0:00:02.410
+        lineno: 18
+        owner: PaymentKeywords
+        Keyword: Submit Payment - FAIL
+            args: card_id=1234
+            assign: ${receipt}
+            elapsed: 0:00:00.120
+            lineno: 44
+            Invalid card.
+
+Suite: Checkout
+    Test: Pay With Card - FAIL
+        Keyword: Submit Payment - FAIL
+            args: card_id=1234
+            Invalid card.
+```
+
 ### Field Reference
 
 | Field | Description | Exclude to save tokens? |
