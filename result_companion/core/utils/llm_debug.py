@@ -49,20 +49,3 @@ def _format_record(label: str, prompt: str, response: str) -> str:
         f"--- PROMPT ---\n{prompt}\n"
         f"--- RESPONSE ---\n{response}\n"
     )
-
-
-_writer: LLMDebugLogger | None = None
-
-
-def enable_llm_debug(path: Path) -> None:
-    global _writer
-    _writer = LLMDebugLogger.from_path(path)
-
-
-def is_llm_debug_enabled() -> bool:
-    return _writer is not None and _writer.enabled
-
-
-def write_llm_record(label: str, prompt: str, response: str) -> None:
-    if _writer:
-        _writer.write_record(label, prompt, response)
