@@ -72,6 +72,7 @@ For this first version, plugins return `ContextAwareRobotResults` or an object w
 - `test_names`
 - `total_test_count`
 - `source_hash`
+- `has_chunking`
 - `set_chunking(strategy)`
 - `render_chunks()`
 
