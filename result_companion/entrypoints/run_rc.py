@@ -9,12 +9,11 @@ from result_companion._internal.analysis_helpers import (
 )
 from result_companion.api import run_analysis
 from result_companion.core.chunking.chunking import ChunkingStrategy
-from result_companion.core.chunking.rf_results import (
-    ContextAwareRobotResults,
-    get_rc_robot_results,
-)
+from result_companion.core.chunking.rf_results import ContextAwareRobotResults
 from result_companion.core.html.html_creator import create_llm_html_log
 from result_companion.core.parsers.config import DefaultConfigModel, load_config
+from result_companion.core.plugins.base import ParseOptions
+from result_companion.core.plugins.registry import load_results
 from result_companion.core.results.analysis_result import AnalysisResult
 from result_companion.core.results.text_report import (
     render_json_report,
@@ -43,6 +42,7 @@ async def _main(
     summarize_failures: bool = False,
     quiet: bool = False,
     debug_log: Optional[Path] = None,
+    format: Optional[str] = None,
 ) -> bool:
     resolved_log_level = "ERROR" if quiet else str(log_level)
     set_global_log_level(resolved_log_level)
@@ -54,13 +54,20 @@ async def _main(
         parsed_config.debug_logger = LLMDebugLogger.from_path(debug_log)
     apply_concurrency_overrides(parsed_config, test_case_concurrency, chunk_concurrency)
 
-    results = get_rc_robot_results(
-        file_path=output,
-        include_tags=resolve_tags(include_tags, parsed_config.test_filter.include_tags),
-        exclude_tags=resolve_tags(exclude_tags, parsed_config.test_filter.exclude_tags),
-        exclude_fields=parsed_config.rendering.exclude_fields or None,
-        exclude_passing=not include_passing
-        and not parsed_config.test_filter.include_passing,
+    results = load_results(
+        path=output,
+        format_name=format,
+        options=ParseOptions(
+            include_tags=resolve_tags(
+                include_tags, parsed_config.test_filter.include_tags
+            ),
+            exclude_tags=resolve_tags(
+                exclude_tags, parsed_config.test_filter.exclude_tags
+            ),
+            exclude_fields=parsed_config.rendering.exclude_fields or None,
+            exclude_passing=not include_passing
+            and not parsed_config.test_filter.include_passing,
+        ),
     )
     strategy = ChunkingStrategy(
         tokenizer_config=parsed_config.tokenizer,
@@ -166,11 +173,12 @@ def run_rc(
     summarize_failures: bool = False,
     quiet: bool = False,
     debug_log: Optional[Path] = None,
+    format: Optional[str] = None,
 ) -> bool:
     """Runs the Result Companion analysis.
 
     Args:
-        output: Path to Robot Framework output.xml file.
+        output: Path to a test result artifact.
         log_level: Logging verbosity level.
         config: Optional path to user config file.
         report: Optional HTML report output path.
@@ -187,6 +195,7 @@ def run_rc(
         summarize_failures: Whether to ask LLM for overall failure summary.
         quiet: Whether to suppress logs and progress output.
         debug_log: Optional path to write all LLM prompts and responses to.
+        format: Optional parser plugin name. Auto-detects when omitted.
 
     Returns:
         True if analysis completed successfully.
@@ -195,6 +204,7 @@ def run_rc(
         return asyncio.run(
             _main(
                 output=output,
+                format=format,
                 log_level=log_level,
                 config=config,
                 report=report,
