@@ -5,6 +5,7 @@ import pytest
 
 from result_companion._internal.analysis_helpers import run_provider_init_strategies
 from result_companion.core.parsers.config import DefaultConfigModel
+from result_companion.core.plugins.base import ParseOptions
 from result_companion.core.results.analysis_result import AnalysisResult
 from result_companion.entrypoints.run_rc import _emit_reports, _main, run_rc
 
@@ -61,15 +62,15 @@ class TestMainE2E:
             ) as mocked_html,
             patch("result_companion.api.execute_llm_and_get_results") as mocked_execute,
             patch(
-                "result_companion.entrypoints.run_rc.get_rc_robot_results"
-            ) as mocked_get_results,
+                "result_companion.entrypoints.run_rc.load_results"
+            ) as mocked_load_results,
             patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
             patch(
                 "result_companion._internal.analysis_helpers.run_provider_init_strategies"
             ),
         ):
             fake_results = make_fake_results(["test2"], total=2)
-            mocked_get_results.return_value = fake_results
+            mocked_load_results.return_value = fake_results
 
             mocked_config.return_value = DefaultConfigModel(
                 version=1.0,
@@ -115,12 +116,15 @@ class TestMainE2E:
                 exclude_tags=None,
             )
 
-            mocked_get_results.assert_called_once_with(
-                file_path=Path("output.xml"),
-                include_tags=None,
-                exclude_tags=None,
-                exclude_fields=None,
-                exclude_passing=True,
+            mocked_load_results.assert_called_once_with(
+                path=Path("output.xml"),
+                format_name=None,
+                options=ParseOptions(
+                    include_tags=None,
+                    exclude_tags=None,
+                    exclude_fields=None,
+                    exclude_passing=True,
+                ),
             )
             mocked_config.assert_called_once_with(None)
 
@@ -146,7 +150,7 @@ class TestMainE2E:
                 return_value={},
             ),
             patch(
-                "result_companion.entrypoints.run_rc.get_rc_robot_results",
+                "result_companion.entrypoints.run_rc.load_results",
                 return_value=make_fake_results([], total=0),
             ),
             patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
@@ -229,6 +233,7 @@ class TestRunRC:
                 include_tags=None,
                 exclude_tags=None,
                 dryrun=False,
+                format=None,
                 debug_log=None,
             )
             assert result == "RESULT"
@@ -256,6 +261,23 @@ class TestRunRC:
             call_kwargs = mocked_main.call_args.kwargs
             assert call_kwargs["include_tags"] == ["smoke*", "critical"]
             assert call_kwargs["exclude_tags"] == ["wip"]
+
+    def test_run_rc_passes_format_to_main(self):
+        """Test that parser format is passed correctly."""
+        with patch(
+            "result_companion.entrypoints.run_rc._main",
+            return_value=True,
+        ) as mocked_main:
+            run_rc(
+                output=Path("output.xml"),
+                log_level="DEBUG",
+                config=None,
+                report=None,
+                include_passing=False,
+                format="robot",
+            )
+
+            assert mocked_main.call_args.kwargs["format"] == "robot"
 
     def test_run_rc_passes_dryrun_flag(self):
         """Test that dryrun flag is passed correctly."""
@@ -351,14 +373,14 @@ class TestMainJsonReport:
             patch("result_companion.entrypoints.run_rc.create_llm_html_log"),
             patch("result_companion.api.execute_llm_and_get_results") as mocked_execute,
             patch(
-                "result_companion.entrypoints.run_rc.get_rc_robot_results"
-            ) as mocked_get_results,
+                "result_companion.entrypoints.run_rc.load_results"
+            ) as mocked_load_results,
             patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
             patch(
                 "result_companion._internal.analysis_helpers.run_provider_init_strategies"
             ),
         ):
-            mocked_get_results.return_value = make_fake_results(["test_fail"], total=2)
+            mocked_load_results.return_value = make_fake_results(["test_fail"], total=2)
             mocked_config.return_value = DefaultConfigModel(
                 version=1.0,
                 llm_config={
@@ -423,15 +445,15 @@ class TestMainTextAndSynthesis:
             ) as mocked_html,
             patch("result_companion.api.execute_llm_and_get_results") as mocked_execute,
             patch(
-                "result_companion.entrypoints.run_rc.get_rc_robot_results"
-            ) as mocked_get_results,
+                "result_companion.entrypoints.run_rc.load_results"
+            ) as mocked_load_results,
             patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
             patch("result_companion.api.summarize_failures_with_llm") as mocked_summary,
             patch(
                 "result_companion._internal.analysis_helpers.run_provider_init_strategies"
             ),
         ):
-            mocked_get_results.return_value = make_fake_results(["test_fail"], total=1)
+            mocked_load_results.return_value = make_fake_results(["test_fail"], total=1)
             mocked_config.return_value = DefaultConfigModel(
                 version=1.0,
                 llm_config={

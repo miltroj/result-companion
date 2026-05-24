@@ -80,6 +80,17 @@ class TestAnalizeEntrypoint:
         assert result.exit_code == 0
         assert "Log Level: INFO" in result.output
 
+    def test_cli_accepts_format(self):
+        mock_run = MagicMock()
+        result = self.runner.invoke(
+            app,
+            [self.ENTRYPOINT, "-o", existing_xml_path, "--format", "robot"],
+            obj={"analyze": mock_run},
+        )
+        assert result.exit_code == 0
+        assert "Format: robot" in result.output
+        assert mock_run.call_args.kwargs["format"] == "robot"
+
     def test_cli_calls_main_function(self):
         result = self.runner.invoke(
             app,
@@ -88,6 +99,7 @@ class TestAnalizeEntrypoint:
         )
         assert result.exit_code == 0
         assert "Output: " in result.output
+        assert "Format: " in result.output
         assert "Log Level: " in result.output
         assert "Config: " in result.output
         assert "Report: " in result.output
@@ -220,6 +232,7 @@ class TestAnalizeEntrypoint:
         )
         assert result.exit_code == 0
         assert "Output: " not in result.output
+        assert "Format: " not in result.output
         assert "Log Level: " not in result.output
         mock_run.assert_called_once()
         assert mock_run.call_args.kwargs["quiet"] is True
