@@ -785,6 +785,7 @@ result = analyze("output.xml", config=config)
 result = analyze(
     "output.xml",
     config=config,
+    result_format="robot",
     include_tags=["smoke"],
     summarize_failures=True,
 )
@@ -797,6 +798,8 @@ result = analyze(
 | `include_passing` | `False` | Include PASS tests (path mode only) |
 | `include_tags` | `None` | RF tag patterns to include (path mode only) |
 | `exclude_tags` | `None` | RF tag patterns to exclude (path mode only) |
+| `result_format` | `None` | Parser plugin name; auto-detects when omitted |
+| `plugins` | `None` | Custom parser plugins to use instead of built-ins |
 | `summarize_failures` | `False` | Generate overall failure summary |
 | `dryrun` | `False` | Skip LLM calls |
 | `quiet` | `True` | Suppress logs and progress |

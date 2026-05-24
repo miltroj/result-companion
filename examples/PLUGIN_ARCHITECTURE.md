@@ -135,3 +135,24 @@ Add tests for:
 - auto-detection
 - parse option forwarding
 - capability validation for unsupported tag filters
+
+## Programmatic Usage
+
+Use custom built-in-style plugins directly with the Python API:
+
+```python
+from result_companion import analyze
+from result_companion.core.parsers.config import load_config
+from result_companion.core.plugins.my_format import MyFormatPlugin
+
+
+config = load_config("my_config.yaml")
+result = analyze(
+    "results.mylog",
+    config=config,
+    result_format="my-format",
+    plugins=[MyFormatPlugin()],
+)
+```
+
+When `plugins` is omitted, `analyze()` uses the built-in registry.
