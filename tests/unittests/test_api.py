@@ -12,6 +12,7 @@ from result_companion.core.parsers.config import (
     LLMFactoryModel,
     TokenizerModel,
 )
+from result_companion.core.plugins.base import ParseOptions
 from result_companion.core.results.analysis_result import AnalysisResult
 
 
@@ -47,6 +48,26 @@ class FakeContextAwareRobotResults(ContextAwareRobotResults):
     @property
     def test_names(self) -> list[str]:
         return self._fake_test_names
+
+
+class FakePlugin:
+    """Parser plugin fake for programmatic API tests."""
+
+    name = "fake"
+    capabilities = frozenset()
+
+    def __init__(self, results: FakeContextAwareRobotResults) -> None:
+        self.results = results
+        self.parse_calls: list[tuple[Path, ParseOptions]] = []
+
+    def can_parse(self, path: Path) -> bool:
+        """Matches fake result artifacts."""
+        return path.suffix == ".fake"
+
+    def parse(self, path: Path, options: ParseOptions) -> FakeContextAwareRobotResults:
+        """Records parse inputs and returns configured fake results."""
+        self.parse_calls.append((path, options))
+        return self.results
 
 
 async def fake_execute(**kw):
@@ -179,7 +200,7 @@ class TestAnalyze:
 
     def test_with_path_loads_and_filters(self, monkeypatch):
         monkeypatch.setattr(
-            f"{PATCH_API}.get_rc_robot_results",
+            f"{PATCH_API}.load_results",
             lambda **kw: FakeContextAwareRobotResults(["test_fail"]),
         )
 
@@ -190,7 +211,7 @@ class TestAnalyze:
 
     def test_with_path_includes_passing_when_requested(self, monkeypatch):
         monkeypatch.setattr(
-            f"{PATCH_API}.get_rc_robot_results",
+            f"{PATCH_API}.load_results",
             lambda **kw: FakeContextAwareRobotResults(["test_pass", "test_fail"]),
         )
 
@@ -213,6 +234,15 @@ class TestAnalyze:
         )
 
         assert len(result.test_names) == 2
+
+    def test_context_aware_results_bypasses_plugins(self):
+        plugin = FakePlugin(FakeContextAwareRobotResults(["from_plugin"]))
+        results = FakeContextAwareRobotResults(["provided"])
+
+        result = analyze(output=results, config=make_config(), plugins=[plugin])
+
+        assert result.test_names == ["provided"]
+        assert plugin.parse_calls == []
 
     def test_quiet_false_skips_log_level_change(self, monkeypatch):
         log_calls: list[str] = []
@@ -261,7 +291,7 @@ class TestAnalyze:
             captured.update(kw)
             return FakeContextAwareRobotResults(["t"])
 
-        monkeypatch.setattr(f"{PATCH_API}.get_rc_robot_results", fake_loader)
+        monkeypatch.setattr(f"{PATCH_API}.load_results", fake_loader)
 
         analyze(
             output=Path("out.xml"),
@@ -271,7 +301,24 @@ class TestAnalyze:
             include_passing=True,
         )
 
-        assert captured["file_path"] == Path("out.xml")
-        assert captured["include_tags"] == ["smoke"]
-        assert captured["exclude_tags"] == ["wip"]
-        assert captured["exclude_passing"] is False
+        assert captured["path"] == Path("out.xml")
+        assert captured["format_name"] is None
+        assert captured["options"] == ParseOptions(
+            include_tags=["smoke"],
+            exclude_tags=["wip"],
+            exclude_fields=None,
+            exclude_passing=False,
+        )
+
+    def test_path_object_uses_custom_plugin_and_format(self):
+        plugin = FakePlugin(FakeContextAwareRobotResults(["custom"]))
+
+        result = analyze(
+            output=Path("out.fake"),
+            config=make_config(),
+            result_format="fake",
+            plugins=[plugin],
+        )
+
+        assert result.test_names == ["custom"]
+        assert plugin.parse_calls == [(Path("out.fake"), ParseOptions())]
