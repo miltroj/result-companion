@@ -19,10 +19,12 @@ class RobotPlugin:
     def can_parse(self, path: Path) -> bool:
         """Returns True when the XML root looks like Robot Framework output."""
         try:
-            root = ET.parse(path).getroot()
+            with path.open("rb") as source:
+                for _event, root in ET.iterparse(source, events=("start",)):
+                    return root.tag == "robot"
         except ET.ParseError:
             return False
-        return root.tag == "robot"
+        return False
 
     def parse(self, path: Path, options: ParseOptions) -> ContextAwareRobotResults:
         """Parses Robot Framework output XML with Result Companion filters."""

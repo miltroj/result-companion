@@ -5,6 +5,20 @@ from result_companion.core.plugins.base import ParseOptions
 from result_companion.core.plugins.robot import RobotPlugin
 
 
+def test_robot_plugin_can_parse_robot_xml(tmp_path):
+    output = tmp_path / "output.xml"
+    output.write_text("<robot><suite /></robot>")
+
+    assert RobotPlugin().can_parse(output)
+
+
+def test_robot_plugin_can_parse_rejects_non_robot_xml(tmp_path):
+    output = tmp_path / "junit.xml"
+    output.write_text("<testsuite />")
+
+    assert not RobotPlugin().can_parse(output)
+
+
 def test_robot_plugin_parse_forwards_options():
     plugin = RobotPlugin()
     options = ParseOptions(
