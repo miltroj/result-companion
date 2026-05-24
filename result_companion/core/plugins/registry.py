@@ -3,9 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Sequence
 
-from result_companion.core.chunking.rf_results import ContextAwareRobotResults
 from result_companion.core.plugins.base import (
     TAG_FILTERS,
+    AnalysisResults,
     ParseOptions,
     ResultParserPlugin,
 )
@@ -34,7 +34,7 @@ def load_results(
     format_name: str | None,
     options: ParseOptions,
     plugins: Sequence[ResultParserPlugin] | None = None,
-) -> ContextAwareRobotResults:
+) -> AnalysisResults:
     """Loads parsed results with the selected parser plugin."""
     plugin = get_plugin(format_name, path, plugins)
     validate_options(plugin, options)
