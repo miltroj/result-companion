@@ -1,11 +1,19 @@
-# Result Companion
+<p align="center">
+  <img src="assets/rc_logo.png" width="140" alt="Result Companion logo" />
+</p>
 
-[![PyPI version](https://img.shields.io/pypi/v/result-companion)](https://pypi.org/project/result-companion/)
-[![Python versions](https://img.shields.io/pypi/pyversions/result-companion)](https://pypi.org/project/result-companion/)
-[![License](https://img.shields.io/pypi/l/result-companion)](https://github.com/miltroj/result-companion/blob/main/LICENSE)
-[![CI](https://github.com/miltroj/result-companion/actions/workflows/publish.yml/badge.svg)](https://github.com/miltroj/result-companion/actions/workflows/publish.yml)
+<h1 align="center">Result Companion</h1>
 
-**Turn your [Robot Framework](https://github.com/robotframework/robotframework) test failures into instant, actionable insights with AI.**
+<p align="center">
+  <a href="https://pypi.org/project/result-companion/"><img src="https://img.shields.io/pypi/v/result-companion" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/result-companion/"><img src="https://img.shields.io/pypi/pyversions/result-companion" alt="Python versions"></a>
+  <a href="https://github.com/miltroj/result-companion/blob/main/LICENSE"><img src="https://img.shields.io/pypi/l/result-companion" alt="License"></a>
+  <a href="https://github.com/miltroj/result-companion/actions/workflows/publish.yml"><img src="https://github.com/miltroj/result-companion/actions/workflows/publish.yml/badge.svg" alt="CI"></a>
+</p>
+
+<p align="center">
+  <strong>Turn your <a href="https://github.com/robotframework/robotframework">Robot Framework</a> test failures into instant, actionable insights with AI.</strong>
+</p>
 
 ![Demo](https://raw.githubusercontent.com/miltroj/result-companion/main/assets/demo.gif)
 
