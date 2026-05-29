@@ -32,9 +32,20 @@ def get_plugin(
     plugins: Sequence[ResultParserPlugin] | None = None,
 ) -> ResultParserPlugin:
     """Resolves a parser plugin by explicit format or auto-detection."""
-    available_plugins = (
-        tuple(plugins) if plugins is not None else get_available_plugins()
-    )
+    if plugins is not None:
+        available_plugins = tuple(plugins)
+    elif format_name:
+        builtins = get_builtin_plugins()
+        plugin = _find_plugin_by_name(format_name, builtins)
+        if plugin:
+            logger.debug(f"Selected parser plugin: {plugin.name}")
+            return plugin
+        available_plugins = _deduplicate_plugins(
+            (*builtins, *_load_installed_plugins())
+        )
+    else:
+        available_plugins = get_available_plugins()
+
     logger.debug(
         "Available parser plugins: "
         f"{', '.join(plugin.name for plugin in available_plugins) or '<none>'}"
@@ -71,15 +82,25 @@ def _get_plugin_by_name(
     format_name: str,
     plugins: Sequence[ResultParserPlugin],
 ) -> ResultParserPlugin:
-    requested = format_name.lower()
-    for plugin in plugins:
-        if plugin.name == requested:
-            logger.debug(f"Selected parser plugin: {plugin.name}")
-            return plugin
+    plugin = _find_plugin_by_name(format_name, plugins)
+    if plugin:
+        logger.debug(f"Selected parser plugin: {plugin.name}")
+        return plugin
     raise ValueError(
         f"Unknown result format: {format_name}. "
         f"Available formats: {_format_plugin_names(plugins)}"
     )
+
+
+def _find_plugin_by_name(
+    format_name: str,
+    plugins: Sequence[ResultParserPlugin],
+) -> ResultParserPlugin | None:
+    requested = format_name.lower()
+    for plugin in plugins:
+        if plugin.name == requested:
+            return plugin
+    return None
 
 
 def _detect_plugin(
@@ -117,7 +138,11 @@ def _load_installed_plugins() -> tuple[ResultParserPlugin, ...]:
     else:
         selected = entry_points.get(PLUGIN_ENTRY_POINT_GROUP, ())
 
-    plugins = tuple(_load_entry_point_plugin(entry_point) for entry_point in selected)
+    plugins = tuple(
+        plugin
+        for entry_point in selected
+        if (plugin := _load_entry_point_plugin(entry_point)) is not None
+    )
     logger.debug(
         "Loaded installed parser plugins: "
         f"{', '.join(plugin.name for plugin in plugins) or '<none>'}"
@@ -125,29 +150,31 @@ def _load_installed_plugins() -> tuple[ResultParserPlugin, ...]:
     return plugins
 
 
-def _load_entry_point_plugin(entry_point: metadata.EntryPoint) -> ResultParserPlugin:
+def _load_entry_point_plugin(
+    entry_point: metadata.EntryPoint,
+) -> ResultParserPlugin | None:
     try:
         plugin = entry_point.load()
-    except Exception as exc:
-        logger.debug(
-            f"Failed to load parser plugin entry point '{entry_point.name}'",
+        if isinstance(plugin, type):
+            plugin = plugin()
+        elif not _is_parser_plugin(plugin) and callable(plugin):
+            plugin = plugin()
+    except Exception:
+        logger.warning(
+            f"Skipping parser plugin entry point '{entry_point.name}' "
+            "because it failed to load.",
             exc_info=True,
         )
-        raise ValueError(
-            f"Failed to load parser plugin entry point '{entry_point.name}'."
-        ) from exc
-
-    if isinstance(plugin, type):
-        plugin = plugin()
-    elif not _is_parser_plugin(plugin) and callable(plugin):
-        plugin = plugin()
+        return None
 
     if _is_parser_plugin(plugin):
         return plugin
 
-    raise ValueError(
-        f"Parser plugin entry point '{entry_point.name}' must expose a ResultParserPlugin."
+    logger.warning(
+        f"Skipping parser plugin entry point '{entry_point.name}' "
+        "because it does not expose a ResultParserPlugin."
     )
+    return None
 
 
 def _is_parser_plugin(plugin: Any) -> bool:

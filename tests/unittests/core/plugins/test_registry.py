@@ -69,6 +69,18 @@ def test_get_plugin_resolves_explicit_robot():
     assert plugin.name == "robot"
 
 
+def test_get_plugin_resolves_explicit_builtin_without_discovery(monkeypatch):
+    monkeypatch.setattr(
+        registry.metadata,
+        "entry_points",
+        lambda: pytest.fail("discovery should not run for built-in formats"),
+    )
+
+    plugin = get_plugin("robot", Path("output.xml"))
+
+    assert plugin.name == "robot"
+
+
 def test_get_plugin_rejects_unknown_format():
     with pytest.raises(ValueError, match="Unknown result format: junit"):
         get_plugin("junit", Path("junit.xml"))
@@ -142,17 +154,34 @@ def test_get_available_plugins_deduplicates_plugin_names(monkeypatch):
     assert [plugin.name for plugin in plugins] == ["robot"]
 
 
-def test_get_plugin_rejects_broken_entry_point(monkeypatch):
+def test_get_plugin_skips_broken_entry_point(monkeypatch, caplog):
     entry_points = FakeEntryPoints(
         [FakeEntryPoint("broken", None, error=RuntimeError("boom"))]
     )
     monkeypatch.setattr(registry.metadata, "entry_points", lambda: entry_points)
 
-    with pytest.raises(
-        ValueError,
-        match="Failed to load parser plugin entry point 'broken'.",
-    ):
-        get_plugin("broken", Path("broken.xml"))
+    with caplog.at_level(logging.WARNING, logger="RC"):
+        with pytest.raises(ValueError, match="Unknown result format: broken"):
+            get_plugin("broken", Path("broken.xml"))
+
+    assert "Skipping parser plugin entry point 'broken'" in caplog.text
+
+
+def test_get_plugin_broken_entry_point_does_not_block_valid_plugin(monkeypatch, caplog):
+    plugin = FakePlugin(name="junit")
+    entry_points = FakeEntryPoints(
+        [
+            FakeEntryPoint("broken", None, error=RuntimeError("boom")),
+            FakeEntryPoint("junit", plugin),
+        ]
+    )
+    monkeypatch.setattr(registry.metadata, "entry_points", lambda: entry_points)
+
+    with caplog.at_level(logging.WARNING, logger="RC"):
+        result = get_plugin("junit", Path("junit.xml"))
+
+    assert result is plugin
+    assert "Skipping parser plugin entry point 'broken'" in caplog.text
 
 
 def test_get_plugin_logs_discovery_and_selection(monkeypatch, caplog):
