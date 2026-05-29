@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from result_companion._internal.analysis_helpers import run_provider_init_strategies
+from result_companion.core.chunking.rf_results import ContextAwareRobotResults
 from result_companion.core.parsers.config import DefaultConfigModel
 from result_companion.core.plugins.base import ParseOptions
 from result_companion.core.results.analysis_result import AnalysisResult
@@ -12,13 +13,30 @@ from result_companion.entrypoints.run_rc import _emit_reports, _main, run_rc
 
 def make_fake_results(test_names: list[str], total: int | None = None) -> MagicMock:
     """Builds a stand-in for ContextAwareRobotResults in entrypoint tests."""
-    fake = MagicMock()
+    fake = MagicMock(spec=ContextAwareRobotResults)
     fake.test_names = test_names
     fake.total_test_count = total if total is not None else len(test_names)
     fake.source_hash = "abc123def456"
     fake._chunking = True
     fake.set_chunking = MagicMock()
     return fake
+
+
+class FakeAnalysisResults:
+    """Minimal non-Robot analysis results for report tests."""
+
+    test_names = ["test_fail"]
+    total_test_count = 1
+    source_hash = "fake123"
+    has_chunking = True
+
+    def set_chunking(self, _strategy: object) -> "FakeAnalysisResults":
+        """Keeps protocol compatibility for tests."""
+        return self
+
+    def render_chunks(self):
+        """Returns no chunks; report tests do not analyze payloads."""
+        return iter(())
 
 
 class TestRunProviderInitStrategies:
@@ -337,6 +355,39 @@ class TestRunRC:
 
 class TestEmitReports:
     """Tests for _emit_reports function."""
+
+    def test_non_robot_results_skip_html_and_warn(self, caplog):
+        analysis_result = AnalysisResult(
+            llm_results={"test_fail": "Root cause: timeout"},
+            test_names=["test_fail"],
+        )
+
+        with (
+            caplog.at_level("WARNING", logger="RC"),
+            patch(
+                "result_companion.entrypoints.run_rc.create_llm_html_log"
+            ) as html_log,
+        ):
+            _emit_reports(
+                output=Path("results.extlog"),
+                analysis_result=analysis_result,
+                config=MagicMock(llm_factory=MagicMock(model="test-model")),
+                results=FakeAnalysisResults(),
+                report=None,
+                html_report=True,
+                text_report=None,
+                json_report=None,
+                print_text_report=False,
+            )
+
+        html_log.assert_not_called()
+        assert (
+            "HTML reports are only supported for Robot Framework results" in caplog.text
+        )
+        assert "--no-html-report" in caplog.text
+        assert "--text-report" in caplog.text
+        assert "--json-report" in caplog.text
+        assert "--print-text-report" in caplog.text
 
     def test_print_text_report_writes_to_stdout(self, capsys):
         fake_results = make_fake_results(["test_fail"])

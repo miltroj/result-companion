@@ -12,7 +12,7 @@ from result_companion.core.chunking.chunking import ChunkingStrategy
 from result_companion.core.chunking.rf_results import ContextAwareRobotResults
 from result_companion.core.html.html_creator import create_llm_html_log
 from result_companion.core.parsers.config import DefaultConfigModel, load_config
-from result_companion.core.plugins.base import ParseOptions
+from result_companion.core.plugins.base import AnalysisResults, ParseOptions
 from result_companion.core.plugins.registry import load_results
 from result_companion.core.results.analysis_result import AnalysisResult
 from result_companion.core.results.text_report import (
@@ -109,7 +109,7 @@ def _emit_reports(
     output: Path,
     analysis_result: AnalysisResult,
     config: DefaultConfigModel,
-    results: ContextAwareRobotResults,
+    results: AnalysisResults,
     report: Optional[str],
     html_report: bool,
     text_report: Optional[str],
@@ -119,14 +119,22 @@ def _emit_reports(
     """Writes HTML/text/JSON reports from analysis results."""
     report_path = report if report else "rc_log.html"
     if analysis_result.llm_results and html_report:
-        create_llm_html_log(
-            input_result_path=output,
-            llm_output_path=report_path,
-            llm_results=analysis_result.llm_results,
-            model_info={"model": config.llm_factory.model},
-            overall_summary=analysis_result.summary,
-        )
-        logger.info(f"Report created: {Path(report_path).resolve()}")
+        if not isinstance(results, ContextAwareRobotResults):
+            logger.warning(
+                "HTML reports are only supported for Robot Framework results. "
+                "Skipping HTML report. Use --no-html-report to hide this warning, "
+                "or use --text-report, --json-report, --print-text-report, "
+                "AnalysisResult.text_report, or AnalysisResult.llm_results."
+            )
+        else:
+            create_llm_html_log(
+                input_result_path=output,
+                llm_output_path=report_path,
+                llm_results=analysis_result.llm_results,
+                model_info={"model": config.llm_factory.model},
+                overall_summary=analysis_result.summary,
+            )
+            logger.info(f"Report created: {Path(report_path).resolve()}")
 
     should_emit_text = bool(text_report) or print_text_report
     if should_emit_text:
