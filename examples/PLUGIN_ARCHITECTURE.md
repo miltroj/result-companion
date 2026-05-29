@@ -2,7 +2,7 @@
 
 ## Quick Read
 
-Result Companion uses parser plugins to load test result artifacts before chunking and LLM analysis. This first plugin step supports built-in, project-local plugins only.
+Result Companion uses parser plugins to load test result artifacts before chunking and LLM analysis. Install plugin packages to add formats without changing Result Companion.
 
 Use `--format` to select a parser explicitly, or omit it to auto-detect from the input file.
 
@@ -28,11 +28,11 @@ result-companion analyze -o output.xml --format robot --include smoke --exclude 
 
 Formats without tag support must reject `--include` and `--exclude` instead of ignoring them.
 
-## Built-In Registry
+## Plugin Registry
 
 Built-in plugins live under [`result_companion/core/plugins`](../result_companion/core/plugins).
 
-The registry resolves a plugin in two ways:
+The registry loads built-in plugins plus installed plugins from the `result_companion.plugins` entry-point group. It resolves a plugin in two ways:
 
 - Explicit format: `--format robot`
 - Auto-detection: plugin `can_parse(path)` returns `True`
@@ -43,7 +43,11 @@ Current built-in format:
 |--------|--------|-------------|
 | `robot` | `RobotPlugin` | Supported |
 
-External Python package entry points are not enabled yet. Add custom parsers inside this repository and register them in the built-in registry.
+Use debug logs to inspect plugin discovery:
+
+```bash
+result-companion analyze -o results.mylog --format my-format --log-level DEBUG
+```
 
 ## Plugin Contract
 
@@ -52,8 +56,7 @@ Implement the parser protocol from [`base.py`](../result_companion/core/plugins/
 ```python
 from pathlib import Path
 
-from result_companion.core.chunking.rf_results import ContextAwareRobotResults
-from result_companion.core.plugins.base import ParseOptions
+from result_companion.core.plugins.base import AnalysisResults, ParseOptions
 
 
 class MyPlugin:
@@ -63,11 +66,11 @@ class MyPlugin:
     def can_parse(self, path: Path) -> bool:
         return path.suffix == ".mylog"
 
-    def parse(self, path: Path, options: ParseOptions) -> ContextAwareRobotResults:
+    def parse(self, path: Path, options: ParseOptions) -> AnalysisResults:
         raise NotImplementedError
 ```
 
-For this first version, plugins return `ContextAwareRobotResults` or an object with the same methods used by the analysis pipeline:
+Plugins return an `AnalysisResults` object. `ContextAwareRobotResults` is the built-in Robot Framework implementation, but custom plugins can return any object that satisfies the `AnalysisResults` protocol:
 
 - `test_names`
 - `total_test_count`
@@ -97,15 +100,15 @@ If a plugin does not declare `TAG_FILTERS`, the registry rejects:
 result-companion analyze -o results.xml --format my-format --include smoke
 ```
 
-## Add a Project-Local Plugin
+## Add an Installable Plugin
 
 Create a plugin module:
 
 ```python
-# result_companion/core/plugins/my_format.py
+# my_package/plugin.py
 from pathlib import Path
 
-from result_companion.core.plugins.base import ParseOptions
+from result_companion.core.plugins.base import AnalysisResults, ParseOptions
 
 
 class MyFormatPlugin:
@@ -115,19 +118,22 @@ class MyFormatPlugin:
     def can_parse(self, path: Path) -> bool:
         return path.suffix == ".mylog"
 
-    def parse(self, path: Path, options: ParseOptions):
+    def parse(self, path: Path, options: ParseOptions) -> AnalysisResults:
         return parse_my_format(path, options)
 ```
 
-Register it in [`registry.py`](../result_companion/core/plugins/registry.py):
+Register the plugin in your package `pyproject.toml`:
 
-```python
-from result_companion.core.plugins.my_format import MyFormatPlugin
-from result_companion.core.plugins.robot import RobotPlugin
+```toml
+[tool.poetry.plugins."result_companion.plugins"]
+my-format = "my_package.plugin:MyFormatPlugin"
+```
 
+Install it in the same environment as Result Companion:
 
-def get_builtin_plugins():
-    return (RobotPlugin(), MyFormatPlugin())
+```bash
+pip install result-companion-my-format
+result-companion analyze -o results.mylog --format my-format
 ```
 
 Add tests for:
@@ -139,12 +145,12 @@ Add tests for:
 
 ## Programmatic Usage
 
-Use custom built-in-style plugins directly with the Python API:
+For tests or one-off scripts, pass plugins directly:
 
 ```python
 from result_companion import analyze
 from result_companion.core.parsers.config import load_config
-from result_companion.core.plugins.my_format import MyFormatPlugin
+from my_package.plugin import MyFormatPlugin
 
 
 config = load_config("my_config.yaml")
@@ -156,4 +162,4 @@ result = analyze(
 )
 ```
 
-When `plugins` is omitted, `analyze()` uses the built-in registry.
+When `plugins` is omitted, `analyze()` uses built-in and installed plugins.
