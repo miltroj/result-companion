@@ -28,6 +28,9 @@ result-companion analyze -o output.xml --format robot --include smoke --exclude 
 
 Formats without tag support must reject `--include` and `--exclude` instead of ignoring them.
 
+HTML reports are currently Robot-only. For non-Robot plugins, use `--no-html-report`
+with `--text-report`, `--json-report`, or `--print-text-report`.
+
 ## Plugin Registry
 
 Built-in plugins live under [`result_companion/core/plugins`](../result_companion/core/plugins).
