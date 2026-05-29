@@ -35,6 +35,9 @@ tqdm = "^4.67.1"
 [tool.poetry.scripts]
 result-companion = "result_companion.entrypoints.cli.cli_app:app"
 
+[tool.poetry.plugins."result_companion.plugins"]
+robot = "result_companion.core.plugins.robot:RobotPlugin"
+
 [tool.poetry.group.dev.dependencies]
 black = "^24.10.0"
 isort = "^5.13.2"
