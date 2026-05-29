@@ -10,7 +10,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from copilot import CopilotClient
+from copilot import CopilotClient, PermissionHandler
 
 from result_companion.core.copilot_client import (
     start_copilot_client,
@@ -67,11 +67,6 @@ async def on_pre_tool_use(tool_input: dict, _invocation: Any) -> dict[str, str]:
         f"[tool_call_start ->] {tool_input['toolName']}"
         f"  args={tool_input.get('toolArgs', {})}"
     )
-    return {"permissionDecision": "allow"}
-
-
-async def approve_permission_request(_request: Any, _context: Any) -> dict[str, str]:
-    """Approves Copilot permission requests."""
     return {"permissionDecision": "allow"}
 
 
@@ -246,7 +241,7 @@ async def _generate_review_comment(
     try:
         session_config: dict[str, Any] = {
             "model": model,
-            "on_permission_request": approve_permission_request,
+            "on_permission_request": PermissionHandler.approve_all,
             "hooks": {
                 "on_pre_tool_use": on_pre_tool_use,
                 "on_post_tool_use": on_post_tool_use,

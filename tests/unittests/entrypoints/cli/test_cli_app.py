@@ -89,7 +89,7 @@ class TestAnalizeEntrypoint:
         )
         assert result.exit_code == 0
         assert "Format: robot" in result.output
-        assert mock_run.call_args.kwargs["format"] == "robot"
+        assert mock_run.call_args.kwargs["result_format"] == "robot"
 
     def test_cli_calls_main_function(self):
         result = self.runner.invoke(

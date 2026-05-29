@@ -41,7 +41,7 @@ result-companion analyze -o output.xml --no-overall-summary
 
 To inspect every prompt sent to the LLM and its response, use `--debug-log`. See [Debugging Prompts](examples/EXAMPLES.md#debugging-prompts) for details.
 
-Need non-Robot result formats? Install parser plugins or create your own with [`examples/PLUGIN_ARCHITECTURE.md`](examples/PLUGIN_ARCHITECTURE.md).
+Robot Framework is built in. Other formats can be added with parser plugins; see [`examples/PLUGIN_ARCHITECTURE.md`](examples/PLUGIN_ARCHITECTURE.md).
 
 ## Copilot Review Agent
 

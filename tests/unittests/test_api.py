@@ -54,7 +54,6 @@ class FakePlugin:
     """Parser plugin fake for programmatic API tests."""
 
     name = "fake"
-    capabilities = frozenset()
 
     def __init__(self, results: FakeContextAwareRobotResults) -> None:
         self.results = results
@@ -239,7 +238,7 @@ class TestAnalyze:
         plugin = FakePlugin(FakeContextAwareRobotResults(["from_plugin"]))
         results = FakeContextAwareRobotResults(["provided"])
 
-        result = analyze(output=results, config=make_config(), plugins=[plugin])
+        result = analyze(output=results, config=make_config(), parser_plugins=[plugin])
 
         assert result.test_names == ["provided"]
         assert plugin.parse_calls == []
@@ -317,7 +316,7 @@ class TestAnalyze:
             output=Path("out.fake"),
             config=make_config(),
             result_format="fake",
-            plugins=[plugin],
+            parser_plugins=[plugin],
         )
 
         assert result.test_names == ["custom"]

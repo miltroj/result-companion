@@ -9,11 +9,13 @@ from result_companion._internal.analysis_helpers import (
 )
 from result_companion.api import run_analysis
 from result_companion.core.chunking.chunking import ChunkingStrategy
-from result_companion.core.chunking.rf_results import ContextAwareRobotResults
-from result_companion.core.html.html_creator import create_llm_html_log
 from result_companion.core.parsers.config import DefaultConfigModel, load_config
-from result_companion.core.plugins.base import AnalysisResults, ParseOptions
-from result_companion.core.plugins.registry import load_results
+from result_companion.core.plugins.base import (
+    ParsedResults,
+    ParseOptions,
+    ResultParserPlugin,
+)
+from result_companion.core.plugins.registry import get_plugin, validate_options
 from result_companion.core.results.analysis_result import AnalysisResult
 from result_companion.core.results.text_report import (
     render_json_report,
@@ -42,7 +44,7 @@ async def _main(
     summarize_failures: bool = False,
     quiet: bool = False,
     debug_log: Optional[Path] = None,
-    format: Optional[str] = None,
+    result_format: Optional[str] = None,
 ) -> bool:
     resolved_log_level = "ERROR" if quiet else str(log_level)
     set_global_log_level(resolved_log_level)
@@ -54,21 +56,16 @@ async def _main(
         parsed_config.debug_logger = LLMDebugLogger.from_path(debug_log)
     apply_concurrency_overrides(parsed_config, test_case_concurrency, chunk_concurrency)
 
-    results = load_results(
-        path=output,
-        format_name=format,
-        options=ParseOptions(
-            include_tags=resolve_tags(
-                include_tags, parsed_config.test_filter.include_tags
-            ),
-            exclude_tags=resolve_tags(
-                exclude_tags, parsed_config.test_filter.exclude_tags
-            ),
-            exclude_fields=parsed_config.rendering.exclude_fields or None,
-            exclude_passing=not include_passing
-            and not parsed_config.test_filter.include_passing,
-        ),
+    options = ParseOptions(
+        include_tags=resolve_tags(include_tags, parsed_config.test_filter.include_tags),
+        exclude_tags=resolve_tags(exclude_tags, parsed_config.test_filter.exclude_tags),
+        exclude_fields=parsed_config.rendering.exclude_fields or None,
+        exclude_passing=not include_passing
+        and not parsed_config.test_filter.include_passing,
     )
+    plugin = get_plugin(result_format, output)
+    validate_options(plugin, options)
+    results = plugin.parse(output, options)
     strategy = ChunkingStrategy(
         tokenizer_config=parsed_config.tokenizer,
         system_prompt=parsed_config.llm_config.question_prompt,
@@ -93,6 +90,7 @@ async def _main(
         analysis_result=analysis_result,
         config=parsed_config,
         results=results,
+        plugin=plugin,
         report=report,
         html_report=html_report,
         text_report=text_report,
@@ -109,7 +107,8 @@ def _emit_reports(
     output: Path,
     analysis_result: AnalysisResult,
     config: DefaultConfigModel,
-    results: AnalysisResults,
+    results: ParsedResults,
+    plugin: ResultParserPlugin,
     report: Optional[str],
     html_report: bool,
     text_report: Optional[str],
@@ -117,24 +116,31 @@ def _emit_reports(
     print_text_report: bool,
 ) -> None:
     """Writes HTML/text/JSON reports from analysis results."""
-    report_path = report if report else "rc_log.html"
+    report_path = Path(report if report else "rc_log.html")
     if analysis_result.llm_results and html_report:
-        if not isinstance(results, ContextAwareRobotResults):
+        render_html_report = getattr(plugin, "render_html_report", None)
+        if not callable(render_html_report):
+            if report:
+                raise ValueError(
+                    f"Format '{plugin.name}' does not support HTML reports. "
+                    "Use --no-html-report, or use --text-report, --json-report, "
+                    "or --print-text-report."
+                )
             logger.warning(
-                "HTML reports are only supported for Robot Framework results. "
+                f"Format '{plugin.name}' does not support HTML reports. "
                 "Skipping HTML report. Use --no-html-report to hide this warning, "
                 "or use --text-report, --json-report, --print-text-report, "
                 "AnalysisResult.text_report, or AnalysisResult.llm_results."
             )
         else:
-            create_llm_html_log(
-                input_result_path=output,
-                llm_output_path=report_path,
-                llm_results=analysis_result.llm_results,
-                model_info={"model": config.llm_factory.model},
-                overall_summary=analysis_result.summary,
+            render_html_report(
+                output,
+                report_path,
+                analysis_result.llm_results,
+                {"model": config.llm_factory.model},
+                analysis_result.summary,
             )
-            logger.info(f"Report created: {Path(report_path).resolve()}")
+            logger.info(f"Report created: {report_path.resolve()}")
 
     should_emit_text = bool(text_report) or print_text_report
     if should_emit_text:
@@ -181,7 +187,7 @@ def run_rc(
     summarize_failures: bool = False,
     quiet: bool = False,
     debug_log: Optional[Path] = None,
-    format: Optional[str] = None,
+    result_format: Optional[str] = None,
 ) -> bool:
     """Runs the Result Companion analysis.
 
@@ -203,7 +209,7 @@ def run_rc(
         summarize_failures: Whether to ask LLM for overall failure summary.
         quiet: Whether to suppress logs and progress output.
         debug_log: Optional path to write all LLM prompts and responses to.
-        format: Optional parser plugin name. Auto-detects when omitted.
+        result_format: Optional parser plugin name. Auto-detects when omitted.
 
     Returns:
         True if analysis completed successfully.
@@ -212,7 +218,7 @@ def run_rc(
         return asyncio.run(
             _main(
                 output=output,
-                format=format,
+                result_format=result_format,
                 log_level=log_level,
                 config=config,
                 report=report,

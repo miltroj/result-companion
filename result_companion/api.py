@@ -11,7 +11,7 @@ from result_companion.core.analizers.factory_common import execute_llm_and_get_r
 from result_companion.core.chunking.chunking import ChunkingStrategy
 from result_companion.core.parsers.config import DefaultConfigModel
 from result_companion.core.plugins.base import (
-    AnalysisResults,
+    ParsedResults,
     ParseOptions,
     ResultParserPlugin,
 )
@@ -24,7 +24,7 @@ from result_companion.core.utils.logging_config import set_global_log_level
 
 async def run_analysis(
     config: DefaultConfigModel,
-    results: AnalysisResults,
+    results: ParsedResults,
     summarize_failures: bool = False,
     dryrun: bool = False,
     quiet: bool = True,
@@ -69,7 +69,7 @@ async def run_analysis(
 
 
 def analyze(
-    output: str | Path | AnalysisResults,
+    output: str | Path | ParsedResults,
     config: DefaultConfigModel,
     include_passing: bool = False,
     include_tags: Optional[list[str]] = None,
@@ -78,7 +78,7 @@ def analyze(
     dryrun: bool = False,
     quiet: bool = True,
     result_format: str | None = None,
-    plugins: Sequence[ResultParserPlugin] | None = None,
+    parser_plugins: Sequence[ResultParserPlugin] | None = None,
 ) -> AnalysisResult:
     """Main programmatic entry point for Result Companion.
 
@@ -94,7 +94,7 @@ def analyze(
         dryrun: If True, skip LLM calls.
         quiet: If True, suppress logs and progress output.
         result_format: Optional parser plugin name. Auto-detects when omitted.
-        plugins: Optional parser plugins to use instead of built-ins.
+        parser_plugins: Optional parser plugin catalog to use instead of discovery.
 
     Returns:
         AnalysisResult with llm_results, test_names, and optional summary.
@@ -112,7 +112,7 @@ def analyze(
                 exclude_fields=config.rendering.exclude_fields or None,
                 exclude_passing=not include_passing,
             ),
-            plugins=plugins,
+            available_plugins=parser_plugins,
         )
     else:
         results = output

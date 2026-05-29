@@ -21,10 +21,10 @@ class FakePlugin:
         self,
         name: str = "fake",
         can_parse_result: bool = False,
-        capabilities: frozenset[str] = frozenset(),
+        supports_tag_filters: bool = False,
     ) -> None:
         self.name = name
-        self.capabilities = capabilities
+        self.supports_tag_filters = supports_tag_filters
         self.can_parse_result = can_parse_result
         self.parse_calls: list[tuple[Path, ParseOptions]] = []
 
@@ -69,6 +69,12 @@ def test_get_plugin_resolves_explicit_robot():
     assert plugin.name == "robot"
 
 
+def test_get_plugin_matches_format_case_insensitively():
+    plugin = get_plugin("Robot", Path("output.xml"))
+
+    assert plugin.name == "robot"
+
+
 def test_get_plugin_resolves_explicit_builtin_without_discovery(monkeypatch):
     monkeypatch.setattr(
         registry.metadata,
@@ -101,7 +107,12 @@ def test_load_results_uses_detected_plugin():
     plugin = FakePlugin(can_parse_result=True)
     options = ParseOptions()
 
-    result = load_results(Path("results.xml"), None, options, plugins=[plugin])
+    result = load_results(
+        Path("results.xml"),
+        None,
+        options,
+        available_plugins=[plugin],
+    )
 
     assert result == "RESULT"
     assert plugin.parse_calls == [(Path("results.xml"), options)]
@@ -139,9 +150,19 @@ def test_get_plugin_uses_explicit_plugins_over_discovery(monkeypatch):
         lambda: pytest.fail("discovery should not run"),
     )
 
-    result = get_plugin("local", Path("local.xml"), plugins=[plugin])
+    result = get_plugin("local", Path("local.xml"), available_plugins=[plugin])
 
     assert result is plugin
+
+
+def test_get_available_plugins_returns_builtin_robot_without_installed_plugins(
+    monkeypatch,
+):
+    monkeypatch.setattr(registry, "_load_installed_plugins", lambda: ())
+
+    plugins = get_available_plugins()
+
+    assert [plugin.name for plugin in plugins] == ["robot"]
 
 
 def test_get_available_plugins_deduplicates_plugin_names(monkeypatch):

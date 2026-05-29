@@ -28,8 +28,9 @@ result-companion analyze -o output.xml --format robot --include smoke --exclude 
 
 Formats without tag support must reject `--include` and `--exclude` instead of ignoring them.
 
-HTML reports are currently Robot-only. For non-Robot plugins, use `--no-html-report`
-with `--text-report`, `--json-report`, or `--print-text-report`.
+HTML reports are optional. Implement `render_html_report` on your plugin to enable
+`--html-report` and `--report`; otherwise use `--no-html-report` with
+`--text-report`, `--json-report`, or `--print-text-report`.
 
 ## Plugin Registry
 
@@ -59,21 +60,46 @@ Implement the parser protocol from [`base.py`](../result_companion/core/plugins/
 ```python
 from pathlib import Path
 
-from result_companion.core.plugins.base import AnalysisResults, ParseOptions
+from result_companion.core.chunking.utils import Chunking
+from result_companion.core.plugins.base import (
+    ParseOptions,
+    ParsedResults,
+    TestChunkPayload,
+)
+
+
+class MyParsedResults:
+    test_names = ["example"]
+    total_test_count = 1
+    source_hash = "0" * 12
+    has_chunking = False
+
+    def set_chunking(self, strategy: object) -> "MyParsedResults":
+        self.has_chunking = True
+        return self
+
+    def render_chunks(self):
+        yield TestChunkPayload(
+            test_name="example",
+            chunks=["log body"],
+            chunk_stats=Chunking(0, 0, 8, 2, 1),
+            status="FAIL",
+        )
 
 
 class MyPlugin:
     name = "my-format"
-    capabilities = frozenset()
 
     def can_parse(self, path: Path) -> bool:
         return path.suffix == ".mylog"
 
-    def parse(self, path: Path, options: ParseOptions) -> AnalysisResults:
-        raise NotImplementedError
+    def parse(self, path: Path, options: ParseOptions) -> ParsedResults:
+        return MyParsedResults()
 ```
 
-Plugins return an `AnalysisResults` object. `ContextAwareRobotResults` is the built-in Robot Framework implementation, but custom plugins can return any object that satisfies the `AnalysisResults` protocol:
+Plugin `name` is matched case-insensitively.
+
+Plugins return a `ParsedResults` object. `ContextAwareRobotResults` is the built-in Robot Framework implementation, but custom plugins can return any object that satisfies the `ParsedResults` protocol:
 
 - `test_names`
 - `total_test_count`
@@ -84,24 +110,24 @@ Plugins return an `AnalysisResults` object. `ContextAwareRobotResults` is the bu
 
 ## Capabilities
 
-Declare supported optional behavior in `capabilities`.
+Optional features are duck-typed by attribute or method presence.
 
-Use `TAG_FILTERS` when the artifact has real tag data:
+Set `supports_tag_filters = True` when the artifact has real tag data:
 
 ```python
-from result_companion.core.plugins.base import TAG_FILTERS
-
-
 class MyTaggedPlugin:
     name = "my-tagged-format"
-    capabilities = frozenset({TAG_FILTERS})
+    supports_tag_filters = True
 ```
 
-If a plugin does not declare `TAG_FILTERS`, the registry rejects:
+If the plugin does not set `supports_tag_filters = True`, the registry rejects:
 
 ```bash
 result-companion analyze -o results.xml --format my-format --include smoke
 ```
+
+To support HTML logs, implement `render_html_report` on the plugin. Plugins that do not
+implement it still work with text, JSON, printed text, and programmatic results.
 
 ## Add an Installable Plugin
 
@@ -111,17 +137,16 @@ Create a plugin module:
 # my_package/plugin.py
 from pathlib import Path
 
-from result_companion.core.plugins.base import AnalysisResults, ParseOptions
+from result_companion.core.plugins.base import ParseOptions, ParsedResults
 
 
 class MyFormatPlugin:
     name = "my-format"
-    capabilities = frozenset()
 
     def can_parse(self, path: Path) -> bool:
         return path.suffix == ".mylog"
 
-    def parse(self, path: Path, options: ParseOptions) -> AnalysisResults:
+    def parse(self, path: Path, options: ParseOptions) -> ParsedResults:
         return parse_my_format(path, options)
 ```
 
@@ -161,8 +186,8 @@ result = analyze(
     "results.mylog",
     config=config,
     result_format="my-format",
-    plugins=[MyFormatPlugin()],
+    parser_plugins=[MyFormatPlugin()],
 )
 ```
 
-When `plugins` is omitted, `analyze()` uses built-in and installed plugins.
+When `parser_plugins` is omitted, `analyze()` uses built-in and installed plugins.

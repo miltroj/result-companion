@@ -5,8 +5,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from result_companion.core.plugins.base import (
-    TAG_FILTERS,
-    AnalysisResults,
+    ParsedResults,
     ParseOptions,
     ResultParserPlugin,
 )
@@ -29,42 +28,40 @@ def get_available_plugins() -> tuple[ResultParserPlugin, ...]:
 def get_plugin(
     format_name: str | None,
     path: Path,
-    plugins: Sequence[ResultParserPlugin] | None = None,
+    available_plugins: Sequence[ResultParserPlugin] | None = None,
 ) -> ResultParserPlugin:
     """Resolves a parser plugin by explicit format or auto-detection."""
-    if plugins is not None:
-        available_plugins = tuple(plugins)
+    if available_plugins is not None:
+        plugin_catalog = tuple(available_plugins)
     elif format_name:
         builtins = get_builtin_plugins()
         plugin = _find_plugin_by_name(format_name, builtins)
         if plugin:
             logger.debug(f"Selected parser plugin: {plugin.name}")
             return plugin
-        available_plugins = _deduplicate_plugins(
-            (*builtins, *_load_installed_plugins())
-        )
+        plugin_catalog = _deduplicate_plugins((*builtins, *_load_installed_plugins()))
     else:
-        available_plugins = get_available_plugins()
+        plugin_catalog = get_available_plugins()
 
     logger.debug(
         "Available parser plugins: "
-        f"{', '.join(plugin.name for plugin in available_plugins) or '<none>'}"
+        f"{', '.join(plugin.name for plugin in plugin_catalog) or '<none>'}"
     )
     if format_name:
         logger.debug(f"Resolving parser plugin by format: {format_name}")
-        return _get_plugin_by_name(format_name, available_plugins)
+        return _get_plugin_by_name(format_name, plugin_catalog)
     logger.debug(f"Auto-detecting parser plugin for: {path}")
-    return _detect_plugin(path, available_plugins)
+    return _detect_plugin(path, plugin_catalog)
 
 
 def load_results(
     path: Path,
     format_name: str | None,
     options: ParseOptions,
-    plugins: Sequence[ResultParserPlugin] | None = None,
-) -> AnalysisResults:
+    available_plugins: Sequence[ResultParserPlugin] | None = None,
+) -> ParsedResults:
     """Loads parsed results with the selected parser plugin."""
-    plugin = get_plugin(format_name, path, plugins)
+    plugin = get_plugin(format_name, path, available_plugins)
     validate_options(plugin, options)
     return plugin.parse(path, options)
 
@@ -72,7 +69,7 @@ def load_results(
 def validate_options(plugin: ResultParserPlugin, options: ParseOptions) -> None:
     """Validates parse options against plugin capabilities."""
     uses_tags = bool(options.include_tags or options.exclude_tags)
-    if uses_tags and TAG_FILTERS not in plugin.capabilities:
+    if uses_tags and not getattr(plugin, "supports_tag_filters", False):
         raise ValueError(
             f"Format '{plugin.name}' does not support --include/--exclude tag filters."
         )
@@ -98,7 +95,7 @@ def _find_plugin_by_name(
 ) -> ResultParserPlugin | None:
     requested = format_name.lower()
     for plugin in plugins:
-        if plugin.name == requested:
+        if plugin.name.lower() == requested:
             return plugin
     return None
 
@@ -162,6 +159,7 @@ def _load_entry_point_plugin(
     except Exception:
         logger.warning(
             f"Skipping parser plugin entry point '{entry_point.name}' "
+            f"({getattr(entry_point, 'value', '<unknown>')}) "
             "because it failed to load.",
             exc_info=True,
         )
@@ -172,6 +170,7 @@ def _load_entry_point_plugin(
 
     logger.warning(
         f"Skipping parser plugin entry point '{entry_point.name}' "
+        f"({getattr(entry_point, 'value', '<unknown>')}) "
         "because it does not expose a ResultParserPlugin."
     )
     return None
@@ -179,8 +178,7 @@ def _load_entry_point_plugin(
 
 def _is_parser_plugin(plugin: Any) -> bool:
     return all(
-        hasattr(plugin, attribute)
-        for attribute in ("name", "capabilities", "can_parse", "parse")
+        hasattr(plugin, attribute) for attribute in ("name", "can_parse", "parse")
     )
 
 

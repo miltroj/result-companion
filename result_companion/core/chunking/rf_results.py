@@ -16,7 +16,7 @@ from result_companion.core.chunking.chunking import (
     deduplicate_consecutive_lines,
     render_lines_to_text,
 )
-from result_companion.core.chunking.utils import Chunking
+from result_companion.core.plugins.base import TestChunkPayload
 from result_companion.core.results.visitors import UniqueNameResultVisitor
 from result_companion.core.utils.logging_config import get_progress_logger
 
@@ -189,8 +189,8 @@ class ContextAwareRobotResults:
     def __str__(self) -> str:
         return render_lines_to_text(_render_suite(self._suite, 0, self._fields))
 
-    def render_chunks(self) -> Iterator[tuple[str, list[str], Chunking, str]]:
-        """Yields (test_name, chunks, chunk_stats, test_status) per test.
+    def render_chunks(self) -> Iterator[TestChunkPayload]:
+        """Yields a TestChunkPayload per test.
 
         Raises:
             ValueError: If no ChunkingStrategy has been set.
@@ -199,7 +199,7 @@ class ContextAwareRobotResults:
             raise ValueError("Call set_chunking() before render_chunks().")
         for test_name, test_status, lines in self._iter_tests():
             chunks, chunk_stats = self._chunking.apply(lines)
-            yield test_name, chunks, chunk_stats, test_status or "N/A"
+            yield TestChunkPayload(test_name, chunks, chunk_stats, test_status or "N/A")
 
 
 def get_rc_robot_results(

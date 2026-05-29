@@ -187,7 +187,7 @@ def analyze(
 
     run(
         output=output,
-        format=result_format,
+        result_format=result_format,
         log_level=log_level,
         config=config,
         report=report,

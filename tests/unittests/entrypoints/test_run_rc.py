@@ -22,7 +22,7 @@ def make_fake_results(test_names: list[str], total: int | None = None) -> MagicM
     return fake
 
 
-class FakeAnalysisResults:
+class FakeParsedResults:
     """Minimal non-Robot analysis results for report tests."""
 
     test_names = ["test_fail"]
@@ -30,13 +30,38 @@ class FakeAnalysisResults:
     source_hash = "fake123"
     has_chunking = True
 
-    def set_chunking(self, _strategy: object) -> "FakeAnalysisResults":
+    def set_chunking(self, _strategy: object) -> "FakeParsedResults":
         """Keeps protocol compatibility for tests."""
         return self
 
     def render_chunks(self):
         """Returns no chunks; report tests do not analyze payloads."""
         return iter(())
+
+
+class FakePlugin:
+    """Minimal parser plugin fake for entrypoint tests."""
+
+    def __init__(
+        self,
+        results: object,
+        name: str = "fake",
+        render_html_report: MagicMock | None = None,
+    ) -> None:
+        self.results = results
+        self.name = name
+        self.parse_calls: list[tuple[Path, ParseOptions]] = []
+        if render_html_report is not None:
+            self.render_html_report = render_html_report
+
+    def can_parse(self, _path: Path) -> bool:
+        """Returns True for entrypoint tests."""
+        return True
+
+    def parse(self, path: Path, options: ParseOptions) -> object:
+        """Records parse call and returns configured results."""
+        self.parse_calls.append((path, options))
+        return self.results
 
 
 class TestRunProviderInitStrategies:
@@ -75,20 +100,23 @@ class TestMainE2E:
     async def test_main_executes_analysis(self):
         """Test that _main executes the full analysis flow."""
         with (
-            patch(
-                "result_companion.entrypoints.run_rc.create_llm_html_log"
-            ) as mocked_html,
             patch("result_companion.api.execute_llm_and_get_results") as mocked_execute,
             patch(
-                "result_companion.entrypoints.run_rc.load_results"
-            ) as mocked_load_results,
+                "result_companion.entrypoints.run_rc.get_plugin"
+            ) as mocked_get_plugin,
             patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
             patch(
                 "result_companion._internal.analysis_helpers.run_provider_init_strategies"
             ),
         ):
             fake_results = make_fake_results(["test2"], total=2)
-            mocked_load_results.return_value = fake_results
+            render_html_report = MagicMock()
+            fake_plugin = FakePlugin(
+                fake_results,
+                name="robot",
+                render_html_report=render_html_report,
+            )
+            mocked_get_plugin.return_value = fake_plugin
 
             mocked_config.return_value = DefaultConfigModel(
                 version=1.0,
@@ -134,27 +162,25 @@ class TestMainE2E:
                 exclude_tags=None,
             )
 
-            mocked_load_results.assert_called_once_with(
-                path=Path("output.xml"),
-                format_name=None,
-                options=ParseOptions(
-                    include_tags=None,
-                    exclude_tags=None,
-                    exclude_fields=None,
-                    exclude_passing=True,
-                ),
+            expected_options = ParseOptions(
+                include_tags=None,
+                exclude_tags=None,
+                exclude_fields=None,
+                exclude_passing=True,
             )
+            mocked_get_plugin.assert_called_once_with(None, Path("output.xml"))
+            assert fake_plugin.parse_calls == [(Path("output.xml"), expected_options)]
             mocked_config.assert_called_once_with(None)
 
             mocked_execute.assert_called_once()
             assert mocked_execute.call_args.kwargs["results"] is fake_results
 
-            mocked_html.assert_called_once_with(
-                input_result_path=Path("output.xml"),
-                llm_output_path="/tmp/report.html",
-                llm_results={"test2": "llm_result_2"},
-                model_info={"model": "openai/gpt-4"},
-                overall_summary=None,
+            render_html_report.assert_called_once_with(
+                Path("output.xml"),
+                Path("/tmp/report.html"),
+                {"test2": "llm_result_2"},
+                {"model": "openai/gpt-4"},
+                None,
             )
             assert result is True
 
@@ -162,14 +188,13 @@ class TestMainE2E:
     async def test_main_runs_ollama_init_for_ollama_models(self):
         """Test that Ollama init strategy runs for Ollama models."""
         with (
-            patch("result_companion.entrypoints.run_rc.create_llm_html_log"),
             patch(
                 "result_companion.api.execute_llm_and_get_results",
                 return_value={},
             ),
             patch(
-                "result_companion.entrypoints.run_rc.load_results",
-                return_value=make_fake_results([], total=0),
+                "result_companion.entrypoints.run_rc.get_plugin",
+                return_value=FakePlugin(make_fake_results([], total=0), name="robot"),
             ),
             patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
             patch(
@@ -251,7 +276,7 @@ class TestRunRC:
                 include_tags=None,
                 exclude_tags=None,
                 dryrun=False,
-                format=None,
+                result_format=None,
                 debug_log=None,
             )
             assert result == "RESULT"
@@ -292,10 +317,10 @@ class TestRunRC:
                 config=None,
                 report=None,
                 include_passing=False,
-                format="robot",
+                result_format="robot",
             )
 
-            assert mocked_main.call_args.kwargs["format"] == "robot"
+            assert mocked_main.call_args.kwargs["result_format"] == "robot"
 
     def test_run_rc_passes_dryrun_flag(self):
         """Test that dryrun flag is passed correctly."""
@@ -357,22 +382,19 @@ class TestEmitReports:
     """Tests for _emit_reports function."""
 
     def test_non_robot_results_skip_html_and_warn(self, caplog):
+        fake_results = FakeParsedResults()
         analysis_result = AnalysisResult(
             llm_results={"test_fail": "Root cause: timeout"},
             test_names=["test_fail"],
         )
 
-        with (
-            caplog.at_level("WARNING", logger="RC"),
-            patch(
-                "result_companion.entrypoints.run_rc.create_llm_html_log"
-            ) as html_log,
-        ):
+        with caplog.at_level("WARNING", logger="RC"):
             _emit_reports(
                 output=Path("results.extlog"),
                 analysis_result=analysis_result,
                 config=MagicMock(llm_factory=MagicMock(model="test-model")),
-                results=FakeAnalysisResults(),
+                results=fake_results,
+                plugin=FakePlugin(fake_results, name="extlog"),
                 report=None,
                 html_report=True,
                 text_report=None,
@@ -380,14 +402,32 @@ class TestEmitReports:
                 print_text_report=False,
             )
 
-        html_log.assert_not_called()
-        assert (
-            "HTML reports are only supported for Robot Framework results" in caplog.text
-        )
+        assert "Format 'extlog' does not support HTML reports" in caplog.text
         assert "--no-html-report" in caplog.text
         assert "--text-report" in caplog.text
         assert "--json-report" in caplog.text
         assert "--print-text-report" in caplog.text
+
+    def test_non_robot_results_raise_for_explicit_html_report(self):
+        fake_results = FakeParsedResults()
+        analysis_result = AnalysisResult(
+            llm_results={"test_fail": "Root cause: timeout"},
+            test_names=["test_fail"],
+        )
+
+        with pytest.raises(ValueError, match="Format 'extlog' does not support HTML"):
+            _emit_reports(
+                output=Path("results.extlog"),
+                analysis_result=analysis_result,
+                config=MagicMock(llm_factory=MagicMock(model="test-model")),
+                results=fake_results,
+                plugin=FakePlugin(fake_results, name="extlog"),
+                report="custom.html",
+                html_report=True,
+                text_report=None,
+                json_report=None,
+                print_text_report=False,
+            )
 
     def test_print_text_report_writes_to_stdout(self, capsys):
         fake_results = make_fake_results(["test_fail"])
@@ -401,6 +441,7 @@ class TestEmitReports:
             analysis_result=analysis_result,
             config=MagicMock(llm_factory=MagicMock(model="test-model")),
             results=fake_results,
+            plugin=FakePlugin(fake_results, name="robot"),
             report=None,
             html_report=False,
             text_report=None,
@@ -421,17 +462,17 @@ class TestMainJsonReport:
         json_path = tmp_path / "report.json"
 
         with (
-            patch("result_companion.entrypoints.run_rc.create_llm_html_log"),
             patch("result_companion.api.execute_llm_and_get_results") as mocked_execute,
             patch(
-                "result_companion.entrypoints.run_rc.load_results"
-            ) as mocked_load_results,
+                "result_companion.entrypoints.run_rc.get_plugin"
+            ) as mocked_get_plugin,
             patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
             patch(
                 "result_companion._internal.analysis_helpers.run_provider_init_strategies"
             ),
         ):
-            mocked_load_results.return_value = make_fake_results(["test_fail"], total=2)
+            fake_results = make_fake_results(["test_fail"], total=2)
+            mocked_get_plugin.return_value = FakePlugin(fake_results, name="robot")
             mocked_config.return_value = DefaultConfigModel(
                 version=1.0,
                 llm_config={
@@ -491,20 +532,18 @@ class TestMainTextAndSynthesis:
         text_report_path = tmp_path / "rc_summary.txt"
 
         with (
-            patch(
-                "result_companion.entrypoints.run_rc.create_llm_html_log"
-            ) as mocked_html,
             patch("result_companion.api.execute_llm_and_get_results") as mocked_execute,
             patch(
-                "result_companion.entrypoints.run_rc.load_results"
-            ) as mocked_load_results,
+                "result_companion.entrypoints.run_rc.get_plugin"
+            ) as mocked_get_plugin,
             patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
             patch("result_companion.api.summarize_failures_with_llm") as mocked_summary,
             patch(
                 "result_companion._internal.analysis_helpers.run_provider_init_strategies"
             ),
         ):
-            mocked_load_results.return_value = make_fake_results(["test_fail"], total=1)
+            fake_results = make_fake_results(["test_fail"], total=1)
+            mocked_get_plugin.return_value = FakePlugin(fake_results, name="robot")
             mocked_config.return_value = DefaultConfigModel(
                 version=1.0,
                 llm_config={
@@ -546,7 +585,6 @@ class TestMainTextAndSynthesis:
             )
 
             assert result is True
-            mocked_html.assert_not_called()
             mocked_summary.assert_called_once()
             text_content = text_report_path.read_text()
             assert "Shared root cause summary." in text_content

@@ -33,7 +33,6 @@ from result_companion.core.plugins.base import ParseOptions
 
 class ExternalLogPlugin:
     name = "external-log"
-    capabilities = frozenset()
 
     def can_parse(self, path: Path) -> bool:
         return path.suffix == ".extlog"
