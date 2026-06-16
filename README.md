@@ -92,6 +92,23 @@ Ensure CI provides `GITHUB_TOKEN` secret and keep `preview=True` by default in C
 
 </details>
 
+## For AI Agents
+
+Generate compact, portable context for coding agents:
+
+```bash
+result-companion analyze -o output.xml --text-report rc_summary.txt --no-html-report
+result-companion analyze -o output.xml --json-report rc_summary.json
+```
+
+Then pass the report to your agent:
+
+```text
+Read rc_summary.txt and rank failures by confidence and impact. Propose fix order.
+```
+
+Agent guidance lives in [AGENTS.md](AGENTS.md). Skill-aware tools can use [.agents/skills/result-companion/SKILL.md](.agents/skills/result-companion/SKILL.md).
+
 ## Quick Start
 
 ### Option 1: GitHub Copilot (Easiest for Users With Copilot)
