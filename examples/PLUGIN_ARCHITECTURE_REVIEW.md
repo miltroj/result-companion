@@ -130,6 +130,13 @@ Direct fixes to [`PLUGIN_ARCHITECTURE.md`](PLUGIN_ARCHITECTURE.md):
 6. Add **`source_hash` contract** — hash of _what_? File bytes + relevant options is the cheap, portable choice.
 7. Add **error contract for `parse()`** — plugins raise `ValueError` on unparseable input; registry surfaces error with plugin name.
 8. Add **High-Volume Logs** section — laziness expectations, memory budget, generator discipline.
+9. Expand **"Add an Installable Plugin"** into a full authoring walkthrough:
+   - Mental model: how rc discovers plugins (`importlib.metadata.entry_points`, group `result_companion.plugins`) vs how the author declares one.
+   - Full package layout example (module + `pyproject.toml`).
+   - `pyproject.toml` snippets for **both** Poetry (`[tool.poetry.plugins."result_companion.plugins"]`) and PEP 621 (`[project.entry-points."result_companion.plugins"]`) — many users aren't on Poetry.
+   - What `pip install` writes into `site-packages/<pkg>.dist-info/entry_points.txt` — so failed installs are debuggable.
+   - Verify one-liner: `python -c "from importlib.metadata import entry_points; print(list(entry_points(group='result_companion.plugins')))"`.
+   - Common gotchas: same Python env required, reinstall after editing entry point, name-collision de-duplication silently keeps the first plugin (`registry.py:185-194`).
 
 ## Split Plan (Sequential PRs)
 
@@ -141,7 +148,7 @@ Small PRs, each independently reviewable and shippable. Order matters only where
 |----|-------|------------|-------|------|
 | PR1 | Fix `run_rc.py` `set_chunking` guard | — | 1 line + 1 test | Low |
 | PR2 | Cheap `source_hash` (streamed bytes + options) | — | RF plugin only; update tests | Low |
-| PR3 | Doc surgery on `PLUGIN_ARCHITECTURE.md` (non-contract fixes) | — | Text-only; add Field Reference + High-Volume section | None |
+| PR3 | Doc surgery on `PLUGIN_ARCHITECTURE.md` (non-contract fixes) | — | Text-only; add Field Reference, High-Volume section, authoring walkthrough | None |
 | PR4 | Reference non-RF plugin (pytest-junit) against current contract | PR3 | Example plugin in `examples/`; surfaces contract holes for PR5 | Low |
 | PR5 | Decouple chunking from `ParsedResults` Protocol + `@runtime_checkable` cleanup | PR3, PR4 | Remove `set_chunking`/`has_chunking` from Protocol; move token-chunking to helper; registry uses `isinstance`; docs updated in same PR; PR4 example migrated | Medium (public API shape) |
 | PR6 | O(N) ancestor context in RF chunker | — | Perf-only in `chunking.py` | Low |
@@ -171,7 +178,7 @@ return h.hexdigest()[:12]
 
 ### PR3 — Doc surgery (non-contract fixes only)
 
-- **Change**: Apply the 8 bullets from [Doc Bugs](#doc-bugs-in-plugin_architecturemd) that are orthogonal to Protocol shape (mutable-attr fix, Field Reference, `render_html_report` signature, `can_parse` cost guidance, `total_test_count` semantics, `source_hash` contract, `parse()` error contract, High-Volume section). Protocol-shape sections (`set_chunking`, `has_chunking`) are rewritten in PR5, when the shape actually changes, to avoid docs contradicting themselves.
+- **Change**: Apply the 9 bullets from [Doc Bugs](#doc-bugs-in-plugin_architecturemd) that are orthogonal to Protocol shape (mutable-attr fix, Field Reference, `render_html_report` signature, `can_parse` cost guidance, `total_test_count` semantics, `source_hash` contract, `parse()` error contract, High-Volume section, plugin authoring walkthrough). Protocol-shape sections (`set_chunking`, `has_chunking`) are rewritten in PR5, when the shape actually changes, to avoid docs contradicting themselves.
 - **Test**: N/A.
 - **Why**: Cheap; unblocks future plugin authors on everything except the Protocol churn.
 
