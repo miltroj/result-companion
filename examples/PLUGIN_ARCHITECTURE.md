@@ -69,10 +69,11 @@ from result_companion.core.plugins.base import (
 
 
 class MyParsedResults:
-    test_names = ["example"]
-    total_test_count = 1
-    source_hash = "0" * 12
-    has_chunking = False
+    def __init__(self) -> None:
+        self.test_names = ["example"]
+        self.total_test_count = 1
+        self.source_hash = "0" * 12
+        self.has_chunking = False
 
     def set_chunking(self, strategy: object) -> "MyParsedResults":
         self.has_chunking = True
@@ -82,7 +83,13 @@ class MyParsedResults:
         yield TestChunkPayload(
             test_name="example",
             chunks=["log body"],
-            chunk_stats=Chunking(0, 0, 8, 2, 1),
+            chunk_stats=Chunking(
+                chunk_size=0,
+                number_of_chunks=0,
+                raw_text_len=8,
+                tokens_from_raw_text=2,
+                tokenized_chunks=1,
+            ),
             status="FAIL",
         )
 
@@ -94,6 +101,8 @@ class MyPlugin:
         return path.suffix == ".mylog"
 
     def parse(self, path: Path, options: ParseOptions) -> ParsedResults:
+        if not path.exists():
+            raise ValueError(f"File does not exist: {path}")
         return MyParsedResults()
 ```
 
@@ -107,6 +116,38 @@ Plugins return a `ParsedResults` object. `ContextAwareRobotResults` is the built
 - `has_chunking`
 - `set_chunking(strategy)`
 - `render_chunks()`
+
+### Field Reference
+
+`ParsedResults` fields:
+
+- `test_names`: Names of tests selected for analysis after parser filters are applied.
+- `total_test_count`: Number of tests in the parsed artifact after tag filters, but before `exclude_passing`.
+- `source_hash`: Stable 12-character SHA-256 prefix for the source bytes plus parse options that affect rendered output.
+- `has_chunking`: `True` when `set_chunking()` has attached a chunking strategy.
+
+`TestChunkPayload` fields:
+
+- `test_name`: Test or analysis-unit name shown in reports.
+- `chunks`: Text chunks sent to the LLM for this test.
+- `chunk_stats`: `Chunking` metadata for the rendered text.
+- `status`: Source test status, for example `PASS`, `FAIL`, or `SKIP`.
+
+`Chunking` fields:
+
+- `chunk_size`: Character budget used per chunk; `0` means no split was needed.
+- `number_of_chunks`: Number of chunks created when splitting was needed.
+- `raw_text_len`: Length of rendered text plus system prompt.
+- `tokens_from_raw_text`: Token count for rendered text plus system prompt.
+- `tokenized_chunks`: Expected chunk count from token budgeting.
+
+`source_hash` should avoid rendering large suites when a file path is available. Prefer streaming
+file bytes and hashing only parse options that change output, such as tag filters,
+excluded fields, and `exclude_passing`.
+
+`parse()` should raise `ValueError` for unparseable input, unsupported parse options, or corrupt
+artifacts. Include the file path and plugin format in the message when useful; the registry will
+surface the failure to the caller.
 
 ## Capabilities
 
@@ -129,9 +170,51 @@ result-companion analyze -o results.xml --format my-format --include smoke
 To support HTML logs, implement `render_html_report` on the plugin. Plugins that do not
 implement it still work with text, JSON, printed text, and programmatic results.
 
+Signature:
+
+```python
+def render_html_report(
+    self,
+    input_path: Path,
+    output_path: Path,
+    llm_results: dict[str, str],
+    model_info: dict[str, str] | None = None,
+    overall_summary: str | None = None,
+) -> None:
+    ...
+```
+
+`can_parse(path)` runs during auto-detection and may be called on every installed plugin. Keep it
+cheap: check extension first, read only enough bytes for a magic-header/root-element check second,
+and do a full parse only inside `parse()`.
+
+## High-Volume Logs
+
+Plugins should be cheap on large artifacts:
+
+- Keep `can_parse()` bounded; do not load full logs during auto-detection.
+- Stream source bytes for `source_hash` when possible.
+- Generate chunks lazily from `render_chunks()` instead of building all LLM payloads up front.
+- Avoid duplicate rendered copies of large test logs.
+- Raise `ValueError` early when options would force unsupported expensive behavior.
+
 ## Add an Installable Plugin
 
-Create a plugin module:
+Result Companion discovers installed plugins with `importlib.metadata.entry_points()` from the
+`result_companion.plugins` group. Plugin packages declare an entry point; installation writes it to
+`site-packages/<package>.dist-info/entry_points.txt`.
+
+Use a small package layout:
+
+```text
+result-companion-my-format/
+  pyproject.toml
+  my_package/
+    __init__.py
+    plugin.py
+```
+
+Create the plugin module:
 
 ```python
 # my_package/plugin.py
@@ -150,10 +233,17 @@ class MyFormatPlugin:
         return parse_my_format(path, options)
 ```
 
-Register the plugin in your package `pyproject.toml`:
+Register the plugin with Poetry:
 
 ```toml
 [tool.poetry.plugins."result_companion.plugins"]
+my-format = "my_package.plugin:MyFormatPlugin"
+```
+
+Or with PEP 621 project metadata:
+
+```toml
+[project.entry-points."result_companion.plugins"]
 my-format = "my_package.plugin:MyFormatPlugin"
 ```
 
@@ -163,6 +253,18 @@ Install it in the same environment as Result Companion:
 pip install result-companion-my-format
 result-companion analyze -o results.mylog --format my-format
 ```
+
+Verify discovery:
+
+```bash
+python -c "from importlib.metadata import entry_points; print(list(entry_points(group='result_companion.plugins')))"
+```
+
+Common install issues:
+
+- Result Companion and the plugin must run in the same Python environment.
+- Reinstall the plugin after changing entry points in `pyproject.toml`.
+- Duplicate plugin names are de-duplicated; the first discovered plugin wins.
 
 Add tests for:
 
