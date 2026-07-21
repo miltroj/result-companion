@@ -882,6 +882,67 @@ class TestContextAwareRobotResultsSourcePaths:
         assert results._result is not None
         assert results.total_test_count == 2
 
+    def test_source_hash_for_path_source_does_not_render_suite(
+        self, tmp_path, monkeypatch
+    ):
+        xml = tmp_path / "output.xml"
+        xml.write_text(_MINIMAL_XML)
+
+        def fail_render(*_args, **_kwargs):
+            raise AssertionError("source_hash should not render suite")
+
+        monkeypatch.setattr(
+            "result_companion.core.chunking.rf_results._render_suite",
+            fail_render,
+        )
+        results = ContextAwareRobotResults(xml)
+
+        assert len(results.source_hash) == 12
+
+    def test_source_hash_is_stable_for_same_file_and_options(self, tmp_path):
+        xml = tmp_path / "output.xml"
+        xml.write_text(_MINIMAL_XML)
+
+        first = get_rc_robot_results(file_path=xml, exclude_passing=True).source_hash
+        second = get_rc_robot_results(file_path=xml, exclude_passing=True).source_hash
+
+        assert first == second
+
+    def test_source_hash_changes_when_exclude_passing_changes(self, tmp_path):
+        xml = tmp_path / "output.xml"
+        xml.write_text(_MINIMAL_XML)
+
+        exclude_passing = get_rc_robot_results(
+            file_path=xml, exclude_passing=True
+        ).source_hash
+        include_passing = get_rc_robot_results(
+            file_path=xml, exclude_passing=False
+        ).source_hash
+
+        assert exclude_passing != include_passing
+
+    def test_source_hash_changes_when_tag_filters_change(self, tmp_path):
+        xml = tmp_path / "output.xml"
+        xml.write_text(_MINIMAL_XML)
+
+        smoke = get_rc_robot_results(file_path=xml, include_tags=["smoke"]).source_hash
+        critical = get_rc_robot_results(
+            file_path=xml, include_tags=["critical"]
+        ).source_hash
+
+        assert smoke != critical
+
+    def test_source_hash_changes_when_render_fields_change(self, tmp_path):
+        xml = tmp_path / "output.xml"
+        xml.write_text(_MINIMAL_XML)
+
+        all_fields = get_rc_robot_results(file_path=xml).source_hash
+        without_message = get_rc_robot_results(
+            file_path=xml, exclude_fields=["message"]
+        ).source_hash
+
+        assert all_fields != without_message
+
     def test_execution_result_source_uses_suite_directly(self, tmp_path):
         xml = tmp_path / "output.xml"
         xml.write_text(_MINIMAL_XML)

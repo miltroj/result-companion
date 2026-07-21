@@ -22,6 +22,35 @@ def make_fake_results(test_names: list[str], total: int | None = None) -> MagicM
     return fake
 
 
+def make_config() -> DefaultConfigModel:
+    """Creates minimal entrypoint config."""
+    return DefaultConfigModel(
+        version=1.0,
+        llm_config={
+            "question_prompt": "question prompt",
+            "prompt_template": "my_template {question} {context}",
+            "chunking": {
+                "chunk_analysis_prompt": "Analyze: {text}",
+                "final_synthesis_prompt": "Synthesize: {summary}",
+            },
+            "summary_prompt_template": "CI summary:\n{analyses}",
+        },
+        llm_factory={
+            "model": "openai/gpt-4",
+            "api_key": "sk-test",
+        },
+        tokenizer={
+            "tokenizer": "openai_tokenizer",
+            "max_content_tokens": 1000,
+        },
+        test_filter={
+            "include_tags": [],
+            "exclude_tags": [],
+            "include_passing": False,
+        },
+    )
+
+
 class FakeParsedResults:
     """Minimal non-Robot analysis results for report tests."""
 
@@ -183,6 +212,43 @@ class TestMainE2E:
                 None,
             )
             assert result is True
+
+    @pytest.mark.asyncio
+    async def test_main_preserves_pre_chunked_plugin_results(self):
+        """Test that _main does not override plugin-provided chunking."""
+        with (
+            patch(
+                "result_companion.api.execute_llm_and_get_results",
+                return_value={"test_fail": "llm_result"},
+            ),
+            patch(
+                "result_companion.entrypoints.run_rc.get_plugin"
+            ) as mocked_get_plugin,
+            patch(
+                "result_companion.entrypoints.run_rc.load_config",
+                return_value=make_config(),
+            ),
+        ):
+            fake_results = make_fake_results(["test_fail"])
+            fake_results.has_chunking = True
+            mocked_get_plugin.return_value = FakePlugin(
+                fake_results, name="pre_chunked"
+            )
+
+            result = await _main(
+                output=Path("output.fake"),
+                log_level="DEBUG",
+                config=None,
+                report=None,
+                html_report=False,
+                text_report=None,
+                print_text_report=False,
+                summarize_failures=False,
+                include_passing=False,
+            )
+
+            assert result is True
+            fake_results.set_chunking.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_main_runs_ollama_init_for_ollama_models(self):

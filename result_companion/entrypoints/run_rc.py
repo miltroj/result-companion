@@ -66,11 +66,12 @@ async def _main(
     plugin = get_plugin(result_format, output)
     validate_options(plugin, options)
     results = plugin.parse(output, options)
-    strategy = ChunkingStrategy(
-        tokenizer_config=parsed_config.tokenizer,
-        system_prompt=parsed_config.llm_config.question_prompt,
-    )
-    results.set_chunking(strategy)
+    if not results.has_chunking:
+        strategy = ChunkingStrategy(
+            tokenizer_config=parsed_config.tokenizer,
+            system_prompt=parsed_config.llm_config.question_prompt,
+        )
+        results.set_chunking(strategy)
 
     logger.info(
         f"Total tests: {results.total_test_count}, filtered: {len(results.test_names)}"
