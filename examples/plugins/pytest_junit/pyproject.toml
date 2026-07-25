@@ -1,0 +1,13 @@
+[project]
+name = "result-companion-pytest-junit"
+version = "0.1.0"
+description = "Example pytest JUnit XML parser plugin for Result Companion"
+requires-python = ">=3.10"
+dependencies = ["result-companion"]
+
+[project.entry-points."result_companion.plugins"]
+pytest-junit = "result_companion_pytest_junit.plugin:PytestJUnitPlugin"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

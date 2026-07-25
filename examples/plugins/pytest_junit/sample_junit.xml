@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuite name="pytest" tests="3" failures="1" skipped="1" errors="0" time="0.031">
+  <testcase classname="tests.test_math" name="test_adds_numbers" time="0.002" />
+  <testcase classname="tests.test_math" name="test_divides_by_zero" time="0.004">
+    <failure message="ZeroDivisionError: division by zero" type="ZeroDivisionError">Traceback line 12</failure>
+    <system-out>captured stdout</system-out>
+  </testcase>
+  <testcase classname="tests.test_math" name="test_skips_slow_case" time="0.001">
+    <skipped message="slow marker disabled" />
+  </testcase>
+</testsuite>

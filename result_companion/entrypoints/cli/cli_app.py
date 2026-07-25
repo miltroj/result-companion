@@ -66,7 +66,13 @@ def analyze(
         file_okay=True,
         dir_okay=False,
         readable=True,
-        help="Output.xml file path",
+        help="Test result artifact path",
+    ),
+    result_format: Optional[str] = typer.Option(
+        None,
+        "-f",
+        "--format",
+        help="Input result format plugin. Auto-detect when omitted.",
     ),
     log_level: LogLevels = typer.Option(
         LogLevels.INFO,
@@ -152,6 +158,7 @@ def analyze(
     """Analyze Robot Framework test results with LLM assistance."""
     if not quiet:
         typer.echo(f"Output: {output}")
+        typer.echo(f"Format: {result_format or 'auto'}")
         typer.echo(f"Log Level: {log_level}")
         typer.echo(f"Config: {config}")
         typer.echo(f"Report: {report}")
@@ -180,6 +187,7 @@ def analyze(
 
     run(
         output=output,
+        result_format=result_format,
         log_level=log_level,
         config=config,
         report=report,

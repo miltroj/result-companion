@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
@@ -16,7 +17,7 @@ from result_companion.core.chunking.chunking import (
     deduplicate_consecutive_lines,
     render_lines_to_text,
 )
-from result_companion.core.chunking.utils import Chunking
+from result_companion.core.plugins.base import TestChunkPayload
 from result_companion.core.results.visitors import UniqueNameResultVisitor
 from result_companion.core.utils.logging_config import get_progress_logger
 
@@ -62,6 +63,30 @@ class TestLines:
         return render_lines_to_text(self.lines)
 
 
+def _read_file_chunks(path: Path, chunk_size: int = 65_536) -> Iterator[bytes]:
+    with path.open("rb") as source:
+        while True:
+            chunk = source.read(chunk_size)
+            if not chunk:
+                return
+            yield chunk
+
+
+def _source_hash_options(
+    fields: frozenset[str],
+    include_tags: tuple[str, ...],
+    exclude_tags: tuple[str, ...],
+    exclude_passing: bool,
+) -> bytes:
+    options = {
+        "exclude_passing": exclude_passing,
+        "exclude_tags": list(exclude_tags),
+        "fields": sorted(fields),
+        "include_tags": list(include_tags),
+    }
+    return json.dumps(options, sort_keys=True, separators=(",", ":")).encode()
+
+
 class ContextAwareRobotResults:
     """Iterates RF result tree per-test with suite context, field filtering, and chunking.
 
@@ -80,16 +105,21 @@ class ContextAwareRobotResults:
 
     def __init__(self, source: ExecutionResult | Path | TestSuite) -> None:
         if isinstance(source, (str, Path)):
-            self._result = ExecutionResult(source)
+            self._source_path = Path(source)
+            self._result = ExecutionResult(self._source_path)
             self._result.visit(UniqueNameResultVisitor())
             self._suite = self._result.suite
         elif isinstance(source, TestSuite):
+            self._source_path = None
             self._result = None
             self._suite = source
         else:
+            self._source_path = None
             self._result = source
             self._suite = source.suite
         self._fields: frozenset[str] = ALL_FIELDS
+        self._include_tags: tuple[str, ...] = ()
+        self._exclude_tags: tuple[str, ...] = ()
         self._chunking: ChunkingStrategy | None = None
         self._exclude_passing: bool = False
 
@@ -112,11 +142,15 @@ class ContextAwareRobotResults:
     def include_tags(self, tags: Sequence[str]) -> ContextAwareRobotResults:
         """Filters to tests matching any of given tags (RF native, supports wildcards)."""
         self._apply_config({"include_tags": list(tags)})
+        self._include_tags = tuple(tags)
+        self._invalidate_cache()
         return self
 
     def exclude_tags(self, tags: Sequence[str]) -> ContextAwareRobotResults:
         """Excludes tests matching any of given tags (RF native, supports wildcards)."""
         self._apply_config({"exclude_tags": list(tags)})
+        self._exclude_tags = tuple(tags)
+        self._invalidate_cache()
         return self
 
     def _apply_config(self, suite_config: dict) -> None:
@@ -177,9 +211,23 @@ class ContextAwareRobotResults:
 
     @cached_property
     def source_hash(self) -> str:
-        """Short SHA-256 hash of the rendered suite for reproducibility tracking."""
-        blob = str(self).encode()
-        return hashlib.sha256(blob).hexdigest()[:12]
+        """Short SHA-256 hash of source bytes and parse options."""
+        hasher = hashlib.sha256()
+        if self._source_path is None:
+            hasher.update(str(self).encode())
+        else:
+            for chunk in _read_file_chunks(self._source_path):
+                hasher.update(chunk)
+        hasher.update(b"\0")
+        hasher.update(
+            _source_hash_options(
+                fields=self._fields,
+                include_tags=self._include_tags,
+                exclude_tags=self._exclude_tags,
+                exclude_passing=self._exclude_passing,
+            )
+        )
+        return hasher.hexdigest()[:12]
 
     @cached_property
     def test_names(self) -> list[str]:
@@ -189,8 +237,8 @@ class ContextAwareRobotResults:
     def __str__(self) -> str:
         return render_lines_to_text(_render_suite(self._suite, 0, self._fields))
 
-    def render_chunks(self) -> Iterator[tuple[str, list[str], Chunking, str]]:
-        """Yields (test_name, chunks, chunk_stats, test_status) per test.
+    def render_chunks(self) -> Iterator[TestChunkPayload]:
+        """Yields a TestChunkPayload per test.
 
         Raises:
             ValueError: If no ChunkingStrategy has been set.
@@ -199,7 +247,7 @@ class ContextAwareRobotResults:
             raise ValueError("Call set_chunking() before render_chunks().")
         for test_name, test_status, lines in self._iter_tests():
             chunks, chunk_stats = self._chunking.apply(lines)
-            yield test_name, chunks, chunk_stats, test_status or "N/A"
+            yield TestChunkPayload(test_name, chunks, chunk_stats, test_status or "N/A")
 
 
 def get_rc_robot_results(
