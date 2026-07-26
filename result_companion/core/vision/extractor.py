@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import re
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Iterator
+
+from robot.api import ExecutionResult
+from robot.result.model import Message, TestCase, TestSuite
 
 from result_companion.core.vision.models import Screenshot
 
@@ -18,66 +20,59 @@ _IMG_SRC_PATTERN = re.compile(
 def extract_screenshots(output_xml_path: Path) -> Iterator[Screenshot]:
     """Yields screenshots embedded in Robot Framework output.xml.
 
+    Uses Robot Framework's native result parser (`ExecutionResult`) so the
+    walker stays robust across RF schema versions and matches the parsing
+    strategy already used elsewhere in the project.
+
     Args:
         output_xml_path: Robot Framework output.xml path.
 
     Yields:
         Screenshots in per-test document order.
     """
-    current_test: str | None = None
-    current_test_message = ""
-    pending: list[tuple[str, str]] = []
+    suite = ExecutionResult(str(output_xml_path)).suite
+    yield from _iter_suite(suite)
 
-    for event, element in ET.iterparse(output_xml_path, events=("start", "end")):
-        tag = _local_name(element.tag)
 
-        if event == "start" and tag == "test":
-            current_test = element.attrib.get("name", "<unnamed>")
-            current_test_message = ""
-            pending = []
-            continue
+def _iter_suite(suite: TestSuite) -> Iterator[Screenshot]:
+    for test in suite.tests:
+        yield from _iter_test(test)
+    for child in suite.suites:
+        yield from _iter_suite(child)
 
-        if event != "end":
-            continue
 
-        if tag == "msg" and element.attrib.get("html") == "true" and current_test:
-            pending.extend(_scan_msg_for_images(element.text or ""))
-
-        if tag == "status" and current_test:
-            current_test_message = (element.text or "").strip()
-
-        if tag == "test":
-            yield from _build_screenshots(
-                current_test or "", current_test_message, pending
+def _iter_test(test: TestCase) -> Iterator[Screenshot]:
+    error_message = (test.message or "").strip()
+    for msg in _walk_html_messages(test):
+        for mime_type, data_base64 in _scan_msg_for_images(msg.message):
+            yield Screenshot(
+                test_name=test.name,
+                error_message=error_message,
+                mime_type=mime_type,
+                data_base64=data_base64,
             )
-            current_test = None
-            current_test_message = ""
-            pending = []
 
-        element.clear()
+
+def _walk_html_messages(node: object) -> Iterator[Message]:
+    """Recursively yields ``html=True`` messages under a test/keyword/branch.
+
+    Descends into ``setup``/``teardown`` keywords (not present in ``body`` on
+    modern RF versions) and any child ``body`` items (keywords, control
+    structures like IF/FOR).
+    """
+    if isinstance(node, Message):
+        if node.html:
+            yield node
+        return
+    for attr in ("setup", "teardown"):
+        child = getattr(node, attr, None)
+        if child:
+            yield from _walk_html_messages(child)
+    for item in getattr(node, "body", ()) or ():
+        yield from _walk_html_messages(item)
 
 
 def _scan_msg_for_images(html_text: str) -> Iterator[tuple[str, str]]:
-    """Yields image MIME type and base64 payload from an HTML message."""
+    """Yields ``(mime_type, base64_payload)`` for each embedded image tag."""
     for match in _IMG_SRC_PATTERN.finditer(html_text):
         yield match.group("mime"), re.sub(r"\s+", "", match.group("data"))
-
-
-def _build_screenshots(
-    test_name: str,
-    error_message: str,
-    pending: list[tuple[str, str]],
-) -> Iterator[Screenshot]:
-    """Builds screenshot models after containing test status is known."""
-    for mime_type, data_base64 in pending:
-        yield Screenshot(
-            test_name=test_name,
-            error_message=error_message,
-            mime_type=mime_type,
-            data_base64=data_base64,
-        )
-
-
-def _local_name(tag: str) -> str:
-    """Strips XML namespace from a tag name."""
-    return tag.rsplit("}", 1)[-1]
