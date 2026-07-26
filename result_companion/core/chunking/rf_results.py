@@ -78,8 +78,10 @@ class ContextAwareRobotResults:
                 send_to_llm(chunk)
     """
 
-    def __init__(self, source: ExecutionResult | Path | TestSuite) -> None:
+    def __init__(self, source: ExecutionResult | str | Path | TestSuite) -> None:
+        self._source_path: Path | None = None
         if isinstance(source, (str, Path)):
+            self._source_path = Path(source)
             self._result = ExecutionResult(source)
             self._result.visit(UniqueNameResultVisitor())
             self._suite = self._result.suite
@@ -92,9 +94,12 @@ class ContextAwareRobotResults:
         self._fields: frozenset[str] = ALL_FIELDS
         self._chunking: ChunkingStrategy | None = None
         self._exclude_passing: bool = False
+        self._fallback_source_hash = (
+            None if self._source_path else _hash_rendered_suite(self._suite)
+        )
 
     def _invalidate_cache(self) -> None:
-        for attr in ("test_names", "source_hash"):
+        for attr in ("test_names",):
             self.__dict__.pop(attr, None)
 
     def include_fields(self, fields: Sequence[str]) -> ContextAwareRobotResults:
@@ -177,9 +182,14 @@ class ContextAwareRobotResults:
 
     @cached_property
     def source_hash(self) -> str:
-        """Short SHA-256 hash of the rendered suite for reproducibility tracking."""
-        blob = str(self).encode()
-        return hashlib.sha256(blob).hexdigest()[:12]
+        """Short SHA-256 hash of the raw source identity."""
+        # TODO: Add analysis_hash for analyzed-result-set identity. source_hash only
+        # tracks raw output.xml identity; analysis_hash should combine source_hash,
+        # selected tests, tag/pass filters, field exclusions, and vision/OCR config so
+        # reports from the same source but different analysis scope do not collide.
+        if self._source_path:
+            return _hash_file(self._source_path)
+        return self._fallback_source_hash or _hash_rendered_suite(self._suite)
 
     @cached_property
     def test_names(self) -> list[str]:
@@ -232,6 +242,21 @@ def get_rc_robot_results(
     if chunking_strategy:
         results.set_chunking(chunking_strategy)
     return results
+
+
+def _hash_file(path: Path) -> str:
+    """Returns short SHA-256 hash for raw file bytes."""
+    digest = hashlib.sha256()
+    with path.open("rb") as source_file:
+        for chunk in iter(lambda: source_file.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()[:12]
+
+
+def _hash_rendered_suite(suite: TestSuite) -> str:
+    """Returns short SHA-256 hash for rendered suite fallback."""
+    text = render_lines_to_text(_render_suite(suite, 0, ALL_FIELDS))
+    return hashlib.sha256(text.encode()).hexdigest()[:12]
 
 
 def _render_suite_teardown(

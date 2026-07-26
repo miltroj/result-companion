@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+
 import pytest
 from robot.api import ExecutionResult
 from robot.errors import DataError
@@ -856,6 +858,20 @@ class TestContextAwareRobotResults:
     def test_source_hash_is_12_chars(self):
         assert len(self._make().source_hash) == 12
 
+    def test_source_hash_for_non_file_source_uses_rendered_fallback(self):
+        results = self._make(tests=[FakeTest(name="T", status="FAIL")])
+        expected = hashlib.sha256(str(results).encode()).hexdigest()[:12]
+
+        assert results.source_hash == expected
+
+    def test_source_hash_for_non_file_source_ignores_field_filters(self):
+        results = self._make(tests=[FakeTest(name="T", status="FAIL")])
+        source_hash = results.source_hash
+
+        results.include_fields([])
+
+        assert results.source_hash == source_hash
+
     def test_str_renders_suite_and_test_content(self):
         test = FakeTest(name="T", status="FAIL")
         suite = FakeSuite(name="S", tests=[test])
@@ -881,6 +897,27 @@ class TestContextAwareRobotResultsSourcePaths:
 
         assert results._result is not None
         assert results.total_test_count == 2
+
+    def test_path_source_hash_uses_raw_file_sha256(self, tmp_path):
+        xml = tmp_path / "output.xml"
+        xml.write_text(_MINIMAL_XML)
+        expected = hashlib.sha256(_MINIMAL_XML.encode()).hexdigest()[:12]
+
+        results = ContextAwareRobotResults(xml)
+
+        assert results.source_hash == expected
+
+    def test_path_source_hash_ignores_analysis_filters(self, tmp_path):
+        xml = tmp_path / "output.xml"
+        xml.write_text(_MINIMAL_XML)
+        results = ContextAwareRobotResults(xml)
+        source_hash = results.source_hash
+
+        results.include_tags(["critical"])
+        results.exclude_fields(["status"])
+        results.exclude_passing()
+
+        assert results.source_hash == source_hash
 
     def test_execution_result_source_uses_suite_directly(self, tmp_path):
         xml = tmp_path / "output.xml"
