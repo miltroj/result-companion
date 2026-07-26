@@ -2,7 +2,7 @@
 
 ## Quick Read
 
-Implement screenshot awareness inside `ContextAwareRobotResults`, not as a second XML parser. The renderer walks the Robot result tree once, emits image objects at their real test/keyword/message location, and converts them to placeholders or OCR text before chunking.
+Implement screenshot awareness inside `ContextAwareRobotResults`, not as a second XML parser. Build it in two parts: first add dependency-free image placeholders and fake OCR text attachment for tests, then add real OCR dependencies and final processing.
 
 Default behavior stays unchanged unless image awareness or OCR is enabled. OCR remains optional, local, and outside `result_companion/core/chunking/rf_results.py`.
 
@@ -11,9 +11,10 @@ Default behavior stays unchanged unless image awareness or OCR is enabled. OCR r
 - [High-Level Algorithm](#high-level-algorithm)
 - [Design Rules](#design-rules)
 - [Core Data Model](#core-data-model)
+- [Implementation Split](#implementation-split)
 - [ContextAwareRobotResults Changes](#contextawarerobotresults-changes)
 - [Event Walker](#event-walker)
-- [OCR Runner](#ocr-runner)
+- [Part 2 OCR Runner](#part-2-ocr-runner)
 - [Tests](#tests)
 - [Migration From Current WIP](#migration-from-current-wip)
 
@@ -66,9 +67,8 @@ Core flow:
 1. Parse `output.xml` once through `ExecutionResult` in `ContextAwareRobotResults`.
 2. Walk suites, tests, keywords, messages with a shared event walker.
 3. When an `html=True` message contains base64 `<img>`, emit `EmbeddedImage` at that exact place.
-4. If no OCR text is attached, render a small placeholder.
-5. If OCR text is attached, render OCR lines next to the placeholder.
-6. Run chunking only after placeholders/OCR text are already part of rendered lines.
+4. Part 1 renders a small placeholder and can attach fake OCR text in tests through `attach_image_texts()`.
+5. Part 2 runs real OCR, attaches OCR text, and then runs normal analysis/chunking.
 
 ## Design Rules
 
@@ -113,6 +113,23 @@ suite path + test name + keyword path + message index + image index + sha256(dat
 ```
 
 Hash is not the correlation mechanism. Correlation comes from tree traversal context. Hash only lets OCR return `dict[str, str]` safely.
+
+## Implementation Split
+
+Part 1 keeps the system light and testable without OCR dependencies:
+
+- Add `EmbeddedImage`, HTML image scanning, event walking, image collection, and placeholder rendering.
+- Add `attach_image_texts()` so tests can inject fake OCR text by `EmbeddedImage.id`.
+- Add config support for placeholder rendering with `vision.enabled`.
+- Do not add RapidOCR, Pillow, NumPy, ONNX Runtime, `--ocr`, or OCR runner code.
+- Do not add a CLI fake OCR flag. Fake text stays in tests or small developer helpers.
+
+Part 2 adds real OCR only after Part 1 works on real Robot examples:
+
+- Add Poetry dependencies for OCR.
+- Add `run_ocr_batch()`.
+- Add `vision.ocr`, OCR limits, and CLI `--ocr/--no-ocr`.
+- Wire OCR before analysis/chunking.
 
 ## HTML Image Scanner
 
@@ -233,7 +250,7 @@ Use the real event depth, not hardcoded `1`, in implementation.
 
 If image awareness is disabled and no OCR text is attached, skip `EmbeddedImage` events entirely. This preserves old output.
 
-## OCR Runner
+## Part 2 OCR Runner
 
 Add `result_companion/core/vision/ocr.py`:
 
@@ -258,7 +275,14 @@ Rules:
 
 ## Config And CLI
 
-Add to `default_config.yaml`:
+Part 1 adds placeholder config only:
+
+```yaml
+vision:
+  enabled: false
+```
+
+Part 2 extends it:
 
 ```yaml
 vision:
@@ -274,7 +298,7 @@ Meaning:
 - `vision.enabled: true` renders inline screenshot placeholders.
 - `vision.ocr: true` implies `vision.enabled: true` and runs OCR.
 - CLI `--ocr` sets OCR on for that run.
-- Do not add a separate placeholder CLI flag in MVP unless needed. Config is enough for placeholder-only mode.
+- Do not add placeholder or fake-OCR CLI flags. Config is enough for placeholder-only mode.
 
 ## Run Flow
 
@@ -282,11 +306,12 @@ In `result_companion/entrypoints/run_rc.py`:
 
 1. Build `ContextAwareRobotResults` with existing tag/field/pass filters.
 2. If `vision.enabled` or `vision.ocr`, call `results.include_embedded_images()`.
-3. If OCR enabled:
+3. Part 1 stops here. Tests may call `results.attach_image_texts(fake_texts)` directly.
+4. In Part 2, if OCR enabled:
    - `images = results.collect_embedded_images()`
    - `texts = await run_ocr_batch(images, ...)`
    - `results.attach_image_texts(texts)`
-4. Run analysis and chunking normally.
+5. Run analysis and chunking normally.
 
 Dry run:
 
@@ -295,21 +320,25 @@ Dry run:
 
 ## Files To Change
 
-| File | Change |
-|---|---|
-| `result_companion/core/vision/models.py` | Replace `Screenshot` with `EmbeddedImage` or add `EmbeddedImage` if compatibility needed. |
-| `result_companion/core/vision/extractor.py` | Keep only HTML image scan/strip helpers. Remove `ExecutionResult` parsing. |
-| `result_companion/core/chunking/rf_results.py` | Add event walker, image collection, placeholder/OCR rendering. |
-| `result_companion/core/vision/ocr.py` | New optional OCR runner over `EmbeddedImage`. |
-| `result_companion/core/parsers/config.py` | Add `VisionConfigModel`. |
-| `result_companion/core/configs/default_config.yaml` | Add `vision` block. |
-| `result_companion/entrypoints/run_rc.py` | Wire placeholder and OCR flow before analysis/chunking. |
-| `result_companion/entrypoints/cli/cli_app.py` | Add `--ocr/--no-ocr`. |
-| `README.md` | Document experimental screenshot OCR. |
+| Part | File | Change |
+|---|---|---|
+| 1 | `result_companion/core/vision/models.py` | Add `EmbeddedImage`. |
+| 1 | `result_companion/core/vision/extractor.py` | Keep only HTML image scan/strip helpers. Remove `ExecutionResult` parsing. |
+| 1 | `result_companion/core/chunking/rf_results.py` | Add event walker, image collection, placeholders, and fake text attachment. |
+| 1 | `result_companion/core/parsers/config.py` | Add `VisionConfigModel` with `enabled`. |
+| 1 | `result_companion/core/configs/default_config.yaml` | Add `vision.enabled: false`. |
+| 1 | `result_companion/entrypoints/run_rc.py` | Enable placeholders when `vision.enabled` is true. |
+| 2 | `pyproject.toml` | Add OCR dependencies. |
+| 2 | `result_companion/core/vision/ocr.py` | Add optional OCR runner over `EmbeddedImage`. |
+| 2 | `result_companion/core/parsers/config.py` | Add OCR limits. |
+| 2 | `result_companion/core/configs/default_config.yaml` | Add OCR config fields. |
+| 2 | `result_companion/entrypoints/run_rc.py` | Run OCR before analysis/chunking. |
+| 2 | `result_companion/entrypoints/cli/cli_app.py` | Add `--ocr/--no-ocr`. |
+| 2 | `README.md` | Document experimental screenshot OCR. |
 
 ## Tests
 
-Core placeholder tests:
+Part 1 tests:
 
 - Collects one `EmbeddedImage` from `<msg html="true"><img ...>`.
 - `EmbeddedImage.keyword_path` points to containing keyword.
@@ -317,14 +346,11 @@ Core placeholder tests:
 - Base64 payload does not appear in rendered text.
 - Duplicate test names do not collide because image IDs differ.
 - Passing tests are skipped when `exclude_passing()` is active.
-
-OCR attachment tests:
-
 - `attach_image_texts({image.id: "Login\nPassword"})` renders `[SCREENSHOT_OCR]` lines next to placeholder.
 - Missing OCR text keeps placeholder only.
 - Empty OCR text keeps placeholder only.
 
-OCR runner tests:
+Part 2 tests:
 
 - Caps images per test.
 - Groups output by `EmbeddedImage.id`.
@@ -356,7 +382,7 @@ Replace it with HTML scanning helpers. Move test coverage from XML-level extract
 
 ## Validation
 
-Run focused tests:
+Part 1 focused tests:
 
 ```bash
 poetry run pytest tests/unittests/core/vision/ tests/unittests/core/chunking/test_rf_results.py -v
@@ -369,6 +395,14 @@ make test-unit
 ```
 
 Manual check with real embedded screenshots:
+
+```bash
+result-companion analyze -o output.xml -c vision-enabled.yaml --debug-log vision-debug.log
+```
+
+Confirm `rc_log.html` contains screenshot placeholders near the keyword that captured the screenshot.
+
+Part 2 manual OCR check:
 
 ```bash
 result-companion analyze -o output.xml --ocr --debug-log ocr-debug.log
