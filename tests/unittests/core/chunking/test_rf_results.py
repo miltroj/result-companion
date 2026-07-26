@@ -54,6 +54,28 @@ _MINIMAL_XML = """\
 </robot>
 """
 
+_SCREENSHOT_XML = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<robot generator="Robot 7.1" rpa="false" schemaversion="5">
+<suite id="s1" name="Suite">
+  <test id="s1-t1" name="Failing Test">
+    <kw name="Capture Page Screenshot">
+      <msg time="2026-01-01T00:00:00.000000" level="INFO" html="true">&lt;img src="data:image/png;base64,aGVs bG8="&gt;</msg>
+      <status status="PASS" start="2026-01-01T00:00:00.000000" elapsed="0.001"/>
+    </kw>
+    <status status="FAIL" start="2026-01-01T00:00:00.001000" elapsed="0.001">boom</status>
+  </test>
+  <status status="FAIL" start="2026-01-01T00:00:00.000000" elapsed="0.002"/>
+</suite>
+<statistics><total><stat pass="0" fail="1" skip="0">All Tests</stat></total><tag/><suite><stat id="s1" pass="0" fail="1" skip="0">Suite</stat></suite></statistics>
+<errors/>
+</robot>
+"""
+
+_PASSING_SCREENSHOT_XML = _SCREENSHOT_XML.replace(
+    'name="Failing Test"', 'name="Passing Test"'
+).replace('status="FAIL"', 'status="PASS"')
+
 # ---------------------------------------------------------------------------
 # Fakes
 # ---------------------------------------------------------------------------
@@ -936,6 +958,90 @@ class TestContextAwareRobotResultsSourcePaths:
 
         assert results._result is None
         assert results._suite is suite
+
+
+# ---------------------------------------------------------------------------
+# ContextAwareRobotResults — embedded images
+# ---------------------------------------------------------------------------
+
+
+class TestContextAwareRobotResultsEmbeddedImages:
+    def test_embedded_image_tags_are_stripped_by_default(self, tmp_path):
+        xml = tmp_path / "output.xml"
+        xml.write_text(_SCREENSHOT_XML)
+
+        text = list(ContextAwareRobotResults(xml).as_texts())[0][1]
+
+        assert "aGVs" not in text
+        assert "[SCREENSHOT]" not in text
+        assert "Capture Page Screenshot" in text
+
+    def test_include_embedded_images_renders_placeholder_under_keyword(self, tmp_path):
+        xml = tmp_path / "output.xml"
+        xml.write_text(_SCREENSHOT_XML)
+        results = ContextAwareRobotResults(xml).include_embedded_images()
+
+        images = results.collect_embedded_images()
+        text = list(results.as_texts())[0][1]
+
+        assert len(images) == 1
+        assert images[0].keyword_path == ("Capture Page Screenshot",)
+        assert images[0].data_base64 == "aGVsbG8="
+        assert "Keyword: Capture Page Screenshot - PASS" in text
+        assert "    [SCREENSHOT] embedded image/png screenshot #1" in text
+        assert text.index("Capture Page Screenshot") < text.index("[SCREENSHOT]")
+
+    def test_screenshot_only_message_does_not_render_empty_info_line(self, tmp_path):
+        xml = tmp_path / "output.xml"
+        xml.write_text(_SCREENSHOT_XML)
+
+        text = list(ContextAwareRobotResults(xml).include_embedded_images().as_texts())[
+            0
+        ][1]
+
+        assert "[INFO]" not in text
+        assert "[SCREENSHOT]" in text
+
+    def test_attach_image_texts_renders_ocr_lines_next_to_placeholder(self, tmp_path):
+        xml = tmp_path / "output.xml"
+        xml.write_text(_SCREENSHOT_XML)
+        results = ContextAwareRobotResults(xml)
+        image = results.collect_embedded_images()[0]
+
+        text = list(
+            results.attach_image_texts({image.id: "Login\nPassword"}).as_texts()
+        )[0][1]
+
+        assert "[SCREENSHOT] embedded image/png screenshot #1" in text
+        assert "[SCREENSHOT_OCR] Login" in text
+        assert "[SCREENSHOT_OCR] Password" in text
+
+    def test_collect_embedded_images_respects_exclude_passing(self, tmp_path):
+        xml = tmp_path / "output.xml"
+        xml.write_text(_PASSING_SCREENSHOT_XML)
+        results = ContextAwareRobotResults(xml).exclude_passing()
+
+        assert results.collect_embedded_images() == []
+
+    def test_source_hash_ignores_attached_image_texts(self, tmp_path):
+        xml = tmp_path / "output.xml"
+        xml.write_text(_SCREENSHOT_XML)
+        results = ContextAwareRobotResults(xml)
+        image = results.collect_embedded_images()[0]
+        source_hash = results.source_hash
+
+        results.attach_image_texts({image.id: "Login"})
+
+        assert results.source_hash == source_hash
+
+    def test_strips_embedded_base64_from_full_suite_rendering(self, tmp_path):
+        xml = tmp_path / "output.xml"
+        xml.write_text(_SCREENSHOT_XML)
+
+        text = str(ContextAwareRobotResults(xml))
+
+        assert "aGVs" not in text
+        assert "<img" not in text
 
 
 # ---------------------------------------------------------------------------

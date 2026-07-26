@@ -117,6 +117,12 @@ class RenderingModel(BaseModel):
     )
 
 
+class VisionConfigModel(BaseModel):
+    """Controls optional screenshot-aware rendering."""
+
+    enabled: bool = Field(default=False, description="Render screenshot placeholders.")
+
+
 class DefaultConfigModel(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -127,6 +133,7 @@ class DefaultConfigModel(BaseModel):
     concurrency: ConcurrencyModel = Field(default_factory=ConcurrencyModel)
     test_filter: TestFilterModel = Field(default_factory=TestFilterModel)
     rendering: RenderingModel = Field(default_factory=RenderingModel)
+    vision: VisionConfigModel = Field(default_factory=VisionConfigModel)
     debug_logger: LLMDebugLogger = Field(default_factory=LLMDebugLogger, exclude=True)
 
 
@@ -210,6 +217,10 @@ class ConfigLoader:
                 "rendering": {
                     **default_config.get("rendering", {}),
                     **user_config.get("rendering", {}),
+                },
+                "vision": {
+                    **default_config.get("vision", {}),
+                    **user_config.get("vision", {}),
                 },
             }
             if user_config_file

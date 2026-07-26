@@ -17,6 +17,7 @@ def make_fake_results(test_names: list[str], total: int | None = None) -> MagicM
     fake.source_hash = "abc123def456"
     fake._chunking = True
     fake.set_chunking = MagicMock()
+    fake.include_embedded_images = MagicMock(return_value=fake)
     return fake
 
 
@@ -126,6 +127,7 @@ class TestMainE2E:
 
             mocked_execute.assert_called_once()
             assert mocked_execute.call_args.kwargs["results"] is fake_results
+            fake_results.include_embedded_images.assert_not_called()
 
             mocked_html.assert_called_once_with(
                 input_result_path=Path("output.xml"),
@@ -135,6 +137,57 @@ class TestMainE2E:
                 overall_summary=None,
             )
             assert result is True
+
+    @pytest.mark.asyncio
+    async def test_main_enables_embedded_images_when_configured(self):
+        with (
+            patch("result_companion.entrypoints.run_rc.create_llm_html_log"),
+            patch(
+                "result_companion.api.execute_llm_and_get_results",
+                return_value={},
+            ),
+            patch(
+                "result_companion.entrypoints.run_rc.get_rc_robot_results"
+            ) as mocked_get_results,
+            patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
+            patch(
+                "result_companion._internal.analysis_helpers.run_provider_init_strategies"
+            ),
+        ):
+            fake_results = make_fake_results(["test_fail"], total=1)
+            mocked_get_results.return_value = fake_results
+            mocked_config.return_value = DefaultConfigModel(
+                version=1.0,
+                llm_config={
+                    "question_prompt": "question prompt",
+                    "prompt_template": "my_template {question} {context}",
+                    "chunking": {
+                        "chunk_analysis_prompt": "Analyze: {text}",
+                        "final_synthesis_prompt": "Synthesize: {summary}",
+                    },
+                    "summary_prompt_template": "CI summary:\n{analyses}",
+                },
+                llm_factory={"model": "openai/gpt-4"},
+                tokenizer={
+                    "tokenizer": "openai_tokenizer",
+                    "max_content_tokens": 1000,
+                },
+                vision={"enabled": True},
+            )
+
+            await _main(
+                output=Path("output.xml"),
+                log_level="DEBUG",
+                config=None,
+                report=None,
+                html_report=False,
+                text_report=None,
+                print_text_report=False,
+                summarize_failures=False,
+                include_passing=False,
+            )
+
+            fake_results.include_embedded_images.assert_called_once_with()
 
     @pytest.mark.asyncio
     async def test_main_runs_ollama_init_for_ollama_models(self):

@@ -8,6 +8,9 @@ test_filter:
 rendering:
   exclude_fields: [elapsed_time, lineno, owner, assign]
 
+vision:
+  enabled: false
+
 llm_config:
   question_prompt: |
     You analyze Robot Framework test failures. Input is hierarchical:
