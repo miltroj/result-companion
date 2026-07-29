@@ -2,7 +2,7 @@
 
 ## Quick Read
 
-Implement screenshot awareness inside `ContextAwareRobotResults`, not as a second XML parser. Build it in small PRs: first add dependency-free image placeholders and fake OCR text attachment for tests, then add real OCR dependencies and final processing, then align the public `analyze()` API with CLI behavior.
+Implement screenshot awareness inside `ContextAwareRobotResults`, not as a second XML parser. Build it in small PRs: first add dependency-free image placeholders and fake OCR text attachment for tests, then add real OCR dependencies and final processing, then align the public `analyze()` API with CLI behavior, then update docs and examples.
 
 Default behavior stays unchanged unless image awareness or OCR is enabled, except embedded data URI `<img>` tags are always stripped from rendered text so base64 never reaches LLM context. OCR remains optional, local, and outside `result_companion/core/chunking/rf_results.py`.
 
@@ -159,6 +159,14 @@ Part 3 keeps public API behavior aligned with CLI behavior:
 - Reuse the same vision preparation helper as CLI if Part 2 already introduced one.
 - Do not add new CLI flags, OCR dependencies, or rendering behavior in this PR.
 - Keep the PR small: `api.py` plus focused API tests only, unless shared helper extraction is already needed.
+
+Part 4 documents the OCR path and keeps examples runnable:
+
+- Update user docs with the embedded-base64 requirement: Robot screenshots must use `EMBED` for portable OCR.
+- Document that sibling screenshot files and `log.html` parsing are out of MVP scope.
+- Add or update a minimal Browser example that uses `run_on_failure=Capture Embedded Screenshot` and `Take Screenshot    EMBED`.
+- Show the CLI/config path for placeholders and OCR without duplicating provider setup.
+- Keep examples small enough to run locally and use generated artifacts only under ignored harness output directories.
 
 ## HTML Image Scanner
 
@@ -425,9 +433,12 @@ Dry run:
 | 2 | `result_companion/core/configs/default_config.yaml` | Add OCR config fields. |
 | 2 | `result_companion/entrypoints/run_rc.py` | Run OCR before analysis/chunking. |
 | 2 | `result_companion/entrypoints/cli/cli_app.py` | Add `--ocr/--no-ocr`. |
-| 2 | `README.md` | Document experimental screenshot OCR. |
 | 3 | `result_companion/api.py` | Honor `config.vision` in public `analyze()` path mode. |
 | 3 | `tests/unittests/test_api.py` | Cover public API vision preparation without changing caller-managed result objects. |
+| 4 | `README.md` | Document experimental Robot screenshot OCR and `EMBED` requirement. |
+| 4 | `examples/EXAMPLES.md` | Add concise OCR usage flow and config example. |
+| 4 | `fixtures/robot/browser_screenshot_ocr/README.md` | Explain Browser embedded screenshot harness and proof commands. |
+| 4 | `fixtures/robot/browser_screenshot_ocr/test_wrong_url_screenshot.robot` | Keep the Browser example self-contained with embedded screenshots. |
 
 ## Tests
 
@@ -470,6 +481,13 @@ Part 3 API tests:
 - `analyze(output="output.xml", config=config_with_ocr_enabled, dryrun=True)` skips OCR.
 - `analyze(output=preconfigured_results, config=config_with_vision_enabled)` leaves caller-managed results unchanged except existing chunking setup.
 
+Part 4 docs/examples checks:
+
+- README shows `vision.enabled`, `vision.ocr`, and `--ocr` usage in one short flow.
+- Browser example uses `EMBED` for both failure hook and teardown screenshots.
+- Docs state that file-path screenshots require sidecar files and are not supported by MVP OCR.
+- Harness proof commands generate `output.xml`, `log.html`, and `llm_texts.txt` with `[SCREENSHOT]` lines.
+
 ## No Existing Vision Code
 
 This repo has no committed `core/vision` package yet. Treat Part 1 as new code.
@@ -500,6 +518,15 @@ Run all unit tests:
 ```bash
 make test-unit
 ```
+
+Part 4 docs/examples smoke check:
+
+```bash
+poetry run robot --outputdir .rc-browser-harness fixtures/robot/browser_screenshot_ocr
+poetry run python fixtures/robot/browser_screenshot_ocr/dump_llm_texts.py
+```
+
+Expected `.rc-browser-harness/llm_texts.txt` contains `[SCREENSHOT] embedded image/png screenshot`.
 
 Manual check with real embedded screenshots:
 

@@ -62,6 +62,8 @@ async def _main(
         exclude_passing=not include_passing
         and not parsed_config.test_filter.include_passing,
     )
+    if parsed_config.vision.enabled:
+        results.include_embedded_images()
     strategy = ChunkingStrategy(
         tokenizer_config=parsed_config.tokenizer,
         system_prompt=parsed_config.llm_config.question_prompt,

@@ -393,6 +393,59 @@ def test_default_config_model_loads_summary_prompt_template():
     assert config.llm_config.summary_prompt_template == "CI summary:\n{analyses}"
 
 
+def test_default_config_model_loads_vision_defaults() -> None:
+    config = DefaultConfigModel(
+        version=1.0,
+        llm_config={
+            "question_prompt": "Test prompt.",
+            **prompt_template,
+            **summary_prompt_template,
+            **chunking_prompts,
+        },
+        llm_factory={"model": "ollama_chat/llama2", "parameters": {}},
+        tokenizer={"tokenizer": "ollama_tokenizer", "max_content_tokens": 1000},
+    )
+
+    assert config.vision.enabled is False
+
+
+def test_user_config_can_override_vision_enabled(mocker):
+    default_config_content = """
+    version: 1.0
+    vision:
+      enabled: false
+    llm_config:
+      question_prompt: "Default prompt"
+      prompt_template: "Default template"
+      summary_prompt_template: "CI summary {analyses}"
+      chunking:
+        chunk_analysis_prompt: "Default analyze: {text}"
+        final_synthesis_prompt: "Default synthesize: {summary}"
+    llm_factory:
+      model: "ollama_chat/llama2"
+      parameters: {}
+    tokenizer:
+      tokenizer: "ollama_tokenizer"
+      max_content_tokens: 1000
+    """
+    user_config_content = """
+    vision:
+      enabled: true
+    """
+    mock_open_instance = mock_open()
+    mock_open_instance.side_effect = [
+        mock_open(read_data=default_config_content).return_value,
+        mock_open(read_data=user_config_content).return_value,
+    ]
+    mocker.patch("builtins.open", mock_open_instance)
+
+    config = ConfigLoader(default_config_file=Path("default_config.yaml")).load_config(
+        Path("user_config.yaml")
+    )
+
+    assert config.vision.enabled is True
+
+
 def test_user_config_can_override_chunking_prompts(mocker):
     """Test that user config can override chunking prompts."""
     default_config_content = """
