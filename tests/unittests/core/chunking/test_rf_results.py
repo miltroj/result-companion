@@ -17,6 +17,7 @@ from result_companion.core.chunking.rf_results import (
     ALL_FIELDS,
     ContextAwareRobotResults,
     TestLines,
+    _control_path_segment,
     _iter_tests_with_context,
     _join_parts,
     _render_body_item,
@@ -285,6 +286,16 @@ class TestRenderBodyItem:
         ctrl = FakeControlItem(body=[])
         result = _render_body_item(ctrl, depth=0, fields=frozenset({"message"}))
         assert result == []
+
+
+def test_control_path_segment_uses_available_control_labels():
+    named_item = type("ControlItem", (), {"type": "IF", "name": "branch"})()
+    typed_item = type("ControlItem", (), {"type": "FOR", "name": None})()
+    named_only_item = type("ControlItem", (), {"type": None, "name": "branch"})()
+
+    assert _control_path_segment(named_item) == "IF:branch"
+    assert _control_path_segment(typed_item) == "FOR"
+    assert _control_path_segment(named_only_item) == "branch"
 
 
 # ---------------------------------------------------------------------------

@@ -66,13 +66,16 @@ class TestLines:
 
 @dataclass
 class RenderContext:
-    """Mutable Robot render context for embedded screenshot correlation."""
+    """Mutable Robot render context for embedded screenshot rendering."""
 
     suite_path: tuple[str, ...]
     test_name: str
     keyword_path: tuple[str, ...] = ()
     message_index: int = 0
     image_ordinal: int = 0
+    include_images: bool = False
+    image_texts: dict[str, str] | None = None
+    collected_images: list[EmbeddedImage] | None = None
 
 
 class ContextAwareRobotResults:
@@ -312,22 +315,23 @@ def _render_suite_teardown(
     depth: int,
     fields: frozenset[str],
     context: RenderContext | None = None,
-    include_images: bool = False,
-    image_texts: dict[str, str] | None = None,
-    collected_images: list[EmbeddedImage] | None = None,
 ) -> list[RenderLine]:
     """Renders suite teardown if field enabled and teardown exists."""
     if "teardown" not in fields or not suite.has_teardown:
         return []
-    return _render_keyword(
-        suite.teardown,
-        depth + 1,
-        fields,
-        context=context,
-        include_images=include_images,
-        image_texts=image_texts,
-        collected_images=collected_images,
-    )
+    return _render_keyword(suite.teardown, depth + 1, fields, context=context)
+
+
+def _render_suite_setup(
+    suite: TestSuite,
+    depth: int,
+    fields: frozenset[str],
+    context: RenderContext | None = None,
+) -> list[RenderLine]:
+    """Renders suite setup if field enabled and setup exists."""
+    if "setup" not in fields or not suite.has_setup:
+        return []
+    return _render_keyword(suite.setup, depth + 1, fields, context=context)
 
 
 def _iter_tests_with_context(
@@ -371,8 +375,7 @@ def _iter_tests_with_context_and_images(
         [RenderLine(depth, f"Suite: {suite.name}")] if "name" in fields else []
     )
     context = base_context
-    if suite.has_setup and "setup" in fields:
-        context = context + _render_keyword(suite.setup, depth + 1, fields)
+    context = context + _render_suite_setup(suite, depth, fields)
 
     suite_teardown = _render_suite_teardown(suite, depth, fields)
 
@@ -386,28 +389,19 @@ def _iter_tests_with_context_and_images(
         render_context = RenderContext(
             suite_path=current_suite_path,
             test_name=suite.name,
+            include_images=include_images,
+            image_texts=image_texts,
+            collected_images=images,
         )
         collapsed_context = list(base_context)
-        if "setup" in fields:
-            collapsed_context.extend(
-                _render_keyword(
-                    suite.setup,
-                    depth + 1,
-                    fields,
-                    context=render_context,
-                    include_images=include_images,
-                    image_texts=image_texts,
-                    collected_images=images,
-                )
-            )
+        collapsed_context.extend(
+            _render_suite_setup(suite, depth, fields, context=render_context)
+        )
         collapsed_teardowns = _render_suite_teardown(
             suite,
             depth,
             fields,
             context=render_context,
-            include_images=include_images,
-            image_texts=image_texts,
-            collected_images=images,
         )
         yield (
             RenderedTest(
@@ -425,28 +419,17 @@ def _iter_tests_with_context_and_images(
         render_context = RenderContext(
             suite_path=current_suite_path,
             test_name=test.name,
+            include_images=include_images,
+            image_texts=image_texts,
+            collected_images=images,
         )
         test_context = list(base_context)
-        if suite.has_setup and "setup" in fields:
-            test_context.extend(
-                _render_keyword(
-                    suite.setup,
-                    depth + 1,
-                    fields,
-                    context=render_context,
-                    include_images=include_images,
-                    image_texts=image_texts,
-                    collected_images=images,
-                )
-            )
+        test_context.extend(_render_suite_setup(suite, depth, fields, render_context))
         test_teardowns = _render_suite_teardown(
             suite,
             depth,
             fields,
             context=render_context,
-            include_images=include_images,
-            image_texts=image_texts,
-            collected_images=images,
         )
         yield (
             RenderedTest(
@@ -458,9 +441,6 @@ def _iter_tests_with_context_and_images(
                     depth + 1,
                     fields,
                     context=render_context,
-                    include_images=include_images,
-                    image_texts=image_texts,
-                    collected_images=images,
                 )
                 + test_teardowns
                 + ancestor_teardowns,
@@ -521,9 +501,6 @@ def _render_test(
     depth: int,
     fields: frozenset[str],
     context: RenderContext | None = None,
-    include_images: bool = False,
-    image_texts: dict[str, str] | None = None,
-    collected_images: list[EmbeddedImage] | None = None,
 ) -> list[RenderLine]:
     """Renders a test case header and its body."""
     header = _join_parts(
@@ -541,9 +518,6 @@ def _render_test(
                 depth + 1,
                 fields,
                 context=context,
-                include_images=include_images,
-                image_texts=image_texts,
-                collected_images=collected_images,
             )
         )
     for item in test.body:
@@ -555,9 +529,6 @@ def _render_test(
                 depth + 1,
                 fields,
                 context=context,
-                include_images=include_images,
-                image_texts=image_texts,
-                collected_images=collected_images,
             )
         )
     if "teardown" in fields and test.has_teardown:
@@ -567,9 +538,6 @@ def _render_test(
                 depth + 1,
                 fields,
                 context=context,
-                include_images=include_images,
-                image_texts=image_texts,
-                collected_images=collected_images,
             )
         )
     return lines
@@ -580,9 +548,6 @@ def _render_keyword(
     depth: int,
     fields: frozenset[str],
     context: RenderContext | None = None,
-    include_images: bool = False,
-    image_texts: dict[str, str] | None = None,
-    collected_images: list[EmbeddedImage] | None = None,
 ) -> list[RenderLine]:
     """Renders a keyword header, args, and its body recursively."""
     old_keyword_path = None
@@ -611,9 +576,6 @@ def _render_keyword(
                 depth + 1,
                 fields,
                 context=context,
-                include_images=include_images,
-                image_texts=image_texts,
-                collected_images=collected_images,
             )
         )
     if context is not None and old_keyword_path is not None:
@@ -626,9 +588,6 @@ def _render_body_item(
     depth: int,
     fields: frozenset[str],
     context: RenderContext | None = None,
-    include_images: bool = False,
-    image_texts: dict[str, str] | None = None,
-    collected_images: list[EmbeddedImage] | None = None,
 ) -> list[RenderLine]:
     """Dispatches rendering: Keyword, Message, or recurses into control structures."""
     if isinstance(item, Message):
@@ -637,9 +596,6 @@ def _render_body_item(
             depth,
             fields,
             context=context,
-            include_images=include_images,
-            image_texts=image_texts,
-            collected_images=collected_images,
         )
     if isinstance(item, Keyword):
         return _render_keyword(
@@ -647,9 +603,6 @@ def _render_body_item(
             depth,
             fields,
             context=context,
-            include_images=include_images,
-            image_texts=image_texts,
-            collected_images=collected_images,
         )
     body = getattr(item, "body", None)
     if not body:
@@ -668,9 +621,6 @@ def _render_body_item(
                 depth,
                 fields,
                 context=context,
-                include_images=include_images,
-                image_texts=image_texts,
-                collected_images=collected_images,
             )
         )
     if context is not None and old_keyword_path is not None:
@@ -683,9 +633,6 @@ def _render_message(
     depth: int,
     fields: frozenset[str],
     context: RenderContext | None = None,
-    include_images: bool = False,
-    image_texts: dict[str, str] | None = None,
-    collected_images: list[EmbeddedImage] | None = None,
 ) -> list[RenderLine]:
     """Renders a log message, optionally prefixed with level."""
     if "message" not in fields:
@@ -696,12 +643,13 @@ def _render_message(
     if "level" in fields:
         prefix += f"[{msg.level}] "
     # Embedded data URI images are stripped even when placeholders are disabled.
-    message = strip_html_images(str(msg.message or ""))
+    raw_message = str(msg.message or "")
+    message = strip_html_images(raw_message)
     lines = [RenderLine(depth, f"{prefix}{message}")] if message.strip() else []
     if context is None:
         return lines
 
-    scanned_images = scan_html_images(str(msg.message or ""))
+    scanned_images = scan_html_images(raw_message)
     if not scanned_images:
         context.message_index += 1
         return lines
@@ -718,10 +666,10 @@ def _render_message(
             mime_type=mime_type,
             data_base64=data_base64,
         )
-        if collected_images is not None:
-            collected_images.append(image)
-        if include_images:
-            lines.extend(_render_image_event(image, depth, image_texts or {}))
+        if context.collected_images is not None:
+            context.collected_images.append(image)
+        if context.include_images:
+            lines.extend(_render_image_event(image, depth, context.image_texts or {}))
     return lines
 
 
