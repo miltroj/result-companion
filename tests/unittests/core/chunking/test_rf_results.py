@@ -16,6 +16,7 @@ from result_companion.core.chunking.chunking import render_lines_to_text
 from result_companion.core.chunking.rf_results import (
     ALL_FIELDS,
     ContextAwareRobotResults,
+    RenderContext,
     TestLines,
     _control_path_segment,
     _iter_tests_with_context,
@@ -258,6 +259,27 @@ class TestRenderMessage:
             msg, depth=0, fields=frozenset({"message", "level", "timestamp"})
         )
         assert result == [(0, "[INFO] hello")]
+
+    def test_non_html_image_text_is_not_collected_as_screenshot(self):
+        images = []
+        context = RenderContext(
+            suite_path=("Suite",),
+            test_name="Test",
+            include_images=True,
+            collected_images=images,
+        )
+        msg = RFMessage(
+            message='<img src="data:image/png;base64,aGVsbG8=">',
+            level="INFO",
+            html=False,
+        )
+
+        result = _render_message(
+            msg, depth=0, fields=frozenset({"message"}), context=context
+        )
+
+        assert images == []
+        assert result == [(0, '<img src="data:image/png;base64,aGVsbG8=">')]
 
 
 # ---------------------------------------------------------------------------

@@ -642,14 +642,14 @@ def _render_message(
         prefix += f"{msg.timestamp} "
     if "level" in fields:
         prefix += f"[{msg.level}] "
-    # Embedded data URI images are stripped even when placeholders are disabled.
     raw_message = str(msg.message or "")
-    message = strip_html_images(raw_message)
+    is_html_message = bool(getattr(msg, "html", False))
+    message = strip_html_images(raw_message) if is_html_message else raw_message
     lines = [RenderLine(depth, f"{prefix}{message}")] if message.strip() else []
     if context is None:
         return lines
 
-    scanned_images = scan_html_images(raw_message)
+    scanned_images = scan_html_images(raw_message) if is_html_message else []
     if not scanned_images:
         context.message_index += 1
         return lines
@@ -682,14 +682,13 @@ def _embedded_image(
     data_base64: str,
 ) -> EmbeddedImage:
     """Builds stable image metadata from render traversal context."""
-    data_hash = hashlib.sha256(data_base64.encode()).hexdigest()[:12]
     key_parts = (
         *context.suite_path,
         context.test_name,
         *context.keyword_path,
         str(message_index),
         str(image_index),
-        data_hash,
+        data_base64,
     )
     image_id = hashlib.sha256("\0".join(key_parts).encode()).hexdigest()[:24]
     return EmbeddedImage(
