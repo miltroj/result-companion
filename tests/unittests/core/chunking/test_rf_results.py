@@ -310,6 +310,33 @@ class TestRenderBodyItem:
         result = _render_body_item(ctrl, depth=0, fields=frozenset({"message"}))
         assert result == []
 
+    def test_control_structure_adds_child_image_path_then_restores_context(self):
+        images = []
+        context = RenderContext(
+            suite_path=("Suite",),
+            test_name="Test",
+            keyword_path=("Keyword",),
+            include_images=True,
+            collected_images=images,
+        )
+        msg = RFMessage(
+            message='<img src="data:image/png;base64,aGVsbG8=">',
+            level="INFO",
+            html=True,
+        )
+        ctrl = FakeControlItem(body=[msg])
+        ctrl.type = "IF"
+        ctrl.name = "branch"
+
+        result = _render_body_item(
+            ctrl, depth=1, fields=frozenset({"message"}), context=context
+        )
+
+        assert result == [(1, "[SCREENSHOT] embedded image/png screenshot #1")]
+        assert len(images) == 1
+        assert images[0].keyword_path == ("Keyword", "IF:branch")
+        assert context.keyword_path == ("Keyword",)
+
 
 def test_control_path_segment_uses_available_control_labels():
     named_item = type("ControlItem", (), {"type": "IF", "name": "branch"})()
