@@ -19,7 +19,7 @@ Default behavior stays unchanged unless image awareness or OCR is enabled, excep
 - [Part 2 OCR Runner](#part-2-ocr-runner)
 - [Part 3 Public API Wiring](#part-3-public-api-wiring)
 - [Tests](#tests)
-- [No Existing Vision Code](#no-existing-vision-code)
+- [Historical Note: No Existing Vision Code](#historical-note-no-existing-vision-code)
 
 ## High-Level Algorithm
 
@@ -140,7 +140,7 @@ Part 1 keeps the system light and testable without OCR dependencies:
 
 - Add `EmbeddedImage`, HTML image scanning, event walking, image collection, and placeholder rendering.
 - Add `attach_image_texts()` so tests can inject fake OCR text by `EmbeddedImage.id`.
-- Add config support for placeholder rendering with `vision.enabled`.
+- Add config support for placeholder rendering with `vision.placeholder`.
 - Add `vision` merging to `ConfigLoader.load_config()` so user config can enable placeholders.
 - Do not add RapidOCR, Pillow, NumPy, ONNX Runtime, `--ocr`, or OCR runner code.
 - Do not add a CLI fake OCR flag. Fake text stays in tests or small developer helpers.
@@ -374,14 +374,14 @@ Part 1 adds placeholder config only:
 
 ```yaml
 vision:
-  enabled: false
+  placeholder: true
 ```
 
 Part 2 extends it:
 
 ```yaml
 vision:
-  enabled: false
+  placeholder: true
   ocr: false
   max_screenshots_per_test: 3
   max_text_length: 1500
@@ -390,10 +390,10 @@ vision:
 
 Meaning:
 
-- Embedded data URI `<img>` tags are always stripped, even when `vision.enabled` is false.
-- `vision.enabled: false` keeps default text output unchanged except for that base64 stripping safety fix.
-- `vision.enabled: true` renders inline screenshot placeholders.
-- `vision.ocr: true` implies `vision.enabled: true` and runs OCR.
+- Embedded data URI `<img>` tags are always stripped, even when `vision.placeholder` is false.
+- `vision.placeholder: false` keeps default text output unchanged except for that base64 stripping safety fix.
+- `vision.placeholder: true` renders inline screenshot placeholders.
+- `vision.ocr: true` implies placeholder rendering and runs OCR.
 - CLI `--ocr` sets OCR on for that run.
 - Do not add placeholder or fake-OCR CLI flags. Config is enough for placeholder-only mode.
 - `ConfigLoader.load_config()` must merge `vision` from user YAML, like `rendering` and `test_filter`.
@@ -404,7 +404,7 @@ In `result_companion/entrypoints/run_rc.py`:
 
 1. Build `ContextAwareRobotResults` with existing tag/field/pass filters.
 2. Rendered messages always strip embedded data URI `<img>` tags.
-3. If `vision.enabled` or `vision.ocr`, call `results.include_embedded_images()`.
+3. If `vision.placeholder` or `vision.ocr`, call `results.include_embedded_images()`.
 4. Part 1 stops here. Tests may call `results.attach_image_texts(fake_texts)` directly.
 5. In Part 2, if OCR enabled:
    - `images = results.collect_embedded_images()`
@@ -415,7 +415,7 @@ In `result_companion/entrypoints/run_rc.py`:
 Dry run:
 
 - Skip OCR.
-- Placeholder rendering may still happen if `vision.enabled` is true.
+- Placeholder rendering may still happen if `vision.placeholder` is true.
 
 ## Files To Change
 
@@ -424,9 +424,9 @@ Dry run:
 | 1 | `result_companion/core/vision/models.py` | Add `EmbeddedImage`. |
 | 1 | `result_companion/core/vision/extractor.py` | Add HTML image scan/strip helpers only. No `ExecutionResult` parsing. |
 | 1 | `result_companion/core/chunking/rf_results.py` | Add event walker, image collection, placeholders, and fake text attachment. |
-| 1 | `result_companion/core/parsers/config.py` | Add `VisionConfigModel` with `enabled`; merge `vision` in `ConfigLoader.load_config()`. |
-| 1 | `result_companion/core/configs/default_config.yaml` | Add `vision.enabled: false`. |
-| 1 | `result_companion/entrypoints/run_rc.py` | Enable placeholders when `vision.enabled` is true. |
+| 1 | `result_companion/core/parsers/config.py` | Add `VisionConfigModel` with `placeholder`; merge `vision` in `ConfigLoader.load_config()`. |
+| 1 | `result_companion/core/configs/default_config.yaml` | Add `vision.placeholder: true`. |
+| 1 | `result_companion/entrypoints/run_rc.py` | Enable placeholders when `vision.placeholder` is true. |
 | 2 | `pyproject.toml` | Add OCR dependencies as optional extras. |
 | 2 | `result_companion/core/vision/ocr.py` | Add optional OCR runner over `EmbeddedImage`. |
 | 2 | `result_companion/core/parsers/config.py` | Add OCR limits. |
@@ -448,9 +448,9 @@ Part 1 tests:
 - `EmbeddedImage.keyword_path` points to containing keyword.
 - Placeholder appears directly under the screenshot keyword.
 - Base64 payload does not appear in rendered text.
-- Base64 payload does not appear even when `vision.enabled` is false.
+- Base64 payload does not appear even when `vision.placeholder` is false.
 - Screenshot-only HTML messages do not render empty normal message lines.
-- User config with `vision.enabled: true` enables placeholder rendering.
+- User config with `vision.placeholder: true` enables placeholder rendering.
 - Duplicate test names do not collide because image IDs differ.
 - Passing tests are skipped when `exclude_passing()` is active.
 - Existing suite setup failure and teardown context tests pass unchanged.
@@ -476,21 +476,21 @@ Entrypoint tests:
 
 Part 3 API tests:
 
-- `analyze(output="output.xml", config=config_with_vision_enabled)` enables embedded image placeholders before chunking.
+- `analyze(output="output.xml", config=config_with_vision_placeholder)` enables embedded image placeholders before chunking.
 - `analyze(output="output.xml", config=config_with_ocr_enabled)` runs OCR preparation when OCR exists and dry run is false.
 - `analyze(output="output.xml", config=config_with_ocr_enabled, dryrun=True)` skips OCR.
-- `analyze(output=preconfigured_results, config=config_with_vision_enabled)` leaves caller-managed results unchanged except existing chunking setup.
+- `analyze(output=preconfigured_results, config=config_with_vision_placeholder)` leaves caller-managed results unchanged except existing chunking setup.
 
 Part 4 docs/examples checks:
 
-- README shows `vision.enabled`, `vision.ocr`, and `--ocr` usage in one short flow.
+- README shows `vision.placeholder`, `vision.ocr`, and `--ocr` usage in one short flow.
 - Browser example uses `EMBED` for both failure hook and teardown screenshots.
 - Docs state that file-path screenshots require sidecar files and are not supported by MVP OCR.
 - Harness proof commands generate `output.xml`, `log.html`, and `llm_texts.txt` with `[SCREENSHOT]` lines.
 
-## No Existing Vision Code
+## Historical Note: No Existing Vision Code
 
-This repo has no committed `core/vision` package yet. Treat Part 1 as new code.
+At plan start, this repo had no committed `core/vision` package yet. Part 1 was treated as new code.
 
 Do not add XML-level screenshot extraction. Put coverage on `ContextAwareRobotResults` collection/rendering tests.
 

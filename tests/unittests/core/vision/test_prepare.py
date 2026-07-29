@@ -11,14 +11,18 @@ class FakeResults:
         self.images = images or []
         self.include_calls = 0
         self.collect_calls = 0
+        self.collect_max_per_test: int | None = None
         self.attached_texts: dict[str, str] | None = None
 
     def include_embedded_images(self) -> "FakeResults":
         self.include_calls += 1
         return self
 
-    def collect_embedded_images(self) -> list[EmbeddedImage]:
+    def collect_embedded_images(
+        self, max_per_test: int | None = None
+    ) -> list[EmbeddedImage]:
         self.collect_calls += 1
+        self.collect_max_per_test = max_per_test
         return self.images
 
     def attach_image_texts(self, texts: dict[str, str]) -> "FakeResults":
@@ -47,6 +51,7 @@ def make_image() -> EmbeddedImage:
     return EmbeddedImage(
         id="image-1",
         test_name="Test",
+        test_identity=("Suite", "Test"),
         keyword_path=("Capture Page Screenshot",),
         message_index=0,
         image_index=0,
@@ -59,7 +64,6 @@ def make_image() -> EmbeddedImage:
 @pytest.mark.asyncio
 async def test_prepare_vision_results_enables_placeholders_only() -> None:
     config = make_config()
-    config.vision.enabled = True
     results = FakeResults()
 
     prepared = await prepare_vision_results(results, config)
@@ -67,6 +71,18 @@ async def test_prepare_vision_results_enables_placeholders_only() -> None:
     assert prepared is results
     assert results.include_calls == 1
     assert results.collect_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_prepare_vision_results_ocr_implies_placeholders() -> None:
+    config = make_config()
+    config.vision.placeholder = False
+    config.vision.ocr = True
+    results = FakeResults([make_image()])
+
+    await prepare_vision_results(results, config, dryrun=True)
+
+    assert results.include_calls == 1
 
 
 @pytest.mark.asyncio
@@ -112,4 +128,5 @@ async def test_prepare_vision_results_attaches_ocr_text(
 
     assert results.include_calls == 1
     assert results.collect_calls == 1
+    assert results.collect_max_per_test == config.vision.max_screenshots_per_test
     assert results.attached_texts == {"image-1": "Login"}

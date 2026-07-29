@@ -14,7 +14,7 @@ async def prepare_vision_results(
     dryrun: bool = False,
 ) -> ContextAwareRobotResults:
     """Applies screenshot placeholder and OCR config before chunking."""
-    if config.vision.enabled or config.vision.ocr:
+    if config.vision.placeholder or config.vision.ocr:
         results.include_embedded_images()
 
     if config.vision.ocr:
@@ -23,7 +23,9 @@ async def prepare_vision_results(
     if dryrun or not config.vision.ocr:
         return results
 
-    images = results.collect_embedded_images()
+    images = results.collect_embedded_images(
+        max_per_test=config.vision.max_screenshots_per_test
+    )
     if not images:
         return results
 

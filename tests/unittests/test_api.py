@@ -201,7 +201,7 @@ class TestAnalyze:
         )
         monkeypatch.setattr(f"{PATCH_API}.prepare_vision_results", fake_prepare)
         config = make_config()
-        config.vision.enabled = True
+        config.vision.placeholder = True
 
         result = analyze(output="output.xml", config=config, dryrun=True)
 
@@ -241,7 +241,7 @@ class TestAnalyze:
 
         monkeypatch.setattr(f"{PATCH_API}.prepare_vision_results", fail_prepare)
         config = make_config()
-        config.vision.enabled = True
+        config.vision.placeholder = True
 
         result = analyze(
             output=FakeContextAwareRobotResults(["test_fail"]), config=config

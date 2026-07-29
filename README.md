@@ -51,14 +51,20 @@ To inspect every prompt sent to the LLM and its response, use `--debug-log`. See
 
 ## Screenshot OCR
 
-OCR is optional and local. Install the extra only when Robot Framework screenshots are embedded in `output.xml`:
+Embedded screenshot placeholders are rendered by default when screenshots exist in `output.xml`:
+
+```text
+[SCREENSHOT] embedded image/png screenshot #1
+```
+
+OCR is optional and local. Install the extra only when screenshot text is needed:
 
 ```bash
 pip install "result-companion[ocr]"
 result-companion analyze -o output.xml --ocr
 ```
 
-OCR adds screenshot context near the keyword that captured it:
+OCR keeps the placeholder and adds text near the keyword that captured it:
 
 ```text
 [SCREENSHOT] embedded image/png screenshot #1
@@ -293,7 +299,7 @@ Suite: Outer Suite - FAIL
 
 ## Limitations
 
-- Text-only analysis (no screenshots/videos)
+- Embedded screenshots are represented by placeholders; optional OCR can extract screenshot text. Videos and file-based screenshots are not supported.
 - Large test suites processed in chunks
 - **Local models**: Need 4-8GB RAM + GPU/NPU for good performance (Apple Silicon, NVIDIA, AMD)
 

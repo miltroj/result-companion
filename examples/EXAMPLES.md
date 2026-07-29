@@ -470,14 +470,14 @@ Config equivalent:
 
 ```yaml
 vision:
-  enabled: true
+  placeholder: true
   ocr: true
   max_screenshots_per_test: 3
   max_text_length: 1500
   concurrency: 2
 ```
 
-`vision.enabled` renders screenshot placeholders without OCR. `vision.ocr` runs local OCR and also renders placeholders. `--ocr` enables OCR for one CLI run.
+`vision.placeholder` is true by default and renders screenshot placeholders without OCR. `vision.ocr` runs local OCR and also renders placeholders. `--ocr` enables OCR for one CLI run.
 
 Expected LLM input near the screenshot keyword:
 

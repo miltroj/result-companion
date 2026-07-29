@@ -33,14 +33,20 @@ async def run_ocr_batch(
 
     dependencies = _load_ocr_dependencies()
     selected_images = _limit_images_per_test(images, max_per_test)
+    unique_images, image_aliases = _dedupe_images_by_payload(selected_images)
     semaphore = asyncio.Semaphore(max(concurrency, 1))
     tasks = [
         _run_ocr_for_image(image, dependencies, max_text_length, semaphore)
-        for image in selected_images
+        for image in unique_images
     ]
 
     pairs = await asyncio.gather(*tasks)
-    return {image_id: text for image_id, text in pairs if text}
+    texts_by_primary_id = {image_id: text for image_id, text in pairs if text}
+    return {
+        image.id: texts_by_primary_id[image_aliases[image.id]]
+        for image in selected_images
+        if image_aliases[image.id] in texts_by_primary_id
+    }
 
 
 def _load_ocr_dependencies() -> OcrDependencies:
@@ -58,16 +64,30 @@ def _load_ocr_dependencies() -> OcrDependencies:
 def _limit_images_per_test(
     images: Sequence[EmbeddedImage], max_per_test: int
 ) -> list[EmbeddedImage]:
-    """Keeps only first N screenshots for each rendered test name."""
-    counts: dict[str, int] = {}
+    """Keeps only first N screenshots for each rendered test identity."""
+    counts: dict[tuple[str, ...], int] = {}
     selected: list[EmbeddedImage] = []
     for image in images:
-        count = counts.get(image.test_name, 0)
+        identity = image.test_identity or (image.test_name,)
+        count = counts.get(identity, 0)
         if count >= max_per_test:
             continue
-        counts[image.test_name] = count + 1
+        counts[identity] = count + 1
         selected.append(image)
     return selected
+
+
+def _dedupe_images_by_payload(
+    images: Sequence[EmbeddedImage],
+) -> tuple[list[EmbeddedImage], dict[str, str]]:
+    """Returns unique image payloads and original-to-primary image ID aliases."""
+    images_by_payload: dict[tuple[str, str], EmbeddedImage] = {}
+    aliases: dict[str, str] = {}
+    for image in images:
+        key = (image.mime_type, image.data_base64)
+        primary = images_by_payload.setdefault(key, image)
+        aliases[image.id] = primary.id
+    return list(images_by_payload.values()), aliases
 
 
 async def _run_ocr_for_image(

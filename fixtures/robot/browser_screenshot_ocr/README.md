@@ -2,7 +2,7 @@
 
 ## Quick Read
 
-This Robot Framework fixture opens a wrong `result-companion.com` path, embeds a Browser screenshot, then fails on missing text. Use it to generate `output.xml` with an inline screenshot for Result Companion vision checks.
+This Robot Framework fixture opens `https://result-companion.com`, embeds Browser screenshots, then fails on missing text. Use it to generate `output.xml` with inline screenshots for Result Companion vision checks.
 
 ## Setup
 
@@ -27,7 +27,7 @@ Check Result Companion sees the embedded screenshot placeholder:
 poetry run python fixtures/robot/browser_screenshot_ocr/dump_llm_texts.py
 ```
 
-This writes `.rc-browser-harness/llm_texts.txt`. Each test starts with a `===== TEST: ... =====` separator. Text after that separator is direct `results.as_texts()` output after the same field filtering and vision config used before LLM calls.
+This writes `.rc-browser-harness/llm_texts.txt`. Each test starts with a `===== TEST: ... =====` separator. Text after that separator is direct `results.as_texts()` output after the same field filtering and placeholder config used before LLM calls.
 
 Expected text contains:
 
@@ -43,7 +43,7 @@ poetry run python fixtures/robot/browser_screenshot_ocr/dump_llm_texts.py \
   .rc-browser-harness/manual_check.txt
 ```
 
-Run the CLI with vision placeholders enabled:
+Run the CLI with vision placeholders:
 
 ```bash
 poetry run result-companion analyze \
@@ -58,8 +58,9 @@ Run with local OCR after installing the extra:
 poetry install --extras ocr
 poetry run result-companion analyze \
   -o .rc-browser-harness/output.xml \
-  --ocr \
-  --dryrun
+  --ocr
 ```
 
 OCR output adds `[SCREENSHOT_OCR]` lines when embedded screenshots contain readable text. File-based screenshots in `log.html` are not supported by this harness.
+
+Committed `browser_self_contained/*.xml` files are frozen Browser-output examples and may not match the current live harness exactly.

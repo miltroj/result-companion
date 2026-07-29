@@ -9,7 +9,7 @@ rendering:
   exclude_fields: [elapsed_time, lineno, owner, assign]
 
 vision:
-  enabled: false
+  placeholder: true
   ocr: false
   max_screenshots_per_test: 3
   max_text_length: 1500

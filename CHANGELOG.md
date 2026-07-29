@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.18] - 2026-07-29
+
+### Added
+- Optional Robot Framework screenshot OCR via `result-companion[ocr]` and `--ocr`.
+- `vision.ocr`, screenshot OCR limits, and local OCR concurrency config.
+- Inline `[SCREENSHOT_OCR]` text next to embedded screenshot placeholders.
+
+### Changed
+- Screenshot-aware rendering can enrich LLM input with local OCR text when explicitly enabled.
+
+### Notes
+- OCR supports embedded `data:image/...;base64,...` screenshots in `output.xml`; sibling screenshot files and `log.html` parsing remain out of scope.
+- Default install remains unchanged; OCR still requires the optional extra.
+
+[0.0.18]: https://github.com/miltroj/result-companion/compare/v0.0.17...v0.0.18
+
 ## [0.0.17] - 2026-04-27
 
 ### Added

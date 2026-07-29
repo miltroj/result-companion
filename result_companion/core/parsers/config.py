@@ -120,7 +120,9 @@ class RenderingModel(BaseModel):
 class VisionConfigModel(BaseModel):
     """Controls optional screenshot-aware rendering."""
 
-    enabled: bool = Field(default=False, description="Render screenshot placeholders.")
+    placeholder: bool = Field(
+        default=True, description="Render screenshot placeholders."
+    )
     ocr: bool = Field(default=False, description="Run OCR for embedded screenshots.")
     max_screenshots_per_test: int = Field(
         default=3, ge=0, description="Embedded screenshots to OCR per test."

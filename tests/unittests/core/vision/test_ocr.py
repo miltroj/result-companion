@@ -1,3 +1,6 @@
+import sys
+from types import ModuleType
+
 import pytest
 
 from result_companion.core.vision import ocr
@@ -54,16 +57,19 @@ def make_image(
     image_id: str = "image-1",
     test_name: str = "Test",
     ordinal: int = 1,
+    data_base64: str = "aGVsbG8=",
+    test_identity: tuple[str, ...] | None = None,
 ) -> EmbeddedImage:
     return EmbeddedImage(
         id=image_id,
         test_name=test_name,
+        test_identity=test_identity or ("Suite", test_name),
         keyword_path=("Capture Page Screenshot",),
         message_index=0,
         image_index=0,
         ordinal=ordinal,
         mime_type="image/png",
-        data_base64="aGVsbG8=",
+        data_base64=data_base64,
     )
 
 
@@ -74,6 +80,33 @@ def set_fake_dependencies(monkeypatch: pytest.MonkeyPatch, engine: FakeEngine) -
         numpy_module=FakeNumpyModule,
     )
     monkeypatch.setattr(ocr, "_load_ocr_dependencies", lambda: dependencies)
+
+
+def test_load_ocr_dependencies_uses_optional_modules(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_numpy = ModuleType("numpy")
+    fake_pil = ModuleType("PIL")
+    fake_image = ModuleType("PIL.Image")
+    fake_rapidocr = ModuleType("rapidocr")
+    engines: list[object] = []
+
+    class FakeRapidOCR:
+        def __init__(self) -> None:
+            engines.append(self)
+
+    fake_pil.Image = fake_image
+    fake_rapidocr.RapidOCR = FakeRapidOCR
+    monkeypatch.setitem(sys.modules, "numpy", fake_numpy)
+    monkeypatch.setitem(sys.modules, "PIL", fake_pil)
+    monkeypatch.setitem(sys.modules, "PIL.Image", fake_image)
+    monkeypatch.setitem(sys.modules, "rapidocr", fake_rapidocr)
+
+    dependencies = ocr._load_ocr_dependencies()
+
+    assert dependencies.engine is engines[0]
+    assert dependencies.image_module is fake_image
+    assert dependencies.numpy_module is fake_numpy
 
 
 @pytest.mark.asyncio
@@ -90,21 +123,72 @@ async def test_run_ocr_batch_returns_text_by_image_id(
 
 
 @pytest.mark.asyncio
+async def test_run_ocr_batch_returns_empty_when_limit_is_zero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        ocr,
+        "_load_ocr_dependencies",
+        lambda: pytest.fail("OCR dependencies should not load"),
+    )
+
+    result = await run_ocr_batch([make_image()], 0, 1500, 1)
+
+    assert result == {}
+
+
+@pytest.mark.asyncio
 async def test_run_ocr_batch_caps_images_per_test(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     engine = FakeEngine([FakeOcrResult(["one"]), FakeOcrResult(["two"])])
     set_fake_dependencies(monkeypatch, engine)
     images = [
-        make_image("image-1", test_name="Same", ordinal=1),
-        make_image("image-2", test_name="Same", ordinal=2),
-        make_image("image-3", test_name="Same", ordinal=3),
+        make_image("image-1", test_name="Same", ordinal=1, data_base64="b25l"),
+        make_image("image-2", test_name="Same", ordinal=2, data_base64="dHdv"),
+        make_image("image-3", test_name="Same", ordinal=3, data_base64="dGhyZWU="),
     ]
 
     result = await run_ocr_batch(images, 2, 1500, 1)
 
     assert result == {"image-1": "one", "image-2": "two"}
     assert len(engine.calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_run_ocr_batch_caps_duplicate_test_names_by_test_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = FakeEngine([FakeOcrResult(["one"]), FakeOcrResult(["three"])])
+    set_fake_dependencies(monkeypatch, engine)
+    images = [
+        make_image("image-1", "Same", 1, "b25l", ("Root", "A", "Same")),
+        make_image("image-2", "Same", 2, "dHdv", ("Root", "A", "Same")),
+        make_image("image-3", "Same", 1, "dGhyZWU=", ("Root", "B", "Same")),
+        make_image("image-4", "Same", 2, "Zm91cg==", ("Root", "B", "Same")),
+    ]
+
+    result = await run_ocr_batch(images, 1, 1500, 1)
+
+    assert result == {"image-1": "one", "image-3": "three"}
+    assert len(engine.calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_run_ocr_batch_reuses_text_for_duplicate_payloads(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = FakeEngine([FakeOcrResult(["same"])])
+    set_fake_dependencies(monkeypatch, engine)
+    images = [
+        make_image("image-1", test_name="First"),
+        make_image("image-2", test_name="Second"),
+    ]
+
+    result = await run_ocr_batch(images, 3, 1500, 1)
+
+    assert result == {"image-1": "same", "image-2": "same"}
+    assert len(engine.calls) == 1
 
 
 @pytest.mark.asyncio
@@ -146,7 +230,7 @@ async def test_run_ocr_batch_continues_when_one_image_fails(
 ) -> None:
     engine = FakeEngine([ValueError("boom"), FakeOcrResult(["ok"])])
     set_fake_dependencies(monkeypatch, engine)
-    images = [make_image("bad"), make_image("good")]
+    images = [make_image("bad", data_base64="YmFk"), make_image("good")]
 
     result = await run_ocr_batch(images, 3, 1500, 1)
 

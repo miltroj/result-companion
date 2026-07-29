@@ -128,7 +128,7 @@ class TestMainE2E:
 
             mocked_execute.assert_called_once()
             assert mocked_execute.call_args.kwargs["results"] is fake_results
-            fake_results.include_embedded_images.assert_not_called()
+            fake_results.include_embedded_images.assert_called_once_with()
 
             mocked_html.assert_called_once_with(
                 input_result_path=Path("output.xml"),
@@ -173,7 +173,7 @@ class TestMainE2E:
                     "tokenizer": "openai_tokenizer",
                     "max_content_tokens": 1000,
                 },
-                vision={"enabled": True},
+                vision={"placeholder": True},
             )
 
             await _main(

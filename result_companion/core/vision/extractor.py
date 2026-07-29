@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import re
 
+_HTML_TAG_RE = re.compile(r"<[^>]+>")
+
 _EMBEDDED_IMAGE_RE = re.compile(
     r"<img\b[^>]*\bsrc\s*=\s*"
     r"(?P<quote>['\"]?)"
@@ -24,3 +26,8 @@ def scan_html_images(html_text: str) -> list[tuple[str, str]]:
 def strip_html_images(html_text: str) -> str:
     """Removes embedded image tags so base64 payloads do not enter LLM text."""
     return _EMBEDDED_IMAGE_RE.sub("", html_text)
+
+
+def strip_html_markup(html_text: str) -> str:
+    """Removes remaining HTML tags while preserving visible text."""
+    return _HTML_TAG_RE.sub("", html_text).strip()
