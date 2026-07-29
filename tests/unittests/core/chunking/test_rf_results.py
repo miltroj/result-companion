@@ -19,6 +19,7 @@ from result_companion.core.chunking.rf_results import (
     RenderContext,
     TestLines,
     _control_path_segment,
+    _embedded_image_id,
     _iter_tests_with_context,
     _join_parts,
     _render_body_item,
@@ -999,6 +1000,30 @@ class TestContextAwareRobotResultsSourcePaths:
 
 
 class TestContextAwareRobotResultsEmbeddedImages:
+    def test_embedded_image_id_uses_render_context_and_payload(self):
+        context = RenderContext(
+            suite_path=("Root", "Suite"),
+            test_name="Failing Test",
+            keyword_path=("Capture Page Screenshot",),
+        )
+        expected = hashlib.sha256(
+            "\0".join(
+                (
+                    "Root",
+                    "Suite",
+                    "Failing Test",
+                    "Capture Page Screenshot",
+                    "2",
+                    "1",
+                    "aGVsbG8=",
+                )
+            ).encode()
+        ).hexdigest()[:24]
+
+        image_id = _embedded_image_id(context, 2, 1, "aGVsbG8=")
+
+        assert image_id == expected
+
     def test_embedded_image_tags_are_stripped_by_default(self, tmp_path):
         xml = tmp_path / "output.xml"
         xml.write_text(_SCREENSHOT_XML)

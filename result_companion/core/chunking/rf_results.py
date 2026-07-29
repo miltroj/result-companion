@@ -682,17 +682,8 @@ def _embedded_image(
     data_base64: str,
 ) -> EmbeddedImage:
     """Builds stable image metadata from render traversal context."""
-    key_parts = (
-        *context.suite_path,
-        context.test_name,
-        *context.keyword_path,
-        str(message_index),
-        str(image_index),
-        data_base64,
-    )
-    image_id = hashlib.sha256("\0".join(key_parts).encode()).hexdigest()[:24]
     return EmbeddedImage(
-        id=image_id,
+        id=_embedded_image_id(context, message_index, image_index, data_base64),
         test_name=context.test_name,
         keyword_path=context.keyword_path,
         message_index=message_index,
@@ -701,6 +692,24 @@ def _embedded_image(
         mime_type=mime_type,
         data_base64=data_base64,
     )
+
+
+def _embedded_image_id(
+    context: RenderContext,
+    message_index: int,
+    image_index: int,
+    data_base64: str,
+) -> str:
+    """Returns stable embedded image ID from render context and image payload."""
+    key_parts = (
+        *context.suite_path,
+        context.test_name,
+        *context.keyword_path,
+        str(message_index),
+        str(image_index),
+        data_base64,
+    )
+    return hashlib.sha256("\0".join(key_parts).encode()).hexdigest()[:24]
 
 
 def _render_image_event(
