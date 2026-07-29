@@ -151,9 +151,11 @@ venv.bak/
 dmypy.json
 
 # robot
+.rc-browser-harness/
 log.html
 log*.html
 output.xml
+playwright-log.txt
 report.html
 
 # Pyre type checker
