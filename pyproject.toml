@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "result-companion"
-version = "0.0.17"
+version = "0.0.18"
 description = "AI-powered analysis of Robot Framework test failures - instant insights from output.xml"
 authors = ["Milosz Trojanowski <mil.troj@gmail.com>"]
 license = "Apache-2.0"
@@ -31,6 +31,13 @@ litellm = "^1.59"
 github-copilot-sdk = "^0.1.32"
 tiktoken = "^0.8.0"
 tqdm = "^4.67.1"
+rapidocr = {version = "^3.9.2", optional = true}
+onnxruntime = {version = "^1.28.0", optional = true}
+pillow = {version = "^12.3.0", optional = true}
+numpy = {version = "<2.5", optional = true}
+
+[tool.poetry.extras]
+ocr = ["rapidocr", "onnxruntime", "pillow", "numpy"]
 
 [tool.poetry.scripts]
 result-companion = "result_companion.entrypoints.cli.cli_app:app"
