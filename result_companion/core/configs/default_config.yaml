@@ -10,6 +10,10 @@ rendering:
 
 vision:
   enabled: false
+  ocr: false
+  max_screenshots_per_test: 3
+  max_text_length: 1500
+  concurrency: 2
 
 llm_config:
   question_prompt: |

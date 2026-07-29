@@ -18,6 +18,7 @@ from result_companion.core.results.analysis_result import AnalysisResult
 from result_companion.core.results.text_report import summarize_failures_with_llm
 from result_companion.core.review.pr_reviewer import review  # noqa: F401
 from result_companion.core.utils.logging_config import set_global_log_level
+from result_companion.core.vision.prepare import prepare_vision_results
 
 
 async def run_analysis(
@@ -96,6 +97,7 @@ def analyze(
     if quiet:
         set_global_log_level("ERROR")
 
+    path_created_results = not isinstance(output, ContextAwareRobotResults)
     if isinstance(output, ContextAwareRobotResults):
         results = output
     else:
@@ -106,6 +108,9 @@ def analyze(
             exclude_passing=not include_passing,
             exclude_fields=config.rendering.exclude_fields or None,
         )
+
+    if path_created_results:
+        results = asyncio.run(prepare_vision_results(results, config, dryrun=dryrun))
 
     if not results.has_chunking:
         strategy = ChunkingStrategy(

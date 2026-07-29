@@ -143,6 +143,11 @@ def analyze(
         "--dryrun",
         help="Skip LLM calls, generate HTML with debug metadata",
     ),
+    ocr: Optional[bool] = typer.Option(
+        None,
+        "--ocr/--no-ocr",
+        help="Run OCR for embedded Robot Framework screenshots",
+    ),
     debug_log: Optional[Path] = typer.Option(
         None,
         "--debug-log",
@@ -161,6 +166,7 @@ def analyze(
         typer.echo(f"Print Text Report: {print_text_report}")
         typer.echo(f"Overall Summary: {overall_summary}")
         typer.echo(f"Include Passing: {include_passing}")
+        typer.echo(f"OCR: {ocr}")
 
     # Parse CLI tag options
     include_tag_list = (
@@ -196,6 +202,7 @@ def analyze(
         summarize_failures=overall_summary,
         quiet=quiet,
         debug_log=debug_log,
+        ocr=ocr,
     )
 
 

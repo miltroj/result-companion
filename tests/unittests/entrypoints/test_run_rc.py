@@ -18,6 +18,7 @@ def make_fake_results(test_names: list[str], total: int | None = None) -> MagicM
     fake._chunking = True
     fake.set_chunking = MagicMock()
     fake.include_embedded_images = MagicMock(return_value=fake)
+    fake.collect_embedded_images = MagicMock(return_value=[])
     return fake
 
 
@@ -189,6 +190,73 @@ class TestMainE2E:
 
             fake_results.include_embedded_images.assert_called_once_with()
 
+    @pytest.mark.parametrize(
+        ("config_ocr", "cli_ocr", "expected_ocr"),
+        [(False, True, True), (True, False, False)],
+    )
+    @pytest.mark.asyncio
+    async def test_main_applies_ocr_cli_override(
+        self, config_ocr: bool, cli_ocr: bool, expected_ocr: bool
+    ):
+        captured_configs: list[DefaultConfigModel] = []
+
+        async def fake_prepare(results, config, dryrun=False):
+            captured_configs.append(config)
+            return results
+
+        with (
+            patch("result_companion.entrypoints.run_rc.create_llm_html_log"),
+            patch(
+                "result_companion.api.execute_llm_and_get_results",
+                return_value={},
+            ),
+            patch(
+                "result_companion.entrypoints.run_rc.get_rc_robot_results",
+                return_value=make_fake_results(["test_fail"], total=1),
+            ),
+            patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
+            patch(
+                "result_companion.entrypoints.run_rc.prepare_vision_results",
+                side_effect=fake_prepare,
+            ),
+            patch(
+                "result_companion._internal.analysis_helpers.run_provider_init_strategies"
+            ),
+        ):
+            mocked_config.return_value = DefaultConfigModel(
+                version=1.0,
+                llm_config={
+                    "question_prompt": "question prompt",
+                    "prompt_template": "my_template {question} {context}",
+                    "chunking": {
+                        "chunk_analysis_prompt": "Analyze: {text}",
+                        "final_synthesis_prompt": "Synthesize: {summary}",
+                    },
+                    "summary_prompt_template": "CI summary:\n{analyses}",
+                },
+                llm_factory={"model": "openai/gpt-4"},
+                tokenizer={
+                    "tokenizer": "openai_tokenizer",
+                    "max_content_tokens": 1000,
+                },
+                vision={"ocr": config_ocr},
+            )
+
+            await _main(
+                output=Path("output.xml"),
+                log_level="DEBUG",
+                config=None,
+                report=None,
+                html_report=False,
+                text_report=None,
+                print_text_report=False,
+                summarize_failures=False,
+                include_passing=False,
+                ocr=cli_ocr,
+            )
+
+        assert captured_configs[0].vision.ocr is expected_ocr
+
     @pytest.mark.asyncio
     async def test_main_runs_ollama_init_for_ollama_models(self):
         """Test that Ollama init strategy runs for Ollama models."""
@@ -283,6 +351,7 @@ class TestRunRC:
                 exclude_tags=None,
                 dryrun=False,
                 debug_log=None,
+                ocr=None,
             )
             assert result == "RESULT"
 

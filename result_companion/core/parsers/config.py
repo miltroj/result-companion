@@ -121,6 +121,14 @@ class VisionConfigModel(BaseModel):
     """Controls optional screenshot-aware rendering."""
 
     enabled: bool = Field(default=False, description="Render screenshot placeholders.")
+    ocr: bool = Field(default=False, description="Run OCR for embedded screenshots.")
+    max_screenshots_per_test: int = Field(
+        default=3, ge=0, description="Embedded screenshots to OCR per test."
+    )
+    max_text_length: int = Field(
+        default=1500, ge=0, description="Maximum OCR text characters per image."
+    )
+    concurrency: int = Field(default=2, ge=1, description="OCR jobs run in parallel.")
 
 
 class DefaultConfigModel(BaseModel):
