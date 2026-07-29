@@ -49,6 +49,24 @@ result-companion analyze -o output.xml --no-overall-summary
 
 To inspect every prompt sent to the LLM and its response, use `--debug-log`. See [Debugging Prompts](examples/EXAMPLES.md#debugging-prompts) for details.
 
+## Screenshot OCR
+
+OCR is optional and local. Install the extra only when Robot Framework screenshots are embedded in `output.xml`:
+
+```bash
+pip install "result-companion[ocr]"
+result-companion analyze -o output.xml --ocr
+```
+
+OCR adds screenshot context near the keyword that captured it:
+
+```text
+[SCREENSHOT] embedded image/png screenshot #1
+[SCREENSHOT_OCR] visible text from screenshot
+```
+
+Only embedded `data:image/...;base64,...` screenshots are supported. Sibling screenshot files and `log.html` image lookup are out of scope.
+
 ## Copilot Review Agent
 
 Replaces the manual "which commit broke this test?" investigation. AI cross-references Robot Framework failures with PR code changes via GitHub Copilot and posts the verdict as a PR comment:

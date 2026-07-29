@@ -1,2 +1,3 @@
 vision:
   enabled: true
+  ocr: false

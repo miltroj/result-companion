@@ -51,3 +51,15 @@ poetry run result-companion analyze \
   -c fixtures/robot/browser_screenshot_ocr/vision_enabled.yaml \
   --dryrun
 ```
+
+Run with local OCR after installing the extra:
+
+```bash
+poetry install --extras ocr
+poetry run result-companion analyze \
+  -o .rc-browser-harness/output.xml \
+  --ocr \
+  --dryrun
+```
+
+OCR output adds `[SCREENSHOT_OCR]` lines when embedded screenshots contain readable text. File-based screenshots in `log.html` are not supported by this harness.
