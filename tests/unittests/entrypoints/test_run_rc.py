@@ -6,6 +6,7 @@ import pytest
 from result_companion._internal.analysis_helpers import run_provider_init_strategies
 from result_companion.core.parsers.config import DefaultConfigModel
 from result_companion.core.results.analysis_result import AnalysisResult
+from result_companion.core.vision.ocr import OCR_INSTALL_HINT
 from result_companion.entrypoints.run_rc import _emit_reports, _main, run_rc
 
 
@@ -433,6 +434,27 @@ class TestRunRC:
                     report=None,
                     include_passing=False,
                 )
+
+    def test_run_rc_returns_false_for_missing_ocr_extra(self):
+        with (
+            patch(
+                "result_companion.entrypoints.run_rc._main",
+                side_effect=RuntimeError(OCR_INSTALL_HINT),
+            ),
+            patch("result_companion.entrypoints.run_rc.logger") as mocked_logger,
+        ):
+            result = run_rc(
+                output=Path("output.xml"),
+                log_level="DEBUG",
+                config=None,
+                report=None,
+                include_passing=False,
+                ocr=True,
+            )
+
+        assert result is False
+        mocked_logger.error.assert_called_once_with(OCR_INSTALL_HINT)
+        mocked_logger.critical.assert_not_called()
 
 
 class TestEmitReports:

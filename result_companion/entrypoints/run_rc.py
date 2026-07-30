@@ -23,6 +23,7 @@ from result_companion.core.results.text_report import (
 from result_companion.core.utils.llm_debug import LLMDebugLogger
 from result_companion.core.utils.log_levels import LogLevels
 from result_companion.core.utils.logging_config import logger, set_global_log_level
+from result_companion.core.vision.ocr import OCR_INSTALL_HINT
 from result_companion.core.vision.prepare import prepare_vision_results
 
 
@@ -196,7 +197,7 @@ def run_rc(
         ocr: Optional CLI override for screenshot OCR.
 
     Returns:
-        True if analysis completed successfully.
+        True if analysis completed successfully, False for known setup errors.
     """
     try:
         return asyncio.run(
@@ -221,6 +222,12 @@ def run_rc(
                 ocr=ocr,
             )
         )
+    except RuntimeError as exc:
+        if str(exc) == OCR_INSTALL_HINT:
+            logger.error(OCR_INSTALL_HINT)
+            return False
+        logger.critical("Unhandled exception", exc_info=True)
+        raise
     except Exception:
         logger.critical("Unhandled exception", exc_info=True)
         raise

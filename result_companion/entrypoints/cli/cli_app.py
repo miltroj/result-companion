@@ -184,26 +184,30 @@ def analyze(
 
         run = run_rc
 
-    run(
-        output=output,
-        log_level=log_level,
-        config=config,
-        report=report,
-        include_passing=include_passing,
-        test_case_concurrency=test_case_concurrency,
-        chunk_concurrency=chunk_concurrency,
-        include_tags=include_tag_list,
-        exclude_tags=exclude_tag_list,
-        dryrun=dryrun,
-        html_report=html_report,
-        text_report=text_report,
-        json_report=json_report,
-        print_text_report=print_text_report,
-        summarize_failures=overall_summary,
-        quiet=quiet,
-        debug_log=debug_log,
-        ocr=ocr,
-    )
+    if (
+        run(
+            output=output,
+            log_level=log_level,
+            config=config,
+            report=report,
+            include_passing=include_passing,
+            test_case_concurrency=test_case_concurrency,
+            chunk_concurrency=chunk_concurrency,
+            include_tags=include_tag_list,
+            exclude_tags=exclude_tag_list,
+            dryrun=dryrun,
+            html_report=html_report,
+            text_report=text_report,
+            json_report=json_report,
+            print_text_report=print_text_report,
+            summarize_failures=overall_summary,
+            quiet=quiet,
+            debug_log=debug_log,
+            ocr=ocr,
+        )
+        is False
+    ):
+        raise typer.Exit(code=1)
 
 
 @app.command()
