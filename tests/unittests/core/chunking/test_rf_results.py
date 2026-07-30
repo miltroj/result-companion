@@ -19,6 +19,7 @@ from result_companion.core.chunking.rf_results import (
     ContextAwareRobotResults,
     RenderContext,
     TestLines,
+    _cap_images_per_test,
     _control_path_segment,
     _embedded_image_id,
     _iter_tests_with_context,
@@ -29,6 +30,7 @@ from result_companion.core.chunking.rf_results import (
     _render_message,
     _render_suite,
     _render_test,
+    _should_collect_image,
     get_rc_robot_results,
 )
 from result_companion.core.chunking.utils import Chunking
@@ -1188,6 +1190,14 @@ class TestContextAwareRobotResultsEmbeddedImages:
             "dGhyZWU=",
         ]
         assert capped_images[0].test_identity != capped_images[1].test_identity
+
+    def test_cap_images_per_test_returns_empty_for_non_positive_limit(self):
+        assert _cap_images_per_test([object()], 0) == []
+
+    def test_should_collect_image_is_false_without_collection_target(self):
+        context = RenderContext(suite_path=("Suite",), test_name="Test")
+
+        assert _should_collect_image(context) is False
 
     def test_screenshot_only_message_does_not_render_empty_info_line(self, tmp_path):
         xml = tmp_path / "output.xml"

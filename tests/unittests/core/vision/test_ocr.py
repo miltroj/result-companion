@@ -109,6 +109,15 @@ def test_load_ocr_dependencies_uses_optional_modules(
     assert dependencies.numpy_module is fake_numpy
 
 
+def test_load_ocr_dependencies_raises_install_hint_when_extra_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setitem(sys.modules, "rapidocr", None)
+
+    with pytest.raises(RuntimeError, match="result-companion\\[ocr\\]"):
+        ocr._load_ocr_dependencies()
+
+
 @pytest.mark.asyncio
 async def test_run_ocr_batch_returns_text_by_image_id(
     monkeypatch: pytest.MonkeyPatch,
@@ -241,3 +250,23 @@ def test_extract_text_accepts_list_result_shape() -> None:
     result = ocr._extract_text([["box", "First", 0.9], ["box", "Second", 0.8]])
 
     assert result == "First\nSecond"
+
+
+def test_extract_text_accepts_tuple_result_shape() -> None:
+    result = ocr._extract_text(([["box", "Tuple", 0.9]], "meta"))
+
+    assert result == "Tuple"
+
+
+def test_extract_text_returns_empty_for_unknown_result() -> None:
+    assert ocr._extract_text(object()) == ""
+
+
+def test_text_from_item_extracts_string_variants() -> None:
+    assert ocr._text_from_item("direct") == "direct"
+    assert ocr._text_from_item((123, None, "fallback")) == "fallback"
+    assert ocr._text_from_item(object()) == ""
+
+
+def test_truncate_text_returns_empty_for_non_positive_limit() -> None:
+    assert ocr._truncate_text("abc", 0) == ""

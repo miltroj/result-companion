@@ -113,6 +113,25 @@ async def test_prepare_vision_results_logs_when_ocr_enabled(
 
 
 @pytest.mark.asyncio
+async def test_prepare_vision_results_skips_ocr_when_no_images(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fail_ocr(**kw: object) -> dict[str, str]:
+        pytest.fail("OCR should not run without images")
+
+    monkeypatch.setattr(prepare, "run_ocr_batch", fail_ocr)
+    config = make_config()
+    config.vision.ocr = True
+    results = FakeResults()
+
+    prepared = await prepare_vision_results(results, config)
+
+    assert prepared is results
+    assert results.collect_calls == 1
+    assert results.attached_texts is None
+
+
+@pytest.mark.asyncio
 async def test_prepare_vision_results_attaches_ocr_text(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
