@@ -1,3 +1,6 @@
+rendering:
+  exclude_fields: [elapsed_time, lineno, owner, assign, doc, tags, timestamp]
+
 vision:
   placeholder: true
   ocr: false

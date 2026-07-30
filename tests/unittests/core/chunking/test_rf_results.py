@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from pathlib import Path
 
 import pytest
 from robot.api import ExecutionResult
@@ -150,6 +151,11 @@ _DUPLICATE_TEST_SCREENSHOTS_XML = """\
 <errors/>
 </robot>
 """
+
+_BROWSER_FIXTURE_DIR = (
+    Path(__file__).resolve().parents[4]
+    / "fixtures/robot/browser_screenshot_ocr/browser_self_contained"
+)
 
 # ---------------------------------------------------------------------------
 # Fakes
@@ -1207,6 +1213,29 @@ class TestContextAwareRobotResultsEmbeddedImages:
         assert "<tr" not in text
         assert "colspan" not in text
         assert "[INFO]" not in text
+
+    def test_real_browser_xml_renders_placeholders_without_payload(self):
+        xml = _BROWSER_FIXTURE_DIR / "output_rc_page.xml"
+        results = ContextAwareRobotResults(xml).include_embedded_images()
+
+        images = results.collect_embedded_images()
+        text = list(results.as_texts())[0][1]
+
+        assert images
+        assert "[SCREENSHOT] embedded image/png screenshot #1" in text
+        assert "<img" not in text
+        assert "iVBORw0" not in text
+
+    def test_real_browser_xml_renders_attached_ocr_text(self):
+        xml = _BROWSER_FIXTURE_DIR / "output_rc_page.xml"
+        results = ContextAwareRobotResults(xml)
+        image = results.collect_embedded_images(max_per_test=1)[0]
+
+        text = list(
+            results.attach_image_texts({image.id: "Stable OCR Text"}).as_texts()
+        )[0][1]
+
+        assert "[SCREENSHOT_OCR] Stable OCR Text" in text
 
     def test_attach_image_texts_renders_ocr_lines_next_to_placeholder(self, tmp_path):
         xml = tmp_path / "output.xml"

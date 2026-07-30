@@ -64,6 +64,8 @@ pip install "result-companion[ocr]"
 result-companion analyze -o output.xml --ocr
 ```
 
+OCR runs locally, but recognized screenshot text is included in the prompt sent to your configured LLM. Use a local model or disable OCR if screenshots may contain secrets. OCR text can be noisy, so treat it as assistive context.
+
 OCR keeps the placeholder and adds text near the keyword that captured it:
 
 ```text
