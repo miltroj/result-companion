@@ -1,5 +1,5 @@
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -257,6 +257,64 @@ class TestMainE2E:
             )
 
         assert captured_configs[0].vision.ocr is expected_ocr
+
+    @pytest.mark.asyncio
+    async def test_main_enables_debug_logger_from_debug_log(self, tmp_path):
+        debug_log = tmp_path / "debug.log"
+
+        with (
+            patch("result_companion.entrypoints.run_rc.create_llm_html_log"),
+            patch(
+                "result_companion.entrypoints.run_rc.run_analysis",
+                new=AsyncMock(return_value=AnalysisResult()),
+            ) as mocked_run_analysis,
+            patch(
+                "result_companion.entrypoints.run_rc.get_rc_robot_results",
+                return_value=make_fake_results(["test_fail"], total=1),
+            ),
+            patch(
+                "result_companion.entrypoints.run_rc.prepare_vision_results",
+                new=AsyncMock(),
+            ),
+            patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
+            patch(
+                "result_companion._internal.analysis_helpers.run_provider_init_strategies"
+            ),
+        ):
+            mocked_config.return_value = DefaultConfigModel(
+                version=1.0,
+                llm_config={
+                    "question_prompt": "question prompt",
+                    "prompt_template": "my_template {question} {context}",
+                    "chunking": {
+                        "chunk_analysis_prompt": "Analyze: {text}",
+                        "final_synthesis_prompt": "Synthesize: {summary}",
+                    },
+                    "summary_prompt_template": "CI summary:\n{analyses}",
+                },
+                llm_factory={"model": "openai/gpt-4"},
+                tokenizer={
+                    "tokenizer": "openai_tokenizer",
+                    "max_content_tokens": 1000,
+                },
+            )
+
+            await _main(
+                output=Path("output.xml"),
+                log_level="DEBUG",
+                config=None,
+                report=None,
+                html_report=False,
+                text_report=None,
+                print_text_report=False,
+                summarize_failures=False,
+                include_passing=False,
+                debug_log=debug_log,
+            )
+
+        passed_config = mocked_run_analysis.call_args.kwargs["config"]
+        assert passed_config.debug_logger.enabled
+        assert passed_config.debug_logger.path == debug_log
 
     @pytest.mark.asyncio
     async def test_main_runs_ollama_init_for_ollama_models(self):
