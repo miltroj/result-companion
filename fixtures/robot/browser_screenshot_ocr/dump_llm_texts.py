@@ -23,7 +23,7 @@ def main() -> None:
         exclude_fields=config.rendering.exclude_fields or None,
         exclude_passing=not config.test_filter.include_passing,
     )
-    if config.vision.enabled:
+    if config.vision.placeholder:
         results.include_embedded_images()
 
     text_output.parent.mkdir(parents=True, exist_ok=True)

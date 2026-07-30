@@ -211,6 +211,28 @@ class TestAnalizeEntrypoint:
         mock_run.assert_called_once()
         assert mock_run.call_args.kwargs["debug_log"] == Path("debug.log")
 
+    def test_cli_passes_ocr_override(self):
+        mock_run = MagicMock()
+        result = self.runner.invoke(
+            app,
+            [self.ENTRYPOINT, "-o", existing_xml_path, "--ocr"],
+            obj={"analyze": mock_run},
+        )
+
+        assert result.exit_code == 0
+        assert "OCR: True" in result.output
+        mock_run.assert_called_once()
+        assert mock_run.call_args.kwargs["ocr"] is True
+
+    def test_cli_exits_when_analyze_returns_false(self):
+        result = self.runner.invoke(
+            app,
+            [self.ENTRYPOINT, "-o", existing_xml_path, "--ocr"],
+            obj={"analyze": MagicMock(return_value=False)},
+        )
+
+        assert result.exit_code == 1
+
     def test_cli_sets_quiet_mode_and_hides_parameter_echo(self):
         mock_run = MagicMock()
         result = self.runner.invoke(

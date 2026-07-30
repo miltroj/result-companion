@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from pathlib import Path
 
 import pytest
 from robot.api import ExecutionResult
@@ -18,6 +19,7 @@ from result_companion.core.chunking.rf_results import (
     ContextAwareRobotResults,
     RenderContext,
     TestLines,
+    _cap_images_per_test,
     _control_path_segment,
     _embedded_image_id,
     _iter_tests_with_context,
@@ -28,6 +30,7 @@ from result_companion.core.chunking.rf_results import (
     _render_message,
     _render_suite,
     _render_test,
+    _should_collect_image,
     get_rc_robot_results,
 )
 from result_companion.core.chunking.utils import Chunking
@@ -75,9 +78,86 @@ _SCREENSHOT_XML = """\
 </robot>
 """
 
+_BROWSER_WRAPPED_SCREENSHOT_XML = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<robot generator="Robot 7.1" rpa="false" schemaversion="5">
+<suite id="s1" name="Suite">
+  <test id="s1-t1" name="Failing Test">
+    <kw name="Take Screenshot">
+      <msg time="2026-01-01T00:00:00.000000" level="INFO" html="true">&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan="3"&gt;&lt;img src="data:image/png;base64,aGVs bG8="&gt;</msg>
+      <status status="PASS" start="2026-01-01T00:00:00.000000" elapsed="0.001"/>
+    </kw>
+    <status status="FAIL" start="2026-01-01T00:00:00.001000" elapsed="0.001">boom</status>
+  </test>
+  <status status="FAIL" start="2026-01-01T00:00:00.000000" elapsed="0.002"/>
+</suite>
+<statistics><total><stat pass="0" fail="1" skip="0">All Tests</stat></total><tag/><suite><stat id="s1" pass="0" fail="1" skip="0">Suite</stat></suite></statistics>
+<errors/>
+</robot>
+"""
+
 _PASSING_SCREENSHOT_XML = _SCREENSHOT_XML.replace(
     'name="Failing Test"', 'name="Passing Test"'
 ).replace('status="FAIL"', 'status="PASS"')
+
+_NESTED_SUITE_SETUP_SCREENSHOT_XML = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<robot generator="Robot 7.1" rpa="false" schemaversion="5">
+<suite id="s1" name="Root">
+  <kw name="Capture Page Screenshot" type="SETUP">
+    <msg time="2026-01-01T00:00:00.000000" level="INFO" html="true">&lt;img src="data:image/png;base64,aGVsbG8="&gt;</msg>
+    <status status="PASS" start="2026-01-01T00:00:00.000000" elapsed="0.001"/>
+  </kw>
+  <suite id="s1-s1" name="Child">
+    <test id="s1-s1-t1" name="Failing Test">
+      <status status="FAIL" start="2026-01-01T00:00:00.001000" elapsed="0.001">boom</status>
+    </test>
+    <status status="FAIL" start="2026-01-01T00:00:00.000000" elapsed="0.002"/>
+  </suite>
+  <status status="FAIL" start="2026-01-01T00:00:00.000000" elapsed="0.003"/>
+</suite>
+<statistics><total><stat pass="0" fail="1" skip="0">All Tests</stat></total><tag/><suite><stat id="s1" pass="0" fail="1" skip="0">Root</stat><stat id="s1-s1" pass="0" fail="1" skip="0">Child</stat></suite></statistics>
+<errors/>
+</robot>
+"""
+
+_DUPLICATE_TEST_SCREENSHOTS_XML = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<robot generator="Robot 7.1" rpa="false" schemaversion="5">
+<suite id="s1" name="Root">
+  <suite id="s1-s1" name="A">
+    <test id="s1-s1-t1" name="Same Test">
+      <kw name="Capture Page Screenshot">
+        <msg level="INFO" html="true">&lt;img src="data:image/png;base64,b25l"&gt;</msg>
+        <msg level="INFO" html="true">&lt;img src="data:image/png;base64,dHdv"&gt;</msg>
+        <status status="PASS" start="2026-01-01T00:00:00.000000" elapsed="0.001"/>
+      </kw>
+      <status status="FAIL" start="2026-01-01T00:00:00.001000" elapsed="0.001">boom</status>
+    </test>
+    <status status="FAIL" start="2026-01-01T00:00:00.000000" elapsed="0.002"/>
+  </suite>
+  <suite id="s1-s2" name="B">
+    <test id="s1-s2-t1" name="Same Test">
+      <kw name="Capture Page Screenshot">
+        <msg level="INFO" html="true">&lt;img src="data:image/png;base64,dGhyZWU="&gt;</msg>
+        <msg level="INFO" html="true">&lt;img src="data:image/png;base64,Zm91cg=="&gt;</msg>
+        <status status="PASS" start="2026-01-01T00:00:00.002000" elapsed="0.001"/>
+      </kw>
+      <status status="FAIL" start="2026-01-01T00:00:00.003000" elapsed="0.001">boom</status>
+    </test>
+    <status status="FAIL" start="2026-01-01T00:00:00.002000" elapsed="0.002"/>
+  </suite>
+  <status status="FAIL" start="2026-01-01T00:00:00.000000" elapsed="0.004"/>
+</suite>
+<statistics><total><stat pass="0" fail="2" skip="0">All Tests</stat></total><tag/><suite><stat id="s1" pass="0" fail="2" skip="0">Root</stat></suite></statistics>
+<errors/>
+</robot>
+"""
+
+_BROWSER_FIXTURE_DIR = (
+    Path(__file__).resolve().parents[4]
+    / "fixtures/robot/browser_screenshot_ocr/browser_self_contained"
+)
 
 # ---------------------------------------------------------------------------
 # Fakes
@@ -261,7 +341,7 @@ class TestRenderMessage:
         )
         assert result == [(0, "[INFO] hello")]
 
-    def test_non_html_image_text_is_not_collected_as_screenshot(self):
+    def test_non_html_image_tag_is_stripped_without_placeholder(self):
         images = []
         context = RenderContext(
             suite_path=("Suite",),
@@ -270,7 +350,7 @@ class TestRenderMessage:
             collected_images=images,
         )
         msg = RFMessage(
-            message='<img src="data:image/png;base64,aGVsbG8=">',
+            message='before <img src="data:image/png;base64,aGVsbG8="> after',
             level="INFO",
             html=False,
         )
@@ -280,7 +360,7 @@ class TestRenderMessage:
         )
 
         assert images == []
-        assert result == [(0, '<img src="data:image/png;base64,aGVsbG8=">')]
+        assert result == [(0, "before  after")]
 
 
 # ---------------------------------------------------------------------------
@@ -1070,11 +1150,54 @@ class TestContextAwareRobotResultsEmbeddedImages:
         text = list(results.as_texts())[0][1]
 
         assert len(images) == 1
+        assert images[0].test_identity == ("Suite", "Failing Test")
         assert images[0].keyword_path == ("Capture Page Screenshot",)
         assert images[0].data_base64 == "aGVsbG8="
         assert "Keyword: Capture Page Screenshot - PASS" in text
         assert "    [SCREENSHOT] embedded image/png screenshot #1" in text
         assert text.index("Capture Page Screenshot") < text.index("[SCREENSHOT]")
+
+    def test_parent_suite_setup_screenshot_is_rendered_for_child_tests(self, tmp_path):
+        xml = tmp_path / "output.xml"
+        xml.write_text(_NESTED_SUITE_SETUP_SCREENSHOT_XML)
+        results = ContextAwareRobotResults(xml).include_embedded_images()
+
+        images = results.collect_embedded_images()
+        text = list(results.as_texts())[0][1]
+
+        assert len(images) == 1
+        assert images[0].test_name == "Failing Test"
+        assert images[0].test_identity == ("Root", "Child", "Failing Test")
+        assert images[0].keyword_path == ("Capture Page Screenshot",)
+        assert "[SCREENSHOT] embedded image/png screenshot #1" in text
+
+    def test_collect_embedded_images_caps_per_test_identity(self, tmp_path):
+        xml = tmp_path / "output.xml"
+        xml.write_text(_DUPLICATE_TEST_SCREENSHOTS_XML)
+        results = ContextAwareRobotResults(xml)
+
+        all_images = results.collect_embedded_images()
+        capped_images = results.collect_embedded_images(max_per_test=1)
+
+        assert [image.data_base64 for image in all_images] == [
+            "b25l",
+            "dHdv",
+            "dGhyZWU=",
+            "Zm91cg==",
+        ]
+        assert [image.data_base64 for image in capped_images] == [
+            "b25l",
+            "dGhyZWU=",
+        ]
+        assert capped_images[0].test_identity != capped_images[1].test_identity
+
+    def test_cap_images_per_test_returns_empty_for_non_positive_limit(self):
+        assert _cap_images_per_test([object()], 0) == []
+
+    def test_should_collect_image_is_false_without_collection_target(self):
+        context = RenderContext(suite_path=("Suite",), test_name="Test")
+
+        assert _should_collect_image(context) is False
 
     def test_screenshot_only_message_does_not_render_empty_info_line(self, tmp_path):
         xml = tmp_path / "output.xml"
@@ -1086,6 +1209,43 @@ class TestContextAwareRobotResultsEmbeddedImages:
 
         assert "[INFO]" not in text
         assert "[SCREENSHOT]" in text
+
+    def test_browser_screenshot_wrapper_html_is_removed(self, tmp_path):
+        xml = tmp_path / "output.xml"
+        xml.write_text(_BROWSER_WRAPPED_SCREENSHOT_XML)
+
+        text = list(ContextAwareRobotResults(xml).include_embedded_images().as_texts())[
+            0
+        ][1]
+
+        assert "[SCREENSHOT] embedded image/png screenshot #1" in text
+        assert "</td>" not in text
+        assert "<tr" not in text
+        assert "colspan" not in text
+        assert "[INFO]" not in text
+
+    def test_real_browser_xml_renders_placeholders_without_payload(self):
+        xml = _BROWSER_FIXTURE_DIR / "output_rc_page.xml"
+        results = ContextAwareRobotResults(xml).include_embedded_images()
+
+        images = results.collect_embedded_images()
+        text = list(results.as_texts())[0][1]
+
+        assert images
+        assert "[SCREENSHOT] embedded image/png screenshot #1" in text
+        assert "<img" not in text
+        assert "iVBORw0" not in text
+
+    def test_real_browser_xml_renders_attached_ocr_text(self):
+        xml = _BROWSER_FIXTURE_DIR / "output_rc_page.xml"
+        results = ContextAwareRobotResults(xml)
+        image = results.collect_embedded_images(max_per_test=1)[0]
+
+        text = list(
+            results.attach_image_texts({image.id: "Stable OCR Text"}).as_texts()
+        )[0][1]
+
+        assert "[SCREENSHOT_OCR] Stable OCR Text" in text
 
     def test_attach_image_texts_renders_ocr_lines_next_to_placeholder(self, tmp_path):
         xml = tmp_path / "output.xml"

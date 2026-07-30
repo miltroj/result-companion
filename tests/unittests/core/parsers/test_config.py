@@ -406,14 +406,22 @@ def test_default_config_model_loads_vision_defaults() -> None:
         tokenizer={"tokenizer": "ollama_tokenizer", "max_content_tokens": 1000},
     )
 
-    assert config.vision.enabled is False
+    assert config.vision.placeholder is True
+    assert config.vision.ocr is False
+    assert config.vision.max_screenshots_per_test == 3
+    assert config.vision.max_text_length == 1500
+    assert config.vision.concurrency == 2
 
 
-def test_user_config_can_override_vision_enabled(mocker):
+def test_user_config_can_override_vision_fields(mocker):
     default_config_content = """
     version: 1.0
     vision:
-      enabled: false
+      placeholder: true
+      ocr: false
+      max_screenshots_per_test: 3
+      max_text_length: 1500
+      concurrency: 2
     llm_config:
       question_prompt: "Default prompt"
       prompt_template: "Default template"
@@ -430,7 +438,11 @@ def test_user_config_can_override_vision_enabled(mocker):
     """
     user_config_content = """
     vision:
-      enabled: true
+      placeholder: false
+      ocr: true
+      max_screenshots_per_test: 5
+      max_text_length: 500
+      concurrency: 4
     """
     mock_open_instance = mock_open()
     mock_open_instance.side_effect = [
@@ -443,7 +455,11 @@ def test_user_config_can_override_vision_enabled(mocker):
         Path("user_config.yaml")
     )
 
-    assert config.vision.enabled is True
+    assert config.vision.placeholder is False
+    assert config.vision.ocr is True
+    assert config.vision.max_screenshots_per_test == 5
+    assert config.vision.max_text_length == 500
+    assert config.vision.concurrency == 4
 
 
 def test_user_config_can_override_chunking_prompts(mocker):

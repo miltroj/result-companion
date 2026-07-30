@@ -4,8 +4,8 @@ Suite Setup    New Browser    chromium    headless=${TRUE}
 Suite Teardown    Close Browser
 
 *** Variables ***
-${TARGET_URL}      https://result-companion.com
-${MISSING_TEXT}    Result Companion OCR harness expected text
+${TARGET_URL}      file://${CURDIR}/ocr_fixture_page.html
+${MISSING_TEXT}    Intentional missing OCR harness text
 
 *** Test Cases ***
 Actual Result Companion Page Captures Embedded Screenshot

@@ -19,7 +19,11 @@ from result_companion.core.chunking.chunking import (
 from result_companion.core.chunking.utils import Chunking
 from result_companion.core.results.visitors import UniqueNameResultVisitor
 from result_companion.core.utils.logging_config import get_progress_logger
-from result_companion.core.vision.extractor import scan_html_images, strip_html_images
+from result_companion.core.vision.extractor import (
+    scan_html_images,
+    strip_html_images,
+    strip_html_markup,
+)
 from result_companion.core.vision.models import EmbeddedImage
 
 logger = get_progress_logger("RFResults")
@@ -70,12 +74,14 @@ class RenderContext:
 
     suite_path: tuple[str, ...]
     test_name: str
+    test_identity: tuple[str, ...] = ()
     keyword_path: tuple[str, ...] = ()
     message_index: int = 0
     image_ordinal: int = 0
     include_images: bool = False
     image_texts: dict[str, str] | None = None
     collected_images: list[EmbeddedImage] | None = None
+    max_collected_images: int | None = None
 
 
 class ContextAwareRobotResults:
@@ -180,14 +186,21 @@ class ContextAwareRobotResults:
         self._invalidate_cache()
         return self
 
-    def collect_embedded_images(self) -> list[EmbeddedImage]:
+    def collect_embedded_images(
+        self, max_per_test: int | None = None
+    ) -> list[EmbeddedImage]:
         """Returns embedded images from currently selected tests."""
         images: list[EmbeddedImage] = []
-        for rendered_test, test_images in _iter_tests_with_context_and_images(
+        for (
+            rendered_test,
+            _test_identity,
+            test_images,
+        ) in _iter_tests_with_context_and_images(
             self._suite,
             [],
             0,
             self._fields,
+            max_per_test=max_per_test,
         ):
             if self._exclude_passing and rendered_test.status in ("PASS", "SKIP"):
                 continue
@@ -310,6 +323,18 @@ def _hash_rendered_suite(suite: TestSuite) -> str:
     return hashlib.sha256(text.encode()).hexdigest()[:12]
 
 
+def _cap_images_per_test(
+    images: list[EmbeddedImage],
+    max_per_test: int | None,
+) -> list[EmbeddedImage]:
+    """Keeps only first N collected images for one rendered test."""
+    if max_per_test is None:
+        return images
+    if max_per_test <= 0:
+        return []
+    return images[:max_per_test]
+
+
 def _render_suite_teardown(
     suite: TestSuite,
     depth: int,
@@ -344,7 +369,7 @@ def _iter_tests_with_context(
     image_texts: dict[str, str] | None = None,
 ) -> Iterator[RenderedTest]:
     """Yields RenderedTest for each test, with ancestor suite context prepended."""
-    for rendered_test, _images in _iter_tests_with_context_and_images(
+    for rendered_test, _test_identity, _images in _iter_tests_with_context_and_images(
         suite,
         ancestor_lines,
         depth,
@@ -365,7 +390,8 @@ def _iter_tests_with_context_and_images(
     include_images: bool = False,
     image_texts: dict[str, str] | None = None,
     suite_path: tuple[str, ...] = (),
-) -> Iterator[tuple[RenderedTest, list[EmbeddedImage]]]:
+    max_per_test: int | None = None,
+) -> Iterator[tuple[RenderedTest, tuple[str, ...], list[EmbeddedImage]]]:
     """Yields rendered tests plus images collected for each rendered test."""
     if ancestor_teardowns is None:
         ancestor_teardowns = []
@@ -374,8 +400,6 @@ def _iter_tests_with_context_and_images(
     base_context = ancestor_lines + (
         [RenderLine(depth, f"Suite: {suite.name}")] if "name" in fields else []
     )
-    context = base_context
-    context = context + _render_suite_setup(suite, depth, fields)
 
     suite_teardown = _render_suite_teardown(suite, depth, fields)
 
@@ -389,9 +413,11 @@ def _iter_tests_with_context_and_images(
         render_context = RenderContext(
             suite_path=current_suite_path,
             test_name=suite.name,
+            test_identity=current_suite_path,
             include_images=include_images,
             image_texts=image_texts,
             collected_images=images,
+            max_collected_images=max_per_test,
         )
         collapsed_context = list(base_context)
         collapsed_context.extend(
@@ -403,12 +429,14 @@ def _iter_tests_with_context_and_images(
             fields,
             context=render_context,
         )
+        test_identity = current_suite_path
         yield (
             RenderedTest(
                 suite.name,
                 "FAIL",
                 collapsed_context + collapsed_teardowns + ancestor_teardowns,
             ),
+            test_identity,
             images,
         )
         return
@@ -416,12 +444,15 @@ def _iter_tests_with_context_and_images(
     all_teardowns = suite_teardown + ancestor_teardowns
     for test in suite.tests:
         images = []
+        test_identity = current_suite_path + (test.name,)
         render_context = RenderContext(
             suite_path=current_suite_path,
             test_name=test.name,
+            test_identity=test_identity,
             include_images=include_images,
             image_texts=image_texts,
             collected_images=images,
+            max_collected_images=max_per_test,
         )
         test_context = list(base_context)
         test_context.extend(_render_suite_setup(suite, depth, fields, render_context))
@@ -445,19 +476,52 @@ def _iter_tests_with_context_and_images(
                 + test_teardowns
                 + ancestor_teardowns,
             ),
+            test_identity,
             images,
         )
     for child in suite.suites:
-        yield from _iter_tests_with_context_and_images(
+        for (
+            rendered_test,
+            child_test_identity,
+            child_images,
+        ) in _iter_tests_with_context_and_images(
             child,
-            context,
+            base_context,
             depth + 1,
             fields,
             all_teardowns,
             include_images,
             image_texts,
             current_suite_path,
-        )
+            max_per_test,
+        ):
+            images = []
+            render_context = RenderContext(
+                suite_path=current_suite_path,
+                test_name=rendered_test.name,
+                test_identity=child_test_identity,
+                include_images=include_images,
+                image_texts=image_texts,
+                collected_images=images,
+                max_collected_images=max_per_test,
+            )
+            setup_lines = _render_suite_setup(
+                suite,
+                depth,
+                fields,
+                context=render_context,
+            )
+            yield (
+                RenderedTest(
+                    rendered_test.name,
+                    rendered_test.status,
+                    rendered_test.lines[: len(base_context)]
+                    + setup_lines
+                    + rendered_test.lines[len(base_context) :],
+                ),
+                child_test_identity,
+                _cap_images_per_test(images + child_images, max_per_test),
+            )
 
 
 def _render_suite(
@@ -644,7 +708,9 @@ def _render_message(
         prefix += f"[{msg.level}] "
     raw_message = str(msg.message or "")
     is_html_message = bool(getattr(msg, "html", False))
-    message = strip_html_images(raw_message) if is_html_message else raw_message
+    message = strip_html_images(raw_message)
+    if is_html_message:
+        message = strip_html_markup(message)
     lines = [RenderLine(depth, f"{prefix}{message}")] if message.strip() else []
     if context is None:
         return lines
@@ -658,6 +724,9 @@ def _render_message(
     context.message_index += 1
     for image_index, (mime_type, data_base64) in enumerate(scanned_images):
         context.image_ordinal += 1
+        should_collect = _should_collect_image(context)
+        if not context.include_images and not should_collect:
+            continue
         image = _embedded_image(
             context=context,
             message_index=message_index,
@@ -666,11 +735,20 @@ def _render_message(
             mime_type=mime_type,
             data_base64=data_base64,
         )
-        if context.collected_images is not None:
+        if should_collect and context.collected_images is not None:
             context.collected_images.append(image)
         if context.include_images:
             lines.extend(_render_image_event(image, depth, context.image_texts or {}))
     return lines
+
+
+def _should_collect_image(context: RenderContext) -> bool:
+    """True when this image should be retained for OCR collection."""
+    if context.collected_images is None:
+        return False
+    if context.max_collected_images is None:
+        return True
+    return len(context.collected_images) < context.max_collected_images
 
 
 def _embedded_image(
@@ -685,6 +763,7 @@ def _embedded_image(
     return EmbeddedImage(
         id=_embedded_image_id(context, message_index, image_index, data_base64),
         test_name=context.test_name,
+        test_identity=_context_test_identity(context),
         keyword_path=context.keyword_path,
         message_index=message_index,
         image_index=image_index,
@@ -702,14 +781,18 @@ def _embedded_image_id(
 ) -> str:
     """Returns stable embedded image ID from render context and image payload."""
     key_parts = (
-        *context.suite_path,
-        context.test_name,
+        *_context_test_identity(context),
         *context.keyword_path,
         str(message_index),
         str(image_index),
         data_base64,
     )
     return hashlib.sha256("\0".join(key_parts).encode()).hexdigest()[:24]
+
+
+def _context_test_identity(context: RenderContext) -> tuple[str, ...]:
+    """Returns explicit rendered test identity with legacy fallback."""
+    return context.test_identity or (*context.suite_path, context.test_name)
 
 
 def _render_image_event(

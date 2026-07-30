@@ -1,11 +1,12 @@
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from result_companion._internal.analysis_helpers import run_provider_init_strategies
 from result_companion.core.parsers.config import DefaultConfigModel
 from result_companion.core.results.analysis_result import AnalysisResult
+from result_companion.core.vision.ocr import OCR_INSTALL_HINT
 from result_companion.entrypoints.run_rc import _emit_reports, _main, run_rc
 
 
@@ -18,6 +19,7 @@ def make_fake_results(test_names: list[str], total: int | None = None) -> MagicM
     fake._chunking = True
     fake.set_chunking = MagicMock()
     fake.include_embedded_images = MagicMock(return_value=fake)
+    fake.collect_embedded_images = MagicMock(return_value=[])
     return fake
 
 
@@ -127,7 +129,7 @@ class TestMainE2E:
 
             mocked_execute.assert_called_once()
             assert mocked_execute.call_args.kwargs["results"] is fake_results
-            fake_results.include_embedded_images.assert_not_called()
+            fake_results.include_embedded_images.assert_called_once_with()
 
             mocked_html.assert_called_once_with(
                 input_result_path=Path("output.xml"),
@@ -172,7 +174,7 @@ class TestMainE2E:
                     "tokenizer": "openai_tokenizer",
                     "max_content_tokens": 1000,
                 },
-                vision={"enabled": True},
+                vision={"placeholder": True},
             )
 
             await _main(
@@ -188,6 +190,131 @@ class TestMainE2E:
             )
 
             fake_results.include_embedded_images.assert_called_once_with()
+
+    @pytest.mark.parametrize(
+        ("config_ocr", "cli_ocr", "expected_ocr"),
+        [(False, True, True), (True, False, False)],
+    )
+    @pytest.mark.asyncio
+    async def test_main_applies_ocr_cli_override(
+        self, config_ocr: bool, cli_ocr: bool, expected_ocr: bool
+    ):
+        captured_configs: list[DefaultConfigModel] = []
+
+        async def fake_prepare(results, config, dryrun=False):
+            captured_configs.append(config)
+            return results
+
+        with (
+            patch("result_companion.entrypoints.run_rc.create_llm_html_log"),
+            patch(
+                "result_companion.api.execute_llm_and_get_results",
+                return_value={},
+            ),
+            patch(
+                "result_companion.entrypoints.run_rc.get_rc_robot_results",
+                return_value=make_fake_results(["test_fail"], total=1),
+            ),
+            patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
+            patch(
+                "result_companion.entrypoints.run_rc.prepare_vision_results",
+                side_effect=fake_prepare,
+            ),
+            patch(
+                "result_companion._internal.analysis_helpers.run_provider_init_strategies"
+            ),
+        ):
+            mocked_config.return_value = DefaultConfigModel(
+                version=1.0,
+                llm_config={
+                    "question_prompt": "question prompt",
+                    "prompt_template": "my_template {question} {context}",
+                    "chunking": {
+                        "chunk_analysis_prompt": "Analyze: {text}",
+                        "final_synthesis_prompt": "Synthesize: {summary}",
+                    },
+                    "summary_prompt_template": "CI summary:\n{analyses}",
+                },
+                llm_factory={"model": "openai/gpt-4"},
+                tokenizer={
+                    "tokenizer": "openai_tokenizer",
+                    "max_content_tokens": 1000,
+                },
+                vision={"ocr": config_ocr},
+            )
+
+            await _main(
+                output=Path("output.xml"),
+                log_level="DEBUG",
+                config=None,
+                report=None,
+                html_report=False,
+                text_report=None,
+                print_text_report=False,
+                summarize_failures=False,
+                include_passing=False,
+                ocr=cli_ocr,
+            )
+
+        assert captured_configs[0].vision.ocr is expected_ocr
+
+    @pytest.mark.asyncio
+    async def test_main_enables_debug_logger_from_debug_log(self, tmp_path):
+        debug_log = tmp_path / "debug.log"
+
+        with (
+            patch("result_companion.entrypoints.run_rc.create_llm_html_log"),
+            patch(
+                "result_companion.entrypoints.run_rc.run_analysis",
+                new=AsyncMock(return_value=AnalysisResult()),
+            ) as mocked_run_analysis,
+            patch(
+                "result_companion.entrypoints.run_rc.get_rc_robot_results",
+                return_value=make_fake_results(["test_fail"], total=1),
+            ),
+            patch(
+                "result_companion.entrypoints.run_rc.prepare_vision_results",
+                new=AsyncMock(),
+            ),
+            patch("result_companion.entrypoints.run_rc.load_config") as mocked_config,
+            patch(
+                "result_companion._internal.analysis_helpers.run_provider_init_strategies"
+            ),
+        ):
+            mocked_config.return_value = DefaultConfigModel(
+                version=1.0,
+                llm_config={
+                    "question_prompt": "question prompt",
+                    "prompt_template": "my_template {question} {context}",
+                    "chunking": {
+                        "chunk_analysis_prompt": "Analyze: {text}",
+                        "final_synthesis_prompt": "Synthesize: {summary}",
+                    },
+                    "summary_prompt_template": "CI summary:\n{analyses}",
+                },
+                llm_factory={"model": "openai/gpt-4"},
+                tokenizer={
+                    "tokenizer": "openai_tokenizer",
+                    "max_content_tokens": 1000,
+                },
+            )
+
+            await _main(
+                output=Path("output.xml"),
+                log_level="DEBUG",
+                config=None,
+                report=None,
+                html_report=False,
+                text_report=None,
+                print_text_report=False,
+                summarize_failures=False,
+                include_passing=False,
+                debug_log=debug_log,
+            )
+
+        passed_config = mocked_run_analysis.call_args.kwargs["config"]
+        assert passed_config.debug_logger.enabled
+        assert passed_config.debug_logger.path == debug_log
 
     @pytest.mark.asyncio
     async def test_main_runs_ollama_init_for_ollama_models(self):
@@ -283,6 +410,7 @@ class TestRunRC:
                 exclude_tags=None,
                 dryrun=False,
                 debug_log=None,
+                ocr=None,
             )
             assert result == "RESULT"
 
@@ -364,6 +492,27 @@ class TestRunRC:
                     report=None,
                     include_passing=False,
                 )
+
+    def test_run_rc_returns_false_for_missing_ocr_extra(self):
+        with (
+            patch(
+                "result_companion.entrypoints.run_rc._main",
+                side_effect=RuntimeError(OCR_INSTALL_HINT),
+            ),
+            patch("result_companion.entrypoints.run_rc.logger") as mocked_logger,
+        ):
+            result = run_rc(
+                output=Path("output.xml"),
+                log_level="DEBUG",
+                config=None,
+                report=None,
+                include_passing=False,
+                ocr=True,
+            )
+
+        assert result is False
+        mocked_logger.error.assert_called_once_with(OCR_INSTALL_HINT)
+        mocked_logger.critical.assert_not_called()
 
 
 class TestEmitReports:

@@ -188,6 +188,27 @@ class TestAnalyze:
         assert result.test_names == ["test_fail"]
         assert "test_pass" not in result.llm_results
 
+    def test_with_path_prepares_vision_results(self, monkeypatch):
+        prepared: list[object] = []
+
+        async def fake_prepare(results, config, dryrun=False):
+            prepared.append((results, config, dryrun))
+            return results
+
+        monkeypatch.setattr(
+            f"{PATCH_API}.get_rc_robot_results",
+            lambda **kw: FakeContextAwareRobotResults(["test_fail"]),
+        )
+        monkeypatch.setattr(f"{PATCH_API}.prepare_vision_results", fake_prepare)
+        config = make_config()
+        config.vision.placeholder = True
+
+        result = analyze(output="output.xml", config=config, dryrun=True)
+
+        assert result.test_names == ["test_fail"]
+        assert prepared[0][1] is config
+        assert prepared[0][2] is True
+
     def test_with_path_includes_passing_when_requested(self, monkeypatch):
         monkeypatch.setattr(
             f"{PATCH_API}.get_rc_robot_results",
@@ -213,6 +234,20 @@ class TestAnalyze:
         )
 
         assert len(result.test_names) == 2
+
+    def test_context_aware_results_skips_vision_preparation(self, monkeypatch):
+        async def fail_prepare(**kw):
+            raise AssertionError("prebuilt results should not be prepared")
+
+        monkeypatch.setattr(f"{PATCH_API}.prepare_vision_results", fail_prepare)
+        config = make_config()
+        config.vision.placeholder = True
+
+        result = analyze(
+            output=FakeContextAwareRobotResults(["test_fail"]), config=config
+        )
+
+        assert result.test_names == ["test_fail"]
 
     def test_quiet_false_skips_log_level_change(self, monkeypatch):
         log_calls: list[str] = []

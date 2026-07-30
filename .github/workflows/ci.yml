@@ -38,6 +38,12 @@ jobs:
       - name: Install dependencies
         run: make install
 
+      - name: Smoke OCR extra installation
+        if: matrix.python-version == '3.13'
+        run: |
+          poetry install --extras ocr
+          poetry run python -c "from result_companion.core.vision.ocr import _load_ocr_dependencies; _load_ocr_dependencies()"
+
       - name: Run ruff check
         run: make lint
 

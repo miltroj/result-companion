@@ -239,7 +239,7 @@ See [tag_filtering_config.yaml](https://github.com/miltroj/result-companion/blob
 
 ## Token Efficiency
 
-Before sending a test case to the LLM, result-companion applies two reductions and one context enhancement:
+Before sending a test case to the LLM, result-companion keeps context compact and useful:
 
 **1. Field filtering** — exclude RF fields irrelevant to your analysis via `rendering.exclude_fields`:
 
@@ -273,9 +273,13 @@ Suite: Outer Suite - FAIL
                 Keyword: Log - PASS
 ```
 
+**4. Screenshot context** — embedded Robot screenshots become `[SCREENSHOT]` placeholders. Enable local OCR with `result-companion[ocr]` and `--ocr` to add `[SCREENSHOT_OCR]` text near the keyword that captured it.
+
+OCR text is sent to your configured LLM with the rest of the test context, so use a local model or disable OCR for sensitive screenshots. See [Robot Screenshot OCR](examples/EXAMPLES.md#robot-screenshot-ocr) for setup and supported formats.
+
 ## Limitations
 
-- Text-only analysis (no screenshots/videos)
+- Embedded screenshots are represented by placeholders; optional OCR can extract screenshot text. Videos and file-based screenshots are not supported.
 - Large test suites processed in chunks
 - **Local models**: Need 4-8GB RAM + GPU/NPU for good performance (Apple Silicon, NVIDIA, AMD)
 

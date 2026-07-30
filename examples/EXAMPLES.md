@@ -25,6 +25,7 @@ Quick-start configurations for different LLM providers and use cases.
   - [Output Rendering \& Field Filtering](#output-rendering--field-filtering)
     - [Field Reference](#field-reference)
     - [Common Presets](#common-presets)
+  - [Robot Screenshot OCR](#robot-screenshot-ocr)
   - [Dryrun Mode](#dryrun-mode)
   - [Debugging Prompts](#debugging-prompts)
   - [Text Output for CI](#text-output-for-ci)
@@ -455,6 +456,38 @@ for test_name, chunks, chunk_stats, test_status in results.render_chunks():
 ```
 
 </details>
+
+## Robot Screenshot OCR
+
+OCR is optional. Install it only when Robot Framework screenshots are embedded in `output.xml`:
+
+```bash
+pip install "result-companion[ocr]"
+result-companion analyze -o output.xml --ocr
+```
+
+Config equivalent:
+
+```yaml
+vision:
+  placeholder: true
+  ocr: true
+  max_screenshots_per_test: 3
+  max_text_length: 1500
+  concurrency: 2
+```
+
+`vision.placeholder` is true by default and renders screenshot placeholders without OCR. `vision.ocr` runs local OCR and also renders placeholders. `--ocr` enables OCR for one CLI run.
+
+Expected LLM input near the screenshot keyword:
+
+```text
+[SCREENSHOT] embedded image/png screenshot #1
+[SCREENSHOT_OCR] Login
+[SCREENSHOT_OCR] Password
+```
+
+Only embedded `data:image/...;base64,...` screenshots are supported. Use Robot Framework screenshot embedding such as Browser `Take Screenshot    EMBED`. OCR runs locally, but recognized screenshot text is sent to the configured LLM with the rest of the test context.
 
 ## Dryrun Mode
 

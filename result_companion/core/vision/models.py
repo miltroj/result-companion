@@ -15,6 +15,7 @@ class EmbeddedImage:
     ordinal: int
     mime_type: str
     data_base64: str
+    test_identity: tuple[str, ...] = ()
 
     def placeholder(self) -> str:
         """Returns the inline screenshot placeholder text."""

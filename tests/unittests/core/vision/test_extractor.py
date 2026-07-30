@@ -1,4 +1,8 @@
-from result_companion.core.vision.extractor import scan_html_images, strip_html_images
+from result_companion.core.vision.extractor import (
+    scan_html_images,
+    strip_html_images,
+    strip_html_markup,
+)
 
 
 def test_scan_html_images_returns_embedded_data_images():
@@ -23,3 +27,15 @@ def test_strip_html_images_removes_image_tag_and_keeps_text():
     html = 'before <img alt="login" src="data:image/png;base64,abc123"> after'
 
     assert strip_html_images(html) == "before  after"
+
+
+def test_strip_html_markup_removes_browser_screenshot_wrapper():
+    html = '</td></tr><tr><td colspan="3">'
+
+    assert strip_html_markup(html) == ""
+
+
+def test_strip_html_markup_keeps_visible_text():
+    html = "<b>Login</b> <span>Password</span>"
+
+    assert strip_html_markup(html) == "Login Password"

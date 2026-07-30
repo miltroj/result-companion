@@ -143,6 +143,11 @@ def analyze(
         "--dryrun",
         help="Skip LLM calls, generate HTML with debug metadata",
     ),
+    ocr: Optional[bool] = typer.Option(
+        None,
+        "--ocr/--no-ocr",
+        help="Run OCR for embedded Robot Framework screenshots",
+    ),
     debug_log: Optional[Path] = typer.Option(
         None,
         "--debug-log",
@@ -161,6 +166,7 @@ def analyze(
         typer.echo(f"Print Text Report: {print_text_report}")
         typer.echo(f"Overall Summary: {overall_summary}")
         typer.echo(f"Include Passing: {include_passing}")
+        typer.echo(f"OCR: {ocr}")
 
     # Parse CLI tag options
     include_tag_list = (
@@ -178,25 +184,30 @@ def analyze(
 
         run = run_rc
 
-    run(
-        output=output,
-        log_level=log_level,
-        config=config,
-        report=report,
-        include_passing=include_passing,
-        test_case_concurrency=test_case_concurrency,
-        chunk_concurrency=chunk_concurrency,
-        include_tags=include_tag_list,
-        exclude_tags=exclude_tag_list,
-        dryrun=dryrun,
-        html_report=html_report,
-        text_report=text_report,
-        json_report=json_report,
-        print_text_report=print_text_report,
-        summarize_failures=overall_summary,
-        quiet=quiet,
-        debug_log=debug_log,
-    )
+    if (
+        run(
+            output=output,
+            log_level=log_level,
+            config=config,
+            report=report,
+            include_passing=include_passing,
+            test_case_concurrency=test_case_concurrency,
+            chunk_concurrency=chunk_concurrency,
+            include_tags=include_tag_list,
+            exclude_tags=exclude_tag_list,
+            dryrun=dryrun,
+            html_report=html_report,
+            text_report=text_report,
+            json_report=json_report,
+            print_text_report=print_text_report,
+            summarize_failures=overall_summary,
+            quiet=quiet,
+            debug_log=debug_log,
+            ocr=ocr,
+        )
+        is False
+    ):
+        raise typer.Exit(code=1)
 
 
 @app.command()

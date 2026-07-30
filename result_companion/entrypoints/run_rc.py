@@ -23,6 +23,8 @@ from result_companion.core.results.text_report import (
 from result_companion.core.utils.llm_debug import LLMDebugLogger
 from result_companion.core.utils.log_levels import LogLevels
 from result_companion.core.utils.logging_config import logger, set_global_log_level
+from result_companion.core.vision.ocr import OCR_INSTALL_HINT
+from result_companion.core.vision.prepare import prepare_vision_results
 
 
 async def _main(
@@ -43,6 +45,7 @@ async def _main(
     summarize_failures: bool = False,
     quiet: bool = False,
     debug_log: Optional[Path] = None,
+    ocr: Optional[bool] = None,
 ) -> bool:
     resolved_log_level = "ERROR" if quiet else str(log_level)
     set_global_log_level(resolved_log_level)
@@ -50,6 +53,8 @@ async def _main(
     logger.info("Starting Result Companion!")
     start = time.time()
     parsed_config = load_config(config)
+    if ocr is not None:
+        parsed_config.vision.ocr = ocr
     if debug_log:
         parsed_config.debug_logger = LLMDebugLogger.from_path(debug_log)
     apply_concurrency_overrides(parsed_config, test_case_concurrency, chunk_concurrency)
@@ -62,8 +67,7 @@ async def _main(
         exclude_passing=not include_passing
         and not parsed_config.test_filter.include_passing,
     )
-    if parsed_config.vision.enabled:
-        results.include_embedded_images()
+    await prepare_vision_results(results, parsed_config, dryrun=dryrun)
     strategy = ChunkingStrategy(
         tokenizer_config=parsed_config.tokenizer,
         system_prompt=parsed_config.llm_config.question_prompt,
@@ -168,6 +172,7 @@ def run_rc(
     summarize_failures: bool = False,
     quiet: bool = False,
     debug_log: Optional[Path] = None,
+    ocr: Optional[bool] = None,
 ) -> bool:
     """Runs the Result Companion analysis.
 
@@ -189,9 +194,10 @@ def run_rc(
         summarize_failures: Whether to ask LLM for overall failure summary.
         quiet: Whether to suppress logs and progress output.
         debug_log: Optional path to write all LLM prompts and responses to.
+        ocr: Optional CLI override for screenshot OCR.
 
     Returns:
-        True if analysis completed successfully.
+        True if analysis completed successfully, False for known setup errors.
     """
     try:
         return asyncio.run(
@@ -213,8 +219,15 @@ def run_rc(
                 exclude_tags=exclude_tags,
                 dryrun=dryrun,
                 debug_log=debug_log,
+                ocr=ocr,
             )
         )
+    except RuntimeError as exc:
+        if str(exc) == OCR_INSTALL_HINT:
+            logger.error(OCR_INSTALL_HINT)
+            return False
+        logger.critical("Unhandled exception", exc_info=True)
+        raise
     except Exception:
         logger.critical("Unhandled exception", exc_info=True)
         raise
