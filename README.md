@@ -49,32 +49,6 @@ result-companion analyze -o output.xml --no-overall-summary
 
 To inspect every prompt sent to the LLM and its response, use `--debug-log`. See [Debugging Prompts](examples/EXAMPLES.md#debugging-prompts) for details.
 
-## Screenshot OCR
-
-Embedded screenshot placeholders are rendered by default when screenshots exist in `output.xml`:
-
-```text
-[SCREENSHOT] embedded image/png screenshot #1
-```
-
-OCR is optional and local. Install the extra only when screenshot text is needed:
-
-```bash
-pip install "result-companion[ocr]"
-result-companion analyze -o output.xml --ocr
-```
-
-OCR runs locally, but recognized screenshot text is included in the prompt sent to your configured LLM. Use a local model or disable OCR if screenshots may contain secrets. OCR text can be noisy, so treat it as assistive context.
-
-OCR keeps the placeholder and adds text near the keyword that captured it:
-
-```text
-[SCREENSHOT] embedded image/png screenshot #1
-[SCREENSHOT_OCR] visible text from screenshot
-```
-
-Only embedded `data:image/...;base64,...` screenshots are supported. Sibling screenshot files and `log.html` image lookup are out of scope.
-
 ## Copilot Review Agent
 
 Replaces the manual "which commit broke this test?" investigation. AI cross-references Robot Framework failures with PR code changes via GitHub Copilot and posts the verdict as a PR comment:
@@ -265,7 +239,7 @@ See [tag_filtering_config.yaml](https://github.com/miltroj/result-companion/blob
 
 ## Token Efficiency
 
-Before sending a test case to the LLM, result-companion applies two reductions and one context enhancement:
+Before sending a test case to the LLM, result-companion keeps context compact and useful:
 
 **1. Field filtering** — exclude RF fields irrelevant to your analysis via `rendering.exclude_fields`:
 
@@ -298,6 +272,10 @@ Suite: Outer Suite - FAIL
                 {...}                          ← continuation marker
                 Keyword: Log - PASS
 ```
+
+**4. Screenshot context** — embedded Robot screenshots become `[SCREENSHOT]` placeholders. Enable local OCR with `result-companion[ocr]` and `--ocr` to add `[SCREENSHOT_OCR]` text near the keyword that captured it.
+
+OCR text is sent to your configured LLM with the rest of the test context, so use a local model or disable OCR for sensitive screenshots. See [Robot Screenshot OCR](examples/EXAMPLES.md#robot-screenshot-ocr) for setup and supported formats.
 
 ## Limitations
 
